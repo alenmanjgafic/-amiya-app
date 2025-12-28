@@ -161,13 +161,17 @@ export default function Home() {
       const tokenRes = await fetch("/api/deepgram-token");
       const { token } = await tokenRes.json();
 
+      // Use detect_language for automatic DE/EN/FR detection
       const socket = new WebSocket(
-        `wss://api.deepgram.com/v1/listen?model=nova-2&language=multi&smart_format=true&interim_results=true&endpointing=300&vad_events=true`,
+        `wss://api.deepgram.com/v1/listen?model=nova-2&detect_language=true&smart_format=true&interim_results=true&endpointing=500&vad_events=true&punctuate=true`,
         ["token", token]
       );
 
+      let finalTranscript = ""; // Accumulate only final results
+
       socket.onopen = () => {
         console.log("Deepgram connected");
+        finalTranscript = ""; // Reset on new connection
         setVoiceState(STATE.LISTENING);
       };
 
@@ -177,7 +181,6 @@ export default function Home() {
         // Handle VAD events for instant interruption
         if (data.type === "SpeechStarted") {
           if (voiceStateRef.current === STATE.SPEAKING) {
-            // Interrupt immediately
             stopSpeaking();
           }
         }
@@ -187,25 +190,26 @@ export default function Home() {
           const isFinal = data.is_final;
 
           if (text) {
-            setTranscript(prev => {
-              if (isFinal) {
-                // Reset silence timer
-                if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-                
-                // Start new silence timer
-                silenceTimerRef.current = setTimeout(() => {
-                  if (voiceStateRef.current === STATE.LISTENING) {
-                    const finalText = transcriptRef.current;
-                    if (finalText?.trim()) {
-                      sendMessage(finalText.trim());
-                    }
-                  }
-                }, 1200); // 1.2 seconds of silence
-                
-                return prev + text + " ";
-              }
-              return prev.split(" ").slice(0, -1).join(" ") + " " + text;
-            });
+            if (isFinal) {
+              // Add to final transcript
+              finalTranscript += text + " ";
+              setTranscript(finalTranscript.trim());
+              
+              // Reset silence timer
+              if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+              
+              // Start new silence timer
+              silenceTimerRef.current = setTimeout(() => {
+                if (voiceStateRef.current === STATE.LISTENING && finalTranscript.trim()) {
+                  const textToSend = finalTranscript.trim();
+                  finalTranscript = ""; // Reset for next turn
+                  sendMessage(textToSend);
+                }
+              }, 1500); // 1.5 seconds of silence
+            } else {
+              // Show interim results (but don't accumulate)
+              setTranscript(finalTranscript + text);
+            }
           }
         }
       };
