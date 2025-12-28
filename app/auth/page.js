@@ -1,6 +1,6 @@
 /**
  * AUTH PAGE - app/auth/page.js
- * Login & Registrierung mit Name + Partner-Name
+ * Login & Registrierung (nur E-Mail + Passwort)
  */
 "use client";
 import { useState } from "react";
@@ -11,10 +11,9 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [partnerName, setPartnerName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   
   const router = useRouter();
   const { signIn, signUp } = useAuth();
@@ -23,21 +22,16 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setSuccess("");
 
     try {
       if (isLogin) {
         await signIn(email, password);
+        router.push("/");
       } else {
-        // Validation for registration
-        if (!name.trim()) {
-          throw new Error("Bitte gib deinen Namen ein");
-        }
-        if (!partnerName.trim()) {
-          throw new Error("Bitte gib den Namen deines Partners / deiner Partnerin ein");
-        }
-        await signUp(email, password, name.trim(), partnerName.trim());
+        await signUp(email, password);
+        setSuccess("Bestätigungs-E-Mail gesendet! Bitte prüfe dein Postfach.");
       }
-      router.push("/");
     } catch (err) {
       setError(err.message || "Ein Fehler ist aufgetreten");
     } finally {
@@ -59,37 +53,6 @@ export default function AuthPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={styles.form}>
-          {!isLogin && (
-            <>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Dein Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Wie heisst du?"
-                  style={styles.input}
-                  required={!isLogin}
-                />
-              </div>
-
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Name deines Partners / deiner Partnerin</label>
-                <input
-                  type="text"
-                  value={partnerName}
-                  onChange={(e) => setPartnerName(e.target.value)}
-                  placeholder="Wie heisst dein/e Partner/in?"
-                  style={styles.input}
-                  required={!isLogin}
-                />
-                <p style={styles.hint}>Für personalisierte Gespräche</p>
-              </div>
-
-              <div style={styles.divider} />
-            </>
-          )}
-
           <div style={styles.inputGroup}>
             <label style={styles.label}>E-Mail</label>
             <input
@@ -116,6 +79,7 @@ export default function AuthPage() {
           </div>
 
           {error && <p style={styles.error}>{error}</p>}
+          {success && <p style={styles.success}>{success}</p>}
 
           <button 
             type="submit" 
@@ -126,7 +90,7 @@ export default function AuthPage() {
               ? "Laden..." 
               : isLogin 
                 ? "Anmelden" 
-                : "Konto erstellen"
+                : "Registrieren"
             }
           </button>
         </form>
@@ -140,6 +104,7 @@ export default function AuthPage() {
             onClick={() => {
               setIsLogin(!isLogin);
               setError("");
+              setSuccess("");
             }}
             style={styles.switchButton}
           >
@@ -218,20 +183,18 @@ const styles = {
     outline: "none",
     transition: "border-color 0.2s",
   },
-  hint: {
-    fontSize: "12px",
-    color: "#9ca3af",
-    margin: 0,
-  },
-  divider: {
-    height: "1px",
-    background: "#e5e7eb",
-    margin: "4px 0",
-  },
   error: {
     color: "#dc2626",
     fontSize: "14px",
     background: "#fef2f2",
+    padding: "12px",
+    borderRadius: "8px",
+    margin: 0,
+  },
+  success: {
+    color: "#16a34a",
+    fontSize: "14px",
+    background: "#f0fdf4",
     padding: "12px",
     borderRadius: "8px",
     margin: 0,
