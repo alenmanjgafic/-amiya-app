@@ -1,5 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../lib/AuthContext";
+import { sessionsService } from "../lib/sessions";
 
 const AGENT_ID = "agent_8601kdk8kndtedgbn0ea13zff5aa";
 
@@ -12,15 +15,27 @@ const STATE = {
 };
 
 export default function Home() {
+  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const router = useRouter();
+  
   const [started, setStarted] = useState(false);
   const [voiceState, setVoiceState] = useState(STATE.IDLE);
   const [messages, setMessages] = useState([]);
   const [sessionTime, setSessionTime] = useState(0);
   const [currentTranscript, setCurrentTranscript] = useState("");
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [showEndDialog, setShowEndDialog] = useState(false);
   
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesEndRef = useRef(null);
+
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/auth');
+    }
+  }, [user, authLoading, router]);
 
   // Auto-scroll
   useEffect(() => {
@@ -41,10 +56,16 @@ export default function Home() {
 
   // Start conversation
   const startSession = useCallback(async () => {
+    if (!user) return;
+    
     setStarted(true);
     setVoiceState(STATE.CONNECTING);
 
     try {
+      // Create session in database
+      const session = await sessionsService.create(user.id, 'solo');
+      setCurrentSessionId(session.id);
+
       // Dynamically import ElevenLabs SDK
       const { Conversation } = await import("@11labs/client");
 
@@ -64,13 +85,11 @@ export default function Home() {
         onMessage: (message) => {
           console.log("Message:", message);
           
-          // Handle different message types
           if (message.type === "user_transcript") {
             setCurrentTranscript(message.text || "");
           }
           
           if (message.type === "agent_response") {
-            // User message (final)
             if (message.user_transcript) {
               setMessages(prev => [...prev, { 
                 role: "user", 
@@ -79,7 +98,6 @@ export default function Home() {
               setCurrentTranscript("");
             }
             
-            // Agent message
             if (message.agent_response) {
               setMessages(prev => [...prev, { 
                 role: "assistant", 
@@ -89,8 +107,6 @@ export default function Home() {
           }
         },
         onModeChange: (mode) => {
-          console.log("Mode changed:", mode);
-          
           if (mode.mode === "listening") {
             setVoiceState(STATE.LISTENING);
           } else if (mode.mode === "thinking") {
@@ -113,26 +129,52 @@ export default function Home() {
       setStarted(false);
       setVoiceState(STATE.IDLE);
     }
-  }, []);
+  }, [user]);
 
-  // End conversation
-  const endSession = useCallback(async () => {
+  // End conversation - show dialog
+  const handleEndClick = () => {
+    setShowEndDialog(true);
+  };
+
+  // Actually end the session
+  const endSession = useCallback(async (requestAnalysis = false) => {
     if (conversationRef.current) {
       await conversationRef.current.endSession();
       conversationRef.current = null;
     }
     
+    // Save session to database
+    if (currentSessionId) {
+      try {
+        // Create summary from messages
+        const summary = messages
+          .map(m => `${m.role === 'user' ? 'User' : 'Amiya'}: ${m.content}`)
+          .join('\n');
+        
+        await sessionsService.end(currentSessionId, summary, []);
+        
+        if (requestAnalysis) {
+          await sessionsService.requestAnalysis(currentSessionId);
+          // TODO: Trigger analysis generation
+        }
+      } catch (error) {
+        console.error("Failed to save session:", error);
+      }
+    }
+    
+    setShowEndDialog(false);
     setStarted(false);
     setVoiceState(STATE.IDLE);
     setMessages([]);
     setSessionTime(0);
     setCurrentTranscript("");
+    setCurrentSessionId(null);
     
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-  }, []);
+  }, [currentSessionId, messages]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -146,11 +188,34 @@ export default function Home() {
     };
   }, []);
 
+  // Loading state
+  if (authLoading) {
+    return (
+      <div style={styles.loadingContainer}>
+        <div style={styles.spinner} />
+        <p>Laden...</p>
+      </div>
+    );
+  }
+
+  // Not logged in (will redirect)
+  if (!user) {
+    return null;
+  }
+
   // ============ START SCREEN ============
   if (!started) {
     return (
       <div style={styles.container}>
         <div style={styles.startScreen}>
+          {/* User info */}
+          <div style={styles.userBar}>
+            <span>Hallo, {profile?.name || 'du'} 👋</span>
+            <button onClick={signOut} style={styles.signOutButton}>
+              Abmelden
+            </button>
+          </div>
+
           <div style={styles.logo}>💜</div>
           <h1 style={styles.title}>Amiya</h1>
           <p style={styles.subtitle}>Solo Session</p>
@@ -181,7 +246,7 @@ export default function Home() {
             <div style={styles.headerSubtitle}>{formatTime(sessionTime)}</div>
           </div>
         </div>
-        <button onClick={endSession} style={styles.endButton}>Beenden</button>
+        <button onClick={handleEndClick} style={styles.endButton}>Beenden</button>
       </div>
 
       {/* Messages */}
@@ -199,27 +264,56 @@ export default function Home() {
 
       {/* Voice Status */}
       <div style={styles.voiceStatus}>
-        {/* Status Ring */}
         <div style={{...styles.statusRing, ...getStatusRingStyle(voiceState)}}>
           <div style={styles.statusInner}>
-            {voiceState === STATE.CONNECTING && <div style={styles.spinner} />}
+            {voiceState === STATE.CONNECTING && <div style={styles.spinnerSmall} />}
             {voiceState === STATE.LISTENING && <div style={styles.listeningPulse} />}
-            {voiceState === STATE.THINKING && <div style={styles.thinkingDots}><span>.</span><span>.</span><span>.</span></div>}
-            {voiceState === STATE.SPEAKING && <div style={styles.speakingWave}><div/><div/><div/><div/><div/></div>}
+            {voiceState === STATE.THINKING && <span style={styles.thinkingDots}>...</span>}
+            {voiceState === STATE.SPEAKING && <span style={styles.speakingIcon}>🗣️</span>}
             {voiceState === STATE.IDLE && <span style={styles.micIcon}>🎤</span>}
           </div>
         </div>
 
-        {/* Status Text */}
         <p style={styles.statusText}>{getStatusText(voiceState)}</p>
 
-        {/* Live Transcript */}
         {currentTranscript && (
           <div style={styles.transcriptBox}>
             "{currentTranscript}"
           </div>
         )}
       </div>
+
+      {/* End Session Dialog */}
+      {showEndDialog && (
+        <div style={styles.dialogOverlay}>
+          <div style={styles.dialog}>
+            <h3 style={styles.dialogTitle}>Session beenden?</h3>
+            <p style={styles.dialogText}>
+              Möchtest du eine Analyse dieser Session?
+            </p>
+            <div style={styles.dialogButtons}>
+              <button 
+                onClick={() => endSession(false)} 
+                style={styles.dialogButtonSecondary}
+              >
+                Nein, nur beenden
+              </button>
+              <button 
+                onClick={() => endSession(true)} 
+                style={styles.dialogButtonPrimary}
+              >
+                Ja, mit Analyse
+              </button>
+            </div>
+            <button 
+              onClick={() => setShowEndDialog(false)} 
+              style={styles.dialogCancel}
+            >
+              Weiter sprechen
+            </button>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         @keyframes pulse {
@@ -229,15 +323,6 @@ export default function Home() {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
-        }
-        @keyframes dots {
-          0%, 20% { opacity: 0; }
-          50% { opacity: 1; }
-          80%, 100% { opacity: 0; }
-        }
-        @keyframes wave {
-          0%, 100% { height: 8px; }
-          50% { height: 24px; }
         }
       `}</style>
     </div>
@@ -279,131 +364,317 @@ function getStatusText(state) {
 }
 
 function getStatusRingStyle(state) {
-  const styles = {
+  const ringStyles = {
     [STATE.CONNECTING]: { borderColor: "#6b7280" },
     [STATE.LISTENING]: { borderColor: "#22c55e", boxShadow: "0 0 20px rgba(34,197,94,0.4)" },
     [STATE.THINKING]: { borderColor: "#f59e0b", boxShadow: "0 0 20px rgba(245,158,11,0.4)" },
     [STATE.SPEAKING]: { borderColor: "#8b5cf6", boxShadow: "0 0 20px rgba(139,92,246,0.4)" },
     [STATE.IDLE]: { borderColor: "#6b7280" }
   };
-  return styles[state] || styles[STATE.IDLE];
+  return ringStyles[state] || ringStyles[STATE.IDLE];
 }
 
 // Styles
 const styles = {
+  loadingContainer: {
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "16px",
+    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
+  },
+  spinner: {
+    width: "40px",
+    height: "40px",
+    border: "4px solid #e5e7eb",
+    borderTopColor: "#8b5cf6",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+  },
+  spinnerSmall: {
+    width: "30px",
+    height: "30px",
+    border: "3px solid #e5e7eb",
+    borderTopColor: "#6b7280",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+  },
   container: {
     minHeight: "100vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     padding: "20px",
-    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)"
+    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
   },
-  startScreen: { maxWidth: "400px", textAlign: "center" },
+  startScreen: { 
+    maxWidth: "400px", 
+    textAlign: "center",
+    width: "100%",
+  },
+  userBar: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "32px",
+    padding: "12px 16px",
+    background: "white",
+    borderRadius: "12px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+  },
+  signOutButton: {
+    background: "none",
+    border: "none",
+    color: "#6b7280",
+    cursor: "pointer",
+    fontSize: "14px",
+  },
   logo: {
-    width: "100px", height: "100px",
+    width: "100px",
+    height: "100px",
     background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    borderRadius: "28px", margin: "0 auto 24px",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: "50px", boxShadow: "0 10px 40px rgba(139,92,246,0.3)"
+    borderRadius: "28px",
+    margin: "0 auto 24px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "50px",
+    boxShadow: "0 10px 40px rgba(139,92,246,0.3)",
   },
-  title: { fontSize: "36px", fontWeight: "bold", color: "#1f2937", marginBottom: "8px" },
-  subtitle: { color: "#6b7280", fontSize: "16px", marginBottom: "16px" },
-  description: { color: "#4b5563", marginBottom: "32px", lineHeight: "1.8" },
+  title: { 
+    fontSize: "36px", 
+    fontWeight: "bold", 
+    color: "#1f2937", 
+    marginBottom: "8px" 
+  },
+  subtitle: { 
+    color: "#6b7280", 
+    fontSize: "16px", 
+    marginBottom: "16px" 
+  },
+  description: { 
+    color: "#4b5563", 
+    marginBottom: "32px", 
+    lineHeight: "1.8" 
+  },
   startButton: {
     padding: "18px 40px",
     background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    color: "white", fontWeight: "600", fontSize: "18px",
-    border: "none", borderRadius: "16px", cursor: "pointer",
-    boxShadow: "0 4px 20px rgba(139,92,246,0.3)"
+    color: "white",
+    fontWeight: "600",
+    fontSize: "18px",
+    border: "none",
+    borderRadius: "16px",
+    cursor: "pointer",
+    boxShadow: "0 4px 20px rgba(139,92,246,0.3)",
   },
-  hint: { marginTop: "24px", fontSize: "13px", color: "#9ca3af" },
+  hint: { 
+    marginTop: "24px", 
+    fontSize: "13px", 
+    color: "#9ca3af" 
+  },
   sessionContainer: {
-    minHeight: "100vh", display: "flex", flexDirection: "column",
-    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)"
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
   },
   header: {
-    background: "rgba(255,255,255,0.9)", backdropFilter: "blur(10px)",
-    borderBottom: "1px solid #e9d5ff", padding: "12px 20px",
-    display: "flex", alignItems: "center", justifyContent: "space-between"
+    background: "rgba(255,255,255,0.9)",
+    backdropFilter: "blur(10px)",
+    borderBottom: "1px solid #e9d5ff",
+    padding: "12px 20px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  headerLeft: { display: "flex", alignItems: "center", gap: "12px" },
+  headerLeft: { 
+    display: "flex", 
+    alignItems: "center", 
+    gap: "12px" 
+  },
   headerIcon: {
-    width: "44px", height: "44px", borderRadius: "12px",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: "22px", transition: "all 0.3s"
+    width: "44px",
+    height: "44px",
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "22px",
+    transition: "all 0.3s",
   },
-  headerTitle: { fontWeight: "600", color: "#1f2937", fontSize: "17px" },
-  headerSubtitle: { fontSize: "13px", color: "#6b7280" },
+  headerTitle: { 
+    fontWeight: "600", 
+    color: "#1f2937", 
+    fontSize: "17px" 
+  },
+  headerSubtitle: { 
+    fontSize: "13px", 
+    color: "#6b7280" 
+  },
   endButton: {
-    padding: "8px 16px", background: "#fee2e2", color: "#dc2626",
-    border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "500"
+    padding: "8px 16px",
+    background: "#fee2e2",
+    color: "#dc2626",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "500",
   },
   messagesContainer: {
-    flex: 1, overflowY: "auto", padding: "20px",
-    display: "flex", flexDirection: "column", gap: "12px"
+    flex: 1,
+    overflowY: "auto",
+    padding: "20px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
   },
   messageBubble: {
-    maxWidth: "85%", padding: "14px 18px", borderRadius: "18px",
-    fontSize: "15px", lineHeight: "1.5"
+    maxWidth: "85%",
+    padding: "14px 18px",
+    borderRadius: "18px",
+    fontSize: "15px",
+    lineHeight: "1.5",
   },
   userBubble: {
     alignSelf: "flex-end",
     background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    color: "white", borderBottomRightRadius: "4px"
+    color: "white",
+    borderBottomRightRadius: "4px",
   },
   assistantBubble: {
-    alignSelf: "flex-start", background: "white", color: "#1f2937",
-    borderBottomLeftRadius: "4px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)"
+    alignSelf: "flex-start",
+    background: "white",
+    color: "#1f2937",
+    borderBottomLeftRadius: "4px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
   },
   voiceStatus: {
-    background: "rgba(255,255,255,0.95)", backdropFilter: "blur(10px)",
-    borderTop: "1px solid #e9d5ff", padding: "24px 20px 32px",
-    display: "flex", flexDirection: "column", alignItems: "center"
+    background: "rgba(255,255,255,0.95)",
+    backdropFilter: "blur(10px)",
+    borderTop: "1px solid #e9d5ff",
+    padding: "24px 20px 32px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
   },
   statusRing: {
-    width: "100px", height: "100px", borderRadius: "50%",
-    border: "4px solid #6b7280", display: "flex",
-    alignItems: "center", justifyContent: "center",
-    transition: "all 0.3s"
+    width: "100px",
+    height: "100px",
+    borderRadius: "50%",
+    border: "4px solid #6b7280",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "all 0.3s",
   },
   statusInner: {
-    width: "80px", height: "80px", borderRadius: "50%",
-    background: "rgba(139,92,246,0.1)", display: "flex",
-    alignItems: "center", justifyContent: "center"
-  },
-  spinner: {
-    width: "30px", height: "30px", border: "3px solid #e5e7eb",
-    borderTopColor: "#6b7280", borderRadius: "50%",
-    animation: "spin 1s linear infinite"
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    background: "rgba(139,92,246,0.1)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   listeningPulse: {
-    width: "40px", height: "40px", borderRadius: "50%",
-    background: "#22c55e", animation: "pulse 1.5s infinite"
+    width: "40px",
+    height: "40px",
+    borderRadius: "50%",
+    background: "#22c55e",
+    animation: "pulse 1.5s infinite",
   },
   thinkingDots: {
-    display: "flex", gap: "4px", fontSize: "32px", color: "#f59e0b",
-    "& span:nth-child(1)": { animation: "dots 1.4s infinite 0s" },
-    "& span:nth-child(2)": { animation: "dots 1.4s infinite 0.2s" },
-    "& span:nth-child(3)": { animation: "dots 1.4s infinite 0.4s" }
+    fontSize: "32px",
+    color: "#f59e0b",
   },
-  speakingWave: {
-    display: "flex", alignItems: "center", gap: "4px", height: "30px",
-    "& div": {
-      width: "4px", background: "#8b5cf6", borderRadius: "2px",
-      animation: "wave 0.6s ease-in-out infinite"
-    },
-    "& div:nth-child(1)": { animationDelay: "0s" },
-    "& div:nth-child(2)": { animationDelay: "0.1s" },
-    "& div:nth-child(3)": { animationDelay: "0.2s" },
-    "& div:nth-child(4)": { animationDelay: "0.3s" },
-    "& div:nth-child(5)": { animationDelay: "0.4s" }
+  speakingIcon: {
+    fontSize: "32px",
   },
-  micIcon: { fontSize: "32px" },
-  statusText: { color: "#6b7280", fontSize: "14px", marginTop: "16px" },
+  micIcon: {
+    fontSize: "32px",
+  },
+  statusText: { 
+    color: "#6b7280", 
+    fontSize: "14px", 
+    marginTop: "16px" 
+  },
   transcriptBox: {
-    marginTop: "12px", padding: "12px 20px", background: "#f3f4f6",
-    borderRadius: "12px", maxWidth: "90%", color: "#4b5563",
-    fontSize: "14px", fontStyle: "italic"
-  }
+    marginTop: "12px",
+    padding: "12px 20px",
+    background: "#f3f4f6",
+    borderRadius: "12px",
+    maxWidth: "90%",
+    color: "#4b5563",
+    fontSize: "14px",
+    fontStyle: "italic",
+  },
+  // Dialog styles
+  dialogOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: "rgba(0,0,0,0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "20px",
+    zIndex: 1000,
+  },
+  dialog: {
+    background: "white",
+    borderRadius: "24px",
+    padding: "32px",
+    maxWidth: "400px",
+    width: "100%",
+    textAlign: "center",
+  },
+  dialogTitle: {
+    fontSize: "20px",
+    fontWeight: "bold",
+    color: "#1f2937",
+    marginBottom: "12px",
+  },
+  dialogText: {
+    color: "#6b7280",
+    marginBottom: "24px",
+  },
+  dialogButtons: {
+    display: "flex",
+    gap: "12px",
+    marginBottom: "16px",
+  },
+  dialogButtonSecondary: {
+    flex: 1,
+    padding: "14px",
+    background: "#f3f4f6",
+    color: "#374151",
+    border: "none",
+    borderRadius: "12px",
+    fontSize: "15px",
+    fontWeight: "500",
+    cursor: "pointer",
+  },
+  dialogButtonPrimary: {
+    flex: 1,
+    padding: "14px",
+    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    color: "white",
+    border: "none",
+    borderRadius: "12px",
+    fontSize: "15px",
+    fontWeight: "600",
+    cursor: "pointer",
+  },
+  dialogCancel: {
+    background: "none",
+    border: "none",
+    color: "#6b7280",
+    fontSize: "14px",
+    cursor: "pointer",
+  },
 };
