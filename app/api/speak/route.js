@@ -3,7 +3,7 @@ export async function POST(request) {
     const { text } = await request.json();
 
     const response = await fetch(
-      "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+      "https://api.elevenlabs.io/v1/text-to-speech/A1lViwUVW63Tcnc13P5v",
       {
         method: "POST",
         headers: {
