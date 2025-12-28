@@ -1,6 +1,7 @@
 /**
  * MAIN PAGE - app/page.js
  * Hauptseite mit Voice-Session (ElevenLabs)
+ * Redirect zu /onboarding wenn Name oder Partner-Name fehlt
  */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -43,6 +44,13 @@ export default function Home() {
     }
   }, [user, authLoading, router]);
 
+  // Redirect to onboarding if names missing
+  useEffect(() => {
+    if (!authLoading && user && profile && (!profile.name || !profile.partner_name)) {
+      router.push("/onboarding");
+    }
+  }, [user, profile, authLoading, router]);
+
   // Session timer
   useEffect(() => {
     if (started && !timerRef.current) {
@@ -55,8 +63,8 @@ export default function Home() {
 
   const formatTime = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`;
 
-  // Get display name
-  const displayName = profile?.name || user?.email?.split("@")[0] || "du";
+  // Get display names
+  const displayName = profile?.name || "du";
   const partnerName = profile?.partner_name || "";
 
   // Start conversation
@@ -78,18 +86,6 @@ export default function Home() {
 
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      // Build dynamic context for personalization
-      let dynamicContext = "";
-      if (profile?.name) {
-        dynamicContext += `Der User heisst ${profile.name}. `;
-      }
-      if (profile?.partner_name) {
-        dynamicContext += `Der Partner/die Partnerin heisst ${profile.partner_name}. `;
-      }
-      if (dynamicContext) {
-        dynamicContext = `KONTEXT: ${dynamicContext}Verwende diese Namen natürlich im Gespräch.`;
-      }
 
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
@@ -234,9 +230,13 @@ export default function Home() {
     );
   }
 
-  // Not logged in (will redirect)
-  if (!user) {
-    return null;
+  // Not logged in or onboarding needed (will redirect)
+  if (!user || !profile?.name || !profile?.partner_name) {
+    return (
+      <div style={styles.loadingContainer}>
+        <div style={styles.spinner} />
+      </div>
+    );
   }
 
   // ============ START SCREEN ============
@@ -264,32 +264,16 @@ export default function Home() {
           <h1 style={styles.title}>Amiya</h1>
           <p style={styles.subtitle}>Solo Session</p>
           
-          {partnerName ? (
-            <p style={styles.description}>
-              Hey {displayName}. Erzähl mir was dich beschäftigt –<br/>
-              über dich und {partnerName}.
-            </p>
-          ) : (
-            <p style={styles.description}>
-              Sprich frei. Ich höre zu und antworte dir.<br/>
-              Du kannst mich jederzeit unterbrechen.
-            </p>
-          )}
+          <p style={styles.description}>
+            Hey {displayName}. Erzähl mir was dich beschäftigt –<br/>
+            über dich und {partnerName}.
+          </p>
           
           <button onClick={startSession} style={styles.startButton}>
             Session starten
           </button>
           
           <p style={styles.hint}>🎧 Beste Erfahrung mit Kopfhörern</p>
-          
-          {!profile?.name && (
-            <button 
-              onClick={() => router.push("/profile")}
-              style={styles.setupButton}
-            >
-              ✨ Namen einrichten für persönlichere Gespräche
-            </button>
-          )}
         </div>
 
         {/* Show analysis overlay if active */}
@@ -569,16 +553,6 @@ const styles = {
     marginTop: "24px", 
     fontSize: "13px", 
     color: "#9ca3af" 
-  },
-  setupButton: {
-    marginTop: "20px",
-    padding: "12px 20px",
-    background: "transparent",
-    border: "2px dashed #d8b4fe",
-    borderRadius: "12px",
-    color: "#8b5cf6",
-    fontSize: "14px",
-    cursor: "pointer",
   },
   sessionContainer: {
     minHeight: "100vh",
