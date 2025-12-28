@@ -66,16 +66,18 @@ export async function POST(request) {
 
     const analysis = message.content[0].text;
 
-    // Detect themes from conversation
+    // Detect themes from conversation (before deleting)
     const themes = detectThemes(session.summary);
 
-    // Save analysis to database
+    // Save analysis AND delete transcript (privacy)
     const { error: updateError } = await supabase
       .from("sessions")
       .update({
         analysis: analysis,
         analysis_created_at: new Date().toISOString(),
         themes: themes,
+        // Delete the transcript for privacy
+        summary: null,
       })
       .eq("id", sessionId);
 
