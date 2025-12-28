@@ -160,10 +160,15 @@ export default function Home() {
       // Get temporary Deepgram token from our API
       const tokenRes = await fetch("/api/deepgram-token");
       const { token } = await tokenRes.json();
+      
+      if (!token) {
+        console.error("No Deepgram token received");
+        return null;
+      }
 
-      // Use detect_language for automatic DE/EN/FR detection
+      // Simpler URL - Nova-2 with German, fallback to English
       const socket = new WebSocket(
-        `wss://api.deepgram.com/v1/listen?model=nova-2&detect_language=true&smart_format=true&interim_results=true&endpointing=500&vad_events=true&punctuate=true`,
+        `wss://api.deepgram.com/v1/listen?model=nova-2&language=de&smart_format=true&interim_results=true&endpointing=600&punctuate=true`,
         ["token", token]
       );
 
@@ -177,13 +182,6 @@ export default function Home() {
 
       socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        
-        // Handle VAD events for instant interruption
-        if (data.type === "SpeechStarted") {
-          if (voiceStateRef.current === STATE.SPEAKING) {
-            stopSpeaking();
-          }
-        }
 
         if (data.channel?.alternatives?.[0]) {
           const text = data.channel.alternatives[0].transcript;
@@ -216,6 +214,7 @@ export default function Home() {
 
       socket.onerror = (err) => {
         console.error("Deepgram error:", err);
+        setVoiceState(STATE.IDLE);
       };
 
       socket.onclose = () => {
