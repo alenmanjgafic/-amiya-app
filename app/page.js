@@ -1,3 +1,7 @@
+/**
+ * MAIN PAGE - app/page.js
+ * Hauptseite mit Voice-Session (ElevenLabs)
+ */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -35,7 +39,7 @@ export default function Home() {
   // Redirect to auth if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/auth');
+      router.push("/auth");
     }
   }, [user, authLoading, router]);
 
@@ -51,6 +55,10 @@ export default function Home() {
 
   const formatTime = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`;
 
+  // Get display name
+  const displayName = profile?.name || user?.email?.split("@")[0] || "du";
+  const partnerName = profile?.partner_name || "";
+
   // Start conversation
   const startSession = useCallback(async () => {
     if (!user) return;
@@ -62,7 +70,7 @@ export default function Home() {
 
     try {
       // Create session in database
-      const session = await sessionsService.create(user.id, 'solo');
+      const session = await sessionsService.create(user.id, "solo");
       setCurrentSessionId(session.id);
 
       // Dynamically import ElevenLabs SDK
@@ -71,8 +79,24 @@ export default function Home() {
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
+      // Build dynamic context for personalization
+      let dynamicContext = "";
+      if (profile?.name) {
+        dynamicContext += `Der User heisst ${profile.name}. `;
+      }
+      if (profile?.partner_name) {
+        dynamicContext += `Der Partner/die Partnerin heisst ${profile.partner_name}. `;
+      }
+      if (dynamicContext) {
+        dynamicContext = `KONTEXT: ${dynamicContext}Verwende diese Namen natürlich im Gespräch.`;
+      }
+
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
+        dynamicVariables: {
+          user_name: profile?.name || "",
+          partner_name: profile?.partner_name || "",
+        },
         onConnect: () => {
           console.log("Connected to ElevenLabs");
           setVoiceState(STATE.LISTENING);
@@ -119,7 +143,7 @@ export default function Home() {
       setStarted(false);
       setVoiceState(STATE.IDLE);
     }
-  }, [user]);
+  }, [user, profile]);
 
   // End conversation - show dialog
   const handleEndClick = () => {
@@ -140,9 +164,14 @@ export default function Home() {
     // Save session to database (temporarily for analysis)
     if (currentSessionId && hasMessages) {
       try {
-        const summary = currentMessages
-          .map(m => `${m.role === 'user' ? 'User' : 'Amiya'}: ${m.content}`)
-          .join('\n');
+        // Add names to summary for personalized analysis
+        let summary = "";
+        if (profile?.name || profile?.partner_name) {
+          summary += `[Kontext: User=${profile?.name || "unbekannt"}, Partner=${profile?.partner_name || "unbekannt"}]\n\n`;
+        }
+        summary += currentMessages
+          .map(m => `${m.role === "user" ? (profile?.name || "User") : "Amiya"}: ${m.content}`)
+          .join("\n");
         
         await sessionsService.end(currentSessionId, summary, []);
         
@@ -175,7 +204,7 @@ export default function Home() {
     } else if (requestAnalysis && !hasMessages) {
       alert("Keine Nachrichten zum Analysieren vorhanden.");
     }
-  }, [currentSessionId]);
+  }, [currentSessionId, profile]);
 
   // Close analysis view
   const handleCloseAnalysis = () => {
@@ -215,9 +244,17 @@ export default function Home() {
     return (
       <div style={styles.container}>
         <div style={styles.startScreen}>
-          {/* User info */}
+          {/* User bar with profile link */}
           <div style={styles.userBar}>
-            <span>Hallo, {profile?.name || user?.email || 'du'} 👋</span>
+            <button 
+              onClick={() => router.push("/profile")} 
+              style={styles.profileButton}
+            >
+              <span style={styles.profileAvatar}>
+                {displayName.charAt(0).toUpperCase()}
+              </span>
+              <span>{displayName}</span>
+            </button>
             <button onClick={signOut} style={styles.signOutButton}>
               Abmelden
             </button>
@@ -226,14 +263,33 @@ export default function Home() {
           <div style={styles.logo}>💜</div>
           <h1 style={styles.title}>Amiya</h1>
           <p style={styles.subtitle}>Solo Session</p>
-          <p style={styles.description}>
-            Sprich frei. Ich höre zu und antworte dir.<br/>
-            Du kannst mich jederzeit unterbrechen.
-          </p>
+          
+          {partnerName ? (
+            <p style={styles.description}>
+              Hey {displayName}. Erzähl mir was dich beschäftigt –<br/>
+              über dich und {partnerName}.
+            </p>
+          ) : (
+            <p style={styles.description}>
+              Sprich frei. Ich höre zu und antworte dir.<br/>
+              Du kannst mich jederzeit unterbrechen.
+            </p>
+          )}
+          
           <button onClick={startSession} style={styles.startButton}>
             Session starten
           </button>
+          
           <p style={styles.hint}>🎧 Beste Erfahrung mit Kopfhörern</p>
+          
+          {!profile?.name && (
+            <button 
+              onClick={() => router.push("/profile")}
+              style={styles.setupButton}
+            >
+              ✨ Namen einrichten für persönlichere Gespräche
+            </button>
+          )}
         </div>
 
         {/* Show analysis overlay if active */}
@@ -247,7 +303,7 @@ export default function Home() {
     );
   }
 
-  // ============ SESSION SCREEN (Voice-only, no transcript) ============
+  // ============ SESSION SCREEN (Voice-only) ============
   return (
     <div style={styles.sessionContainer}>
       {/* Header */}
@@ -432,17 +488,43 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "32px",
-    padding: "12px 16px",
+    padding: "8px 8px 8px 8px",
     background: "white",
     borderRadius: "12px",
     boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
   },
+  profileButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: "6px 10px",
+    borderRadius: "8px",
+    transition: "background 0.2s",
+    fontSize: "15px",
+    color: "#374151",
+  },
+  profileAvatar: {
+    width: "32px",
+    height: "32px",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    color: "white",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "14px",
+    fontWeight: "600",
+  },
   signOutButton: {
     background: "none",
     border: "none",
-    color: "#6b7280",
+    color: "#9ca3af",
     cursor: "pointer",
     fontSize: "14px",
+    padding: "8px 12px",
   },
   logo: {
     width: "100px",
@@ -487,6 +569,16 @@ const styles = {
     marginTop: "24px", 
     fontSize: "13px", 
     color: "#9ca3af" 
+  },
+  setupButton: {
+    marginTop: "20px",
+    padding: "12px 20px",
+    background: "transparent",
+    border: "2px dashed #d8b4fe",
+    borderRadius: "12px",
+    color: "#8b5cf6",
+    fontSize: "14px",
+    cursor: "pointer",
   },
   sessionContainer: {
     minHeight: "100vh",
@@ -536,7 +628,6 @@ const styles = {
     cursor: "pointer",
     fontWeight: "500",
   },
-  // Voice-only centered interface
   voiceOnlyContainer: {
     flex: 1,
     display: "flex",
@@ -600,7 +691,6 @@ const styles = {
     marginTop: "12px",
     minHeight: "20px",
   },
-  // Dialog styles
   dialogOverlay: {
     position: "fixed",
     top: 0,
