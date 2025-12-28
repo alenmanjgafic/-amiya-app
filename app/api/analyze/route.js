@@ -1,3 +1,7 @@
+/**
+ * ANALYZE API - app/api/analyze/route.js
+ * Claude-powered session analysis (deletes transcript after)
+ */
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 
