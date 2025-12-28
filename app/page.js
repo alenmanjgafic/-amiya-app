@@ -32,6 +32,12 @@ export default function Home() {
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const messagesRef = useRef([]);
+
+  // Keep messagesRef in sync with messages state
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -63,6 +69,8 @@ export default function Home() {
     
     setStarted(true);
     setVoiceState(STATE.CONNECTING);
+    setMessages([]);
+    messagesRef.current = [];
 
     try {
       // Create session in database
@@ -86,12 +94,28 @@ export default function Home() {
           setVoiceState(STATE.IDLE);
         },
         onMessage: (message) => {
-          console.log("Message:", message);
+          console.log("Message received:", JSON.stringify(message, null, 2));
           
-          if (message.type === "user_transcript") {
-            setCurrentTranscript(message.text || "");
+          // Handle different message formats from ElevenLabs
+          // Format 1: { type: "transcript", transcript: "...", source: "user" | "agent" }
+          if (message.type === "transcript" && message.transcript) {
+            if (message.source === "user") {
+              setCurrentTranscript(message.transcript);
+            } else if (message.source === "ai" || message.source === "agent") {
+              // Agent transcript - add to messages
+              setMessages(prev => [...prev, { 
+                role: "assistant", 
+                content: message.transcript 
+              }]);
+            }
           }
           
+          // Format 2: user_transcript event
+          if (message.type === "user_transcript" && message.user_transcript) {
+            setCurrentTranscript(message.user_transcript);
+          }
+          
+          // Format 3: agent_response event  
           if (message.type === "agent_response") {
             if (message.user_transcript) {
               setMessages(prev => [...prev, { 
@@ -100,7 +124,6 @@ export default function Home() {
               }]);
               setCurrentTranscript("");
             }
-            
             if (message.agent_response) {
               setMessages(prev => [...prev, { 
                 role: "assistant", 
@@ -108,13 +131,38 @@ export default function Home() {
               }]);
             }
           }
+
+          // Format 4: Direct text field
+          if (message.text && message.role) {
+            setMessages(prev => [...prev, {
+              role: message.role === "agent" ? "assistant" : "user",
+              content: message.text
+            }]);
+            if (message.role === "user") {
+              setCurrentTranscript("");
+            }
+          }
         },
         onModeChange: (mode) => {
-          if (mode.mode === "listening") {
+          console.log("Mode changed:", mode);
+          const modeValue = mode.mode || mode;
+          if (modeValue === "listening") {
+            // When switching to listening, finalize user transcript
+            if (currentTranscript) {
+              setMessages(prev => {
+                // Check if we already have this message
+                const lastUserMsg = prev.filter(m => m.role === "user").pop();
+                if (lastUserMsg && lastUserMsg.content === currentTranscript) {
+                  return prev;
+                }
+                return [...prev, { role: "user", content: currentTranscript }];
+              });
+              setCurrentTranscript("");
+            }
             setVoiceState(STATE.LISTENING);
-          } else if (mode.mode === "thinking") {
+          } else if (modeValue === "thinking") {
             setVoiceState(STATE.THINKING);
-          } else if (mode.mode === "speaking") {
+          } else if (modeValue === "speaking") {
             setVoiceState(STATE.SPEAKING);
           }
         },
@@ -147,14 +195,19 @@ export default function Home() {
     }
     
     const sessionIdToAnalyze = currentSessionId;
+    const currentMessages = messagesRef.current;
+    
+    console.log("Ending session with messages:", currentMessages);
     
     // Save session to database
-    if (currentSessionId) {
+    if (currentSessionId && currentMessages.length > 0) {
       try {
         // Create summary from messages
-        const summary = messages
+        const summary = currentMessages
           .map(m => `${m.role === 'user' ? 'User' : 'Amiya'}: ${m.content}`)
           .join('\n');
+        
+        console.log("Saving summary:", summary);
         
         await sessionsService.end(currentSessionId, summary, []);
         
@@ -164,6 +217,8 @@ export default function Home() {
       } catch (error) {
         console.error("Failed to save session:", error);
       }
+    } else {
+      console.log("No messages to save, messages count:", currentMessages.length);
     }
     
     // Reset session state
@@ -171,6 +226,7 @@ export default function Home() {
     setStarted(false);
     setVoiceState(STATE.IDLE);
     setMessages([]);
+    messagesRef.current = [];
     setSessionTime(0);
     setCurrentTranscript("");
     setCurrentSessionId(null);
@@ -181,11 +237,13 @@ export default function Home() {
     }
 
     // Show analysis if requested
-    if (requestAnalysis && sessionIdToAnalyze) {
+    if (requestAnalysis && sessionIdToAnalyze && currentMessages.length > 0) {
       setAnalysisSessionId(sessionIdToAnalyze);
       setShowAnalysis(true);
+    } else if (requestAnalysis && currentMessages.length === 0) {
+      alert("Keine Nachrichten zum Analysieren vorhanden.");
     }
-  }, [currentSessionId, messages]);
+  }, [currentSessionId]);
 
   // Close analysis view
   const handleCloseAnalysis = () => {
@@ -268,7 +326,7 @@ export default function Home() {
           </div>
           <div>
             <div style={styles.headerTitle}>Amiya</div>
-            <div style={styles.headerSubtitle}>{formatTime(sessionTime)}</div>
+            <div style={styles.headerSubtitle}>{formatTime(sessionTime)} • {messages.length} Nachrichten</div>
           </div>
         </div>
         <button onClick={handleEndClick} style={styles.endButton}>Beenden</button>
@@ -276,6 +334,11 @@ export default function Home() {
 
       {/* Messages */}
       <div style={styles.messagesContainer}>
+        {messages.length === 0 && (
+          <div style={styles.emptyState}>
+            <p>Sprich einfach los...</p>
+          </div>
+        )}
         {messages.map((msg, i) => (
           <div key={i} style={{
             ...styles.messageBubble,
@@ -314,20 +377,27 @@ export default function Home() {
           <div style={styles.dialog}>
             <h3 style={styles.dialogTitle}>Session beenden?</h3>
             <p style={styles.dialogText}>
-              Möchtest du eine Analyse dieser Session?
+              {messages.length > 0 
+                ? `${messages.length} Nachrichten aufgezeichnet. Möchtest du eine Analyse?`
+                : "Keine Nachrichten aufgezeichnet."
+              }
             </p>
             <div style={styles.dialogButtons}>
               <button 
                 onClick={() => endSession(false)} 
                 style={styles.dialogButtonSecondary}
               >
-                Nein, nur beenden
+                Nur beenden
               </button>
               <button 
                 onClick={() => endSession(true)} 
-                style={styles.dialogButtonPrimary}
+                style={{
+                  ...styles.dialogButtonPrimary,
+                  opacity: messages.length > 0 ? 1 : 0.5
+                }}
+                disabled={messages.length === 0}
               >
-                Ja, mit Analyse
+                Mit Analyse
               </button>
             </div>
             <button 
@@ -555,6 +625,14 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: "12px",
+  },
+  emptyState: {
+    flex: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#9ca3af",
+    fontStyle: "italic",
   },
   messageBubble: {
     maxWidth: "85%",
