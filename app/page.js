@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../lib/AuthContext";
 import { sessionsService } from "../lib/sessions";
+import AnalysisView from "../components/AnalysisView";
 
 const AGENT_ID = "agent_8601kdk8kndtedgbn0ea13zff5aa";
 
@@ -25,6 +26,8 @@ export default function Home() {
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [showEndDialog, setShowEndDialog] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisSessionId, setAnalysisSessionId] = useState(null);
   
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
@@ -143,6 +146,8 @@ export default function Home() {
       conversationRef.current = null;
     }
     
+    const sessionIdToAnalyze = currentSessionId;
+    
     // Save session to database
     if (currentSessionId) {
       try {
@@ -155,13 +160,13 @@ export default function Home() {
         
         if (requestAnalysis) {
           await sessionsService.requestAnalysis(currentSessionId);
-          // TODO: Trigger analysis generation
         }
       } catch (error) {
         console.error("Failed to save session:", error);
       }
     }
     
+    // Reset session state
     setShowEndDialog(false);
     setStarted(false);
     setVoiceState(STATE.IDLE);
@@ -174,7 +179,19 @@ export default function Home() {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+
+    // Show analysis if requested
+    if (requestAnalysis && sessionIdToAnalyze) {
+      setAnalysisSessionId(sessionIdToAnalyze);
+      setShowAnalysis(true);
+    }
   }, [currentSessionId, messages]);
+
+  // Close analysis view
+  const handleCloseAnalysis = () => {
+    setShowAnalysis(false);
+    setAnalysisSessionId(null);
+  };
 
   // Cleanup on unmount
   useEffect(() => {
@@ -228,6 +245,14 @@ export default function Home() {
           </button>
           <p style={styles.hint}>🎧 Beste Erfahrung mit Kopfhörern</p>
         </div>
+
+        {/* Show analysis overlay if active */}
+        {showAnalysis && analysisSessionId && (
+          <AnalysisView 
+            sessionId={analysisSessionId} 
+            onClose={handleCloseAnalysis} 
+          />
+        )}
       </div>
     );
   }
