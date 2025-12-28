@@ -16,10 +16,12 @@ Analysiere das folgende Gespräch und erstelle eine hilfreiche, einfühlsame Ana
 
 WICHTIG:
 - Sei warm und unterstützend, nicht klinisch
+- Verwende die Namen der Personen wenn sie im Kontext angegeben sind
 - Fokussiere auf Muster und Erkenntnisse, nicht auf Probleme
 - Gib konkrete, umsetzbare Vorschläge
 - Halte die Analyse kurz und verständlich (max 300 Wörter)
 - Schreibe auf Deutsch
+- Sprich den User direkt an (du-Form)
 
 Struktur deiner Analyse:
 1. **Zusammenfassung** (2-3 Sätze: Worum ging es?)
@@ -127,5 +129,5 @@ function detectThemes(text) {
     }
   }
 
-  return detectedThemes.slice(0, 3); // Max 3 themes
+  return detectedThemes.slice(0, 3);
 }
