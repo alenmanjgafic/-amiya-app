@@ -21,23 +21,16 @@ export default function Home() {
   
   const [started, setStarted] = useState(false);
   const [voiceState, setVoiceState] = useState(STATE.IDLE);
-  const [messages, setMessages] = useState([]);
   const [sessionTime, setSessionTime] = useState(0);
-  const [currentTranscript, setCurrentTranscript] = useState("");
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisSessionId, setAnalysisSessionId] = useState(null);
+  const [messageCount, setMessageCount] = useState(0);
   
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
-  const messagesEndRef = useRef(null);
   const messagesRef = useRef([]);
-
-  // Keep messagesRef in sync with messages state
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -45,11 +38,6 @@ export default function Home() {
       router.push('/auth');
     }
   }, [user, authLoading, router]);
-
-  // Auto-scroll
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   // Session timer
   useEffect(() => {
@@ -69,8 +57,8 @@ export default function Home() {
     
     setStarted(true);
     setVoiceState(STATE.CONNECTING);
-    setMessages([]);
     messagesRef.current = [];
+    setMessageCount(0);
 
     try {
       // Create session in database
@@ -94,30 +82,20 @@ export default function Home() {
           setVoiceState(STATE.IDLE);
         },
         onMessage: (message) => {
-          console.log("Message received:", message);
-          
-          // ElevenLabs format: { source: "user" | "ai", message: "..." }
+          // Store messages in background (not shown in UI)
           if (message.source && message.message) {
             const role = message.source === "user" ? "user" : "assistant";
             const content = message.message;
             
-            setMessages(prev => {
-              // Avoid duplicates
-              const lastMsg = prev[prev.length - 1];
-              if (lastMsg && lastMsg.role === role && lastMsg.content === content) {
-                return prev;
-              }
-              return [...prev, { role, content }];
-            });
-            
-            // Clear transcript when user message is finalized
-            if (message.source === "user") {
-              setCurrentTranscript("");
+            // Avoid duplicates
+            const lastMsg = messagesRef.current[messagesRef.current.length - 1];
+            if (!(lastMsg && lastMsg.role === role && lastMsg.content === content)) {
+              messagesRef.current.push({ role, content });
+              setMessageCount(messagesRef.current.length);
             }
           }
         },
         onModeChange: (mode) => {
-          console.log("Mode changed:", mode);
           const modeValue = mode.mode || mode;
           if (modeValue === "listening") {
             setVoiceState(STATE.LISTENING);
@@ -157,18 +135,14 @@ export default function Home() {
     
     const sessionIdToAnalyze = currentSessionId;
     const currentMessages = messagesRef.current;
+    const hasMessages = currentMessages.length > 0;
     
-    console.log("Ending session with messages:", currentMessages);
-    
-    // Save session to database
-    if (currentSessionId && currentMessages.length > 0) {
+    // Save session to database (temporarily for analysis)
+    if (currentSessionId && hasMessages) {
       try {
-        // Create summary from messages
         const summary = currentMessages
           .map(m => `${m.role === 'user' ? 'User' : 'Amiya'}: ${m.content}`)
           .join('\n');
-        
-        console.log("Saving summary:", summary);
         
         await sessionsService.end(currentSessionId, summary, []);
         
@@ -178,18 +152,15 @@ export default function Home() {
       } catch (error) {
         console.error("Failed to save session:", error);
       }
-    } else {
-      console.log("No messages to save, messages count:", currentMessages.length);
     }
     
     // Reset session state
     setShowEndDialog(false);
     setStarted(false);
     setVoiceState(STATE.IDLE);
-    setMessages([]);
     messagesRef.current = [];
+    setMessageCount(0);
     setSessionTime(0);
-    setCurrentTranscript("");
     setCurrentSessionId(null);
     
     if (timerRef.current) {
@@ -198,10 +169,10 @@ export default function Home() {
     }
 
     // Show analysis if requested
-    if (requestAnalysis && sessionIdToAnalyze && currentMessages.length > 0) {
+    if (requestAnalysis && sessionIdToAnalyze && hasMessages) {
       setAnalysisSessionId(sessionIdToAnalyze);
       setShowAnalysis(true);
-    } else if (requestAnalysis && currentMessages.length === 0) {
+    } else if (requestAnalysis && !hasMessages) {
       alert("Keine Nachrichten zum Analysieren vorhanden.");
     }
   }, [currentSessionId]);
@@ -276,7 +247,7 @@ export default function Home() {
     );
   }
 
-  // ============ SESSION SCREEN ============
+  // ============ SESSION SCREEN (Voice-only, no transcript) ============
   return (
     <div style={styles.sessionContainer}>
       {/* Header */}
@@ -287,49 +258,31 @@ export default function Home() {
           </div>
           <div>
             <div style={styles.headerTitle}>Amiya</div>
-            <div style={styles.headerSubtitle}>{formatTime(sessionTime)} • {messages.length} Nachrichten</div>
+            <div style={styles.headerSubtitle}>{formatTime(sessionTime)}</div>
           </div>
         </div>
         <button onClick={handleEndClick} style={styles.endButton}>Beenden</button>
       </div>
 
-      {/* Messages */}
-      <div style={styles.messagesContainer}>
-        {messages.length === 0 && (
-          <div style={styles.emptyState}>
-            <p>Sprich einfach los...</p>
-          </div>
-        )}
-        {messages.map((msg, i) => (
-          <div key={i} style={{
-            ...styles.messageBubble,
-            ...(msg.role === "user" ? styles.userBubble : styles.assistantBubble)
-          }}>
-            {msg.content}
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Voice Status */}
-      <div style={styles.voiceStatus}>
+      {/* Voice-only Interface */}
+      <div style={styles.voiceOnlyContainer}>
         <div style={{...styles.statusRing, ...getStatusRingStyle(voiceState)}}>
           <div style={styles.statusInner}>
             {voiceState === STATE.CONNECTING && <div style={styles.spinnerSmall} />}
             {voiceState === STATE.LISTENING && <div style={styles.listeningPulse} />}
-            {voiceState === STATE.THINKING && <span style={styles.thinkingDots}>...</span>}
-            {voiceState === STATE.SPEAKING && <span style={styles.speakingIcon}>🗣️</span>}
+            {voiceState === STATE.THINKING && <div style={styles.thinkingPulse} />}
+            {voiceState === STATE.SPEAKING && <div style={styles.speakingPulse} />}
             {voiceState === STATE.IDLE && <span style={styles.micIcon}>🎤</span>}
           </div>
         </div>
 
         <p style={styles.statusText}>{getStatusText(voiceState)}</p>
-
-        {currentTranscript && (
-          <div style={styles.transcriptBox}>
-            "{currentTranscript}"
-          </div>
-        )}
+        
+        <p style={styles.tipText}>
+          {voiceState === STATE.LISTENING && "Sprich einfach..."}
+          {voiceState === STATE.SPEAKING && "Unterbrechen? Einfach sprechen."}
+          {voiceState === STATE.THINKING && "Einen Moment..."}
+        </p>
       </div>
 
       {/* End Session Dialog */}
@@ -338,9 +291,9 @@ export default function Home() {
           <div style={styles.dialog}>
             <h3 style={styles.dialogTitle}>Session beenden?</h3>
             <p style={styles.dialogText}>
-              {messages.length > 0 
-                ? `${messages.length} Nachrichten aufgezeichnet. Möchtest du eine Analyse?`
-                : "Keine Nachrichten aufgezeichnet."
+              {messageCount > 0 
+                ? "Möchtest du eine Analyse dieser Session?"
+                : "Keine Gespräche aufgezeichnet."
               }
             </p>
             <div style={styles.dialogButtons}>
@@ -354,9 +307,9 @@ export default function Home() {
                 onClick={() => endSession(true)} 
                 style={{
                   ...styles.dialogButtonPrimary,
-                  opacity: messages.length > 0 ? 1 : 0.5
+                  opacity: messageCount > 0 ? 1 : 0.5
                 }}
-                disabled={messages.length === 0}
+                disabled={messageCount === 0}
               >
                 Mit Analyse
               </button>
@@ -379,6 +332,10 @@ export default function Home() {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes breathe {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.08); }
         }
       `}</style>
     </div>
@@ -411,9 +368,9 @@ function getStateEmoji(state) {
 function getStatusText(state) {
   const texts = {
     [STATE.CONNECTING]: "Verbinde...",
-    [STATE.LISTENING]: "Ich höre zu...",
-    [STATE.THINKING]: "Ich denke nach...",
-    [STATE.SPEAKING]: "Amiya spricht...",
+    [STATE.LISTENING]: "Ich höre zu",
+    [STATE.THINKING]: "Ich denke nach",
+    [STATE.SPEAKING]: "Amiya spricht",
     [STATE.IDLE]: "Bereit"
   };
   return texts[state] || "";
@@ -422,9 +379,9 @@ function getStatusText(state) {
 function getStatusRingStyle(state) {
   const ringStyles = {
     [STATE.CONNECTING]: { borderColor: "#6b7280" },
-    [STATE.LISTENING]: { borderColor: "#22c55e", boxShadow: "0 0 20px rgba(34,197,94,0.4)" },
-    [STATE.THINKING]: { borderColor: "#f59e0b", boxShadow: "0 0 20px rgba(245,158,11,0.4)" },
-    [STATE.SPEAKING]: { borderColor: "#8b5cf6", boxShadow: "0 0 20px rgba(139,92,246,0.4)" },
+    [STATE.LISTENING]: { borderColor: "#22c55e", boxShadow: "0 0 40px rgba(34,197,94,0.3)" },
+    [STATE.THINKING]: { borderColor: "#f59e0b", boxShadow: "0 0 40px rgba(245,158,11,0.3)" },
+    [STATE.SPEAKING]: { borderColor: "#8b5cf6", boxShadow: "0 0 40px rgba(139,92,246,0.3)" },
     [STATE.IDLE]: { borderColor: "#6b7280" }
   };
   return ringStyles[state] || ringStyles[STATE.IDLE];
@@ -450,9 +407,9 @@ const styles = {
     animation: "spin 1s linear infinite",
   },
   spinnerSmall: {
-    width: "30px",
-    height: "30px",
-    border: "3px solid #e5e7eb",
+    width: "40px",
+    height: "40px",
+    border: "4px solid #e5e7eb",
     borderTopColor: "#6b7280",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
@@ -579,101 +536,69 @@ const styles = {
     cursor: "pointer",
     fontWeight: "500",
   },
-  messagesContainer: {
+  // Voice-only centered interface
+  voiceOnlyContainer: {
     flex: 1,
-    overflowY: "auto",
-    padding: "20px",
     display: "flex",
     flexDirection: "column",
-    gap: "12px",
-  },
-  emptyState: {
-    flex: 1,
-    display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "#9ca3af",
-    fontStyle: "italic",
-  },
-  messageBubble: {
-    maxWidth: "85%",
-    padding: "14px 18px",
-    borderRadius: "18px",
-    fontSize: "15px",
-    lineHeight: "1.5",
-  },
-  userBubble: {
-    alignSelf: "flex-end",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    color: "white",
-    borderBottomRightRadius: "4px",
-  },
-  assistantBubble: {
-    alignSelf: "flex-start",
-    background: "white",
-    color: "#1f2937",
-    borderBottomLeftRadius: "4px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-  },
-  voiceStatus: {
-    background: "rgba(255,255,255,0.95)",
-    backdropFilter: "blur(10px)",
-    borderTop: "1px solid #e9d5ff",
-    padding: "24px 20px 32px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
+    padding: "40px 20px",
   },
   statusRing: {
-    width: "100px",
-    height: "100px",
+    width: "180px",
+    height: "180px",
     borderRadius: "50%",
-    border: "4px solid #6b7280",
+    border: "6px solid #6b7280",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     transition: "all 0.3s",
   },
   statusInner: {
-    width: "80px",
-    height: "80px",
+    width: "150px",
+    height: "150px",
     borderRadius: "50%",
-    background: "rgba(139,92,246,0.1)",
+    background: "rgba(255,255,255,0.9)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
   listeningPulse: {
-    width: "40px",
-    height: "40px",
+    width: "80px",
+    height: "80px",
     borderRadius: "50%",
-    background: "#22c55e",
-    animation: "pulse 1.5s infinite",
+    background: "linear-gradient(135deg, #22c55e, #16a34a)",
+    animation: "pulse 2s ease-in-out infinite",
   },
-  thinkingDots: {
-    fontSize: "32px",
-    color: "#f59e0b",
+  thinkingPulse: {
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #f59e0b, #d97706)",
+    animation: "breathe 1.5s ease-in-out infinite",
   },
-  speakingIcon: {
-    fontSize: "32px",
+  speakingPulse: {
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    animation: "pulse 1s ease-in-out infinite",
   },
   micIcon: {
-    fontSize: "32px",
+    fontSize: "60px",
   },
   statusText: { 
-    color: "#6b7280", 
-    fontSize: "14px", 
-    marginTop: "16px" 
+    color: "#374151", 
+    fontSize: "20px", 
+    fontWeight: "600",
+    marginTop: "32px" 
   },
-  transcriptBox: {
-    marginTop: "12px",
-    padding: "12px 20px",
-    background: "#f3f4f6",
-    borderRadius: "12px",
-    maxWidth: "90%",
-    color: "#4b5563",
+  tipText: {
+    color: "#9ca3af",
     fontSize: "14px",
-    fontStyle: "italic",
+    marginTop: "12px",
+    minHeight: "20px",
   },
   // Dialog styles
   dialogOverlay: {
