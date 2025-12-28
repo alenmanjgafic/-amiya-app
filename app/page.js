@@ -94,51 +94,24 @@ export default function Home() {
           setVoiceState(STATE.IDLE);
         },
         onMessage: (message) => {
-          console.log("Message received:", JSON.stringify(message, null, 2));
+          console.log("Message received:", message);
           
-          // Handle different message formats from ElevenLabs
-          // Format 1: { type: "transcript", transcript: "...", source: "user" | "agent" }
-          if (message.type === "transcript" && message.transcript) {
+          // ElevenLabs format: { source: "user" | "ai", message: "..." }
+          if (message.source && message.message) {
+            const role = message.source === "user" ? "user" : "assistant";
+            const content = message.message;
+            
+            setMessages(prev => {
+              // Avoid duplicates
+              const lastMsg = prev[prev.length - 1];
+              if (lastMsg && lastMsg.role === role && lastMsg.content === content) {
+                return prev;
+              }
+              return [...prev, { role, content }];
+            });
+            
+            // Clear transcript when user message is finalized
             if (message.source === "user") {
-              setCurrentTranscript(message.transcript);
-            } else if (message.source === "ai" || message.source === "agent") {
-              // Agent transcript - add to messages
-              setMessages(prev => [...prev, { 
-                role: "assistant", 
-                content: message.transcript 
-              }]);
-            }
-          }
-          
-          // Format 2: user_transcript event
-          if (message.type === "user_transcript" && message.user_transcript) {
-            setCurrentTranscript(message.user_transcript);
-          }
-          
-          // Format 3: agent_response event  
-          if (message.type === "agent_response") {
-            if (message.user_transcript) {
-              setMessages(prev => [...prev, { 
-                role: "user", 
-                content: message.user_transcript 
-              }]);
-              setCurrentTranscript("");
-            }
-            if (message.agent_response) {
-              setMessages(prev => [...prev, { 
-                role: "assistant", 
-                content: message.agent_response 
-              }]);
-            }
-          }
-
-          // Format 4: Direct text field
-          if (message.text && message.role) {
-            setMessages(prev => [...prev, {
-              role: message.role === "agent" ? "assistant" : "user",
-              content: message.text
-            }]);
-            if (message.role === "user") {
               setCurrentTranscript("");
             }
           }
@@ -147,18 +120,6 @@ export default function Home() {
           console.log("Mode changed:", mode);
           const modeValue = mode.mode || mode;
           if (modeValue === "listening") {
-            // When switching to listening, finalize user transcript
-            if (currentTranscript) {
-              setMessages(prev => {
-                // Check if we already have this message
-                const lastUserMsg = prev.filter(m => m.role === "user").pop();
-                if (lastUserMsg && lastUserMsg.content === currentTranscript) {
-                  return prev;
-                }
-                return [...prev, { role: "user", content: currentTranscript }];
-              });
-              setCurrentTranscript("");
-            }
             setVoiceState(STATE.LISTENING);
           } else if (modeValue === "thinking") {
             setVoiceState(STATE.THINKING);
@@ -285,7 +246,7 @@ export default function Home() {
         <div style={styles.startScreen}>
           {/* User info */}
           <div style={styles.userBar}>
-            <span>Hallo, {profile?.name || 'du'} 👋</span>
+            <span>Hallo, {profile?.name || user?.email || 'du'} 👋</span>
             <button onClick={signOut} style={styles.signOutButton}>
               Abmelden
             </button>
