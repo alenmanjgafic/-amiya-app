@@ -44,7 +44,7 @@ Beginne mit: "Hey. Was ist los?"`;
 // Voice States
 const STATE = {
   IDLE: "idle",
-  LISTENING: "listening", 
+  LISTENING: "listening",
   THINKING: "thinking",
   SPEAKING: "speaking"
 };
@@ -55,35 +55,29 @@ export default function Home() {
   const [voiceState, setVoiceState] = useState(STATE.IDLE);
   const [transcript, setTranscript] = useState("");
   const [sessionTime, setSessionTime] = useState(0);
-  
-  const recognitionRef = useRef(null);
-  const audioRef = useRef(null);
-  const silenceTimerRef = useRef(null);
+  const [currentResponse, setCurrentResponse] = useState("");
+
+  // Refs
+  const socketRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const audioQueueRef = useRef([]);
+  const isPlayingRef = useRef(false);
   const timerRef = useRef(null);
   const messagesEndRef = useRef(null);
-  
-  // Refs to track current state (to avoid closure issues)
   const voiceStateRef = useRef(voiceState);
-  const transcriptRef = useRef(transcript);
   const messagesRef = useRef(messages);
+  const silenceTimerRef = useRef(null);
+  const streamRef = useRef(null);
 
-  // Keep refs in sync with state
-  useEffect(() => {
-    voiceStateRef.current = voiceState;
-  }, [voiceState]);
-
-  useEffect(() => {
-    transcriptRef.current = transcript;
-  }, [transcript]);
-
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
+  // Keep refs in sync
+  useEffect(() => { voiceStateRef.current = voiceState; }, [voiceState]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, currentResponse]);
 
   // Session timer
   useEffect(() => {
@@ -95,52 +89,289 @@ export default function Home() {
     };
   }, [started]);
 
-  const formatTime = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`;
+  const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
-  // Send message function (defined early so it can be used in recognition setup)
-  const sendMessage = useCallback(async (textToSend, currentMessages) => {
-    if (!textToSend || !textToSend.trim()) {
-      return;
+  // ============ AUDIO PLAYBACK (ElevenLabs Streaming) ============
+  const playAudioChunk = useCallback(async (audioData) => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    setVoiceState(STATE.THINKING);
-    
-    const newMessages = [...currentMessages, { role: "user", content: textToSend.trim() }];
-    setMessages(newMessages);
-    setTranscript("");
-
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages, system: SYSTEM_PROMPT }),
+      const arrayBuffer = await audioData.arrayBuffer();
+      const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+      
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContextRef.current.destination);
+      
+      return new Promise((resolve) => {
+        source.onended = resolve;
+        source.start(0);
       });
-
-      const data = await response.json();
-      
-      if (data.error) throw new Error(data.error);
-      
-      const updatedMessages = [...newMessages, { role: "assistant", content: data.message }];
-      setMessages(updatedMessages);
-      messagesRef.current = updatedMessages;
-      
-      // Speak the response
-      await speakTextInternal(data.message);
     } catch (err) {
-      console.error("Error:", err);
-      const errorMsg = "Entschuldige, da gab es ein Problem. Kannst du das nochmal sagen?";
-      const updatedMessages = [...newMessages, { role: "assistant", content: errorMsg }];
-      setMessages(updatedMessages);
-      messagesRef.current = updatedMessages;
-      await speakTextInternal(errorMsg);
+      console.error("Audio decode error:", err);
     }
   }, []);
 
-  // Internal speak function
-  const speakTextInternal = async (text) => {
-    setVoiceState(STATE.SPEAKING);
+  const processAudioQueue = useCallback(async () => {
+    if (isPlayingRef.current || audioQueueRef.current.length === 0) return;
+    
+    isPlayingRef.current = true;
+    
+    while (audioQueueRef.current.length > 0 && voiceStateRef.current === STATE.SPEAKING) {
+      const audioData = audioQueueRef.current.shift();
+      await playAudioChunk(audioData);
+    }
+    
+    isPlayingRef.current = false;
+    
+    // If done speaking and queue empty, start listening
+    if (audioQueueRef.current.length === 0 && voiceStateRef.current === STATE.SPEAKING) {
+      setVoiceState(STATE.IDLE);
+      setTimeout(() => startListening(), 300);
+    }
+  }, [playAudioChunk]);
+
+  // ============ DEEPGRAM CONNECTION ============
+  const connectDeepgram = useCallback(async () => {
     try {
-      const response = await fetch("/api/speak", {
+      // Get temporary Deepgram token from our API
+      const tokenRes = await fetch("/api/deepgram-token");
+      const { token } = await tokenRes.json();
+
+      const socket = new WebSocket(
+        `wss://api.deepgram.com/v1/listen?model=nova-2&language=multi&smart_format=true&interim_results=true&endpointing=300&vad_events=true`,
+        ["token", token]
+      );
+
+      socket.onopen = () => {
+        console.log("Deepgram connected");
+        setVoiceState(STATE.LISTENING);
+      };
+
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        // Handle VAD events for instant interruption
+        if (data.type === "SpeechStarted") {
+          if (voiceStateRef.current === STATE.SPEAKING) {
+            // Interrupt immediately
+            stopSpeaking();
+          }
+        }
+
+        if (data.channel?.alternatives?.[0]) {
+          const text = data.channel.alternatives[0].transcript;
+          const isFinal = data.is_final;
+
+          if (text) {
+            setTranscript(prev => {
+              if (isFinal) {
+                // Reset silence timer
+                if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                
+                // Start new silence timer
+                silenceTimerRef.current = setTimeout(() => {
+                  if (voiceStateRef.current === STATE.LISTENING) {
+                    const finalText = transcriptRef.current;
+                    if (finalText?.trim()) {
+                      sendMessage(finalText.trim());
+                    }
+                  }
+                }, 1200); // 1.2 seconds of silence
+                
+                return prev + text + " ";
+              }
+              return prev.split(" ").slice(0, -1).join(" ") + " " + text;
+            });
+          }
+        }
+      };
+
+      socket.onerror = (err) => {
+        console.error("Deepgram error:", err);
+      };
+
+      socket.onclose = () => {
+        console.log("Deepgram closed");
+      };
+
+      socketRef.current = socket;
+      return socket;
+    } catch (err) {
+      console.error("Failed to connect Deepgram:", err);
+      return null;
+    }
+  }, []);
+
+  const transcriptRef = useRef(transcript);
+  useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
+
+  // ============ MICROPHONE ============
+  const startListening = useCallback(async () => {
+    setTranscript("");
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 16000
+        } 
+      });
+      streamRef.current = stream;
+
+      const socket = await connectDeepgram();
+      if (!socket) {
+        console.error("Could not connect to Deepgram");
+        return;
+      }
+
+      // Wait for socket to be ready
+      await new Promise((resolve) => {
+        if (socket.readyState === WebSocket.OPEN) {
+          resolve();
+        } else {
+          socket.addEventListener("open", resolve, { once: true });
+        }
+      });
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "audio/webm;codecs=opus"
+      });
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+          socket.send(event.data);
+        }
+      };
+
+      mediaRecorder.start(100); // Send chunks every 100ms
+      mediaRecorderRef.current = mediaRecorder;
+
+    } catch (err) {
+      console.error("Microphone error:", err);
+      alert("Mikrofon-Zugriff benötigt. Bitte erlaube den Zugriff.");
+    }
+  }, [connectDeepgram]);
+
+  const stopListening = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+    
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
+    
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+  }, []);
+
+  // ============ STOP SPEAKING (Interrupt) ============
+  const stopSpeaking = useCallback(() => {
+    audioQueueRef.current = [];
+    isPlayingRef.current = false;
+    
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    
+    setCurrentResponse("");
+    setVoiceState(STATE.IDLE);
+  }, []);
+
+  // ============ SEND MESSAGE (Claude Streaming + ElevenLabs Streaming) ============
+  const sendMessage = useCallback(async (text) => {
+    if (!text?.trim()) return;
+
+    stopListening();
+    setVoiceState(STATE.THINKING);
+    setTranscript("");
+    setCurrentResponse("");
+
+    const userMessage = { role: "user", content: text.trim() };
+    const newMessages = [...messagesRef.current, userMessage];
+    setMessages(newMessages);
+    messagesRef.current = newMessages;
+
+    try {
+      // Call streaming API
+      const response = await fetch("/api/chat-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          messages: newMessages, 
+          system: SYSTEM_PROMPT 
+        }),
+      });
+
+      if (!response.ok) throw new Error("Chat API error");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullResponse = "";
+      let sentenceBuffer = "";
+
+      setVoiceState(STATE.SPEAKING);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        fullResponse += chunk;
+        sentenceBuffer += chunk;
+        setCurrentResponse(fullResponse);
+
+        // Check for complete sentences to send to TTS
+        const sentenceEnders = /[.!?।。！？]/;
+        const sentences = sentenceBuffer.split(sentenceEnders);
+        
+        if (sentences.length > 1) {
+          // We have at least one complete sentence
+          for (let i = 0; i < sentences.length - 1; i++) {
+            const sentence = sentences[i].trim();
+            if (sentence) {
+              // Send to TTS streaming
+              speakSentence(sentence);
+            }
+          }
+          sentenceBuffer = sentences[sentences.length - 1];
+        }
+      }
+
+      // Speak any remaining text
+      if (sentenceBuffer.trim()) {
+        speakSentence(sentenceBuffer.trim());
+      }
+
+      // Add assistant message
+      const assistantMessage = { role: "assistant", content: fullResponse };
+      setMessages(prev => [...prev, assistantMessage]);
+      messagesRef.current = [...newMessages, assistantMessage];
+      setCurrentResponse("");
+
+    } catch (err) {
+      console.error("Error:", err);
+      const errorMsg = "Entschuldige, da gab es ein Problem.";
+      setMessages(prev => [...prev, { role: "assistant", content: errorMsg }]);
+      speakSentence(errorMsg);
+    }
+  }, [stopListening]);
+
+  // ============ SPEAK SENTENCE (ElevenLabs) ============
+  const speakSentence = useCallback(async (text) => {
+    try {
+      const response = await fetch("/api/speak-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -148,198 +379,37 @@ export default function Home() {
 
       if (response.ok) {
         const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        audioRef.current = new Audio(url);
-        
-        audioRef.current.onended = () => {
-          setVoiceState(STATE.IDLE);
-          // Auto-start listening after Amiya finishes
-          setTimeout(() => {
-            startListeningInternal();
-          }, 300);
-        };
-        
-        await audioRef.current.play();
-      } else {
-        setVoiceState(STATE.IDLE);
-        setTimeout(() => startListeningInternal(), 300);
+        audioQueueRef.current.push(blob);
+        processAudioQueue();
       }
     } catch (err) {
-      console.error("Speech error:", err);
-      setVoiceState(STATE.IDLE);
-      setTimeout(() => startListeningInternal(), 300);
+      console.error("TTS error:", err);
     }
-  };
+  }, [processAudioQueue]);
 
-  // Internal start listening function
-  const startListeningInternal = () => {
-    if (!recognitionRef.current) {
-      return;
+  // ============ MANUAL SEND ============
+  const handleSendMessage = useCallback(() => {
+    const text = transcriptRef.current?.trim();
+    if (text) {
+      sendMessage(text);
     }
-    setTranscript("");
-    transcriptRef.current = "";
-    setVoiceState(STATE.LISTENING);
-    voiceStateRef.current = STATE.LISTENING;
-    try {
-      recognitionRef.current.start();
-    } catch (err) {
-      console.log("Recognition already started or error:", err);
-    }
-  };
-
-  // Initialize speech recognition
-  useEffect(() => {
-    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
-      const SR = window.webkitSpeechRecognition;
-      recognitionRef.current = new SR();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = "de-DE";
-
-      let finalTranscript = "";
-
-      recognitionRef.current.onresult = (e) => {
-        let interimTranscript = "";
-        
-        // Process results
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const result = e.results[i];
-          if (result.isFinal) {
-            finalTranscript += result[0].transcript + " ";
-          } else {
-            interimTranscript += result[0].transcript;
-          }
-        }
-        
-        // Update display: show final + interim
-        const displayText = (finalTranscript + interimTranscript).trim();
-        setTranscript(displayText);
-        transcriptRef.current = displayText;
-
-        // Reset silence timer on any speech activity
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-        }
-        
-        // Only start silence timer if we have final results and are listening
-        if (finalTranscript.trim() && voiceStateRef.current === STATE.LISTENING) {
-          silenceTimerRef.current = setTimeout(() => {
-            console.log("Silence detected, sending:", finalTranscript.trim());
-            
-            // Stop recognition first
-            try {
-              recognitionRef.current.stop();
-            } catch (err) {}
-            
-            // Send the message
-            const textToSend = finalTranscript.trim();
-            finalTranscript = ""; // Reset for next turn
-            
-            if (textToSend) {
-              sendMessage(textToSend, messagesRef.current);
-            }
-          }, 1800); // 1.8 seconds of silence
-        }
-      };
-
-      recognitionRef.current.onstart = () => {
-        finalTranscript = ""; // Reset on new listening session
-      };
-
-      recognitionRef.current.onerror = (e) => {
-        console.error("Speech error:", e.error);
-        if (e.error === "no-speech") {
-          // Restart if no speech detected but still in listening mode
-          if (voiceStateRef.current === STATE.LISTENING) {
-            try {
-              recognitionRef.current.start();
-            } catch (err) {}
-          }
-        } else if (e.error !== "aborted") {
-          setVoiceState(STATE.IDLE);
-        }
-      };
-
-      recognitionRef.current.onend = () => {
-        // Only restart if still supposed to be listening
-        if (voiceStateRef.current === STATE.LISTENING) {
-          try {
-            recognitionRef.current.start();
-          } catch (err) {
-            console.log("Could not restart recognition");
-          }
-        }
-      };
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (err) {}
-      }
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
-    };
   }, [sendMessage]);
 
-  const startListening = useCallback(() => {
-    if (!recognitionRef.current) {
-      alert("Spracherkennung nicht unterstützt. Bitte nutze Chrome.");
-      return;
-    }
-    startListeningInternal();
-  }, []);
-
-  const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (err) {}
-    }
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-    }
-  }, []);
-
-  const speakText = useCallback(async (text) => {
-    await speakTextInternal(text);
-  }, []);
-
-  const stopSpeaking = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-    setVoiceState(STATE.IDLE);
-  }, []);
-
-  const handleSendMessage = useCallback(async () => {
-    const text = transcriptRef.current.trim();
-    if (!text) {
-      startListening();
-      return;
-    }
-
-    stopListening();
-    await sendMessage(text, messagesRef.current);
-  }, [stopListening, startListening, sendMessage]);
-
-  // Handle interruption
+  // ============ INTERRUPT ============
   const handleInterrupt = useCallback(() => {
-    if (voiceState === STATE.SPEAKING) {
-      stopSpeaking();
-      startListening();
-    }
-  }, [voiceState, stopSpeaking, startListening]);
+    stopSpeaking();
+    setTimeout(() => startListening(), 100);
+  }, [stopSpeaking, startListening]);
 
+  // ============ SESSION CONTROL ============
   const startSession = async () => {
     setStarted(true);
     const greeting = "Hey. Was ist los?";
     setMessages([{ role: "assistant", content: greeting }]);
     messagesRef.current = [{ role: "assistant", content: greeting }];
-    await speakText(greeting);
+    
+    setVoiceState(STATE.SPEAKING);
+    await speakSentence(greeting);
   };
 
   const endSession = () => {
@@ -350,16 +420,24 @@ export default function Home() {
     setStarted(false);
     setSessionTime(0);
     setTranscript("");
-    transcriptRef.current = "";
+    setCurrentResponse("");
     setVoiceState(STATE.IDLE);
-    voiceStateRef.current = STATE.IDLE;
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
   };
 
-  // Start Screen
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopListening();
+      stopSpeaking();
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [stopListening, stopSpeaking]);
+
+  // ============ START SCREEN ============
   if (!started) {
     return (
       <div style={styles.container}>
@@ -373,18 +451,19 @@ export default function Home() {
           <button onClick={startSession} style={styles.startButton}>
             Session starten
           </button>
-          <p style={styles.hint}>🎤 Nutze Chrome für beste Spracherkennung</p>
+          <p style={styles.hint}>🎤 Beste Erfahrung mit Kopfhörern</p>
         </div>
       </div>
     );
   }
 
+  // ============ SESSION SCREEN ============
   return (
     <div style={styles.sessionContainer}>
       {/* Header */}
       <div style={styles.header}>
         <div style={styles.headerLeft}>
-          <div style={{...styles.headerIcon, background: getStateColor(voiceState)}}>
+          <div style={{ ...styles.headerIcon, background: getStateColor(voiceState) }}>
             {getStateEmoji(voiceState)}
           </div>
           <div>
@@ -405,12 +484,17 @@ export default function Home() {
             {msg.content}
           </div>
         ))}
+        {currentResponse && (
+          <div style={{ ...styles.messageBubble, ...styles.assistantBubble }}>
+            {currentResponse}
+            <span style={styles.typingCursor}>|</span>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Voice Interface */}
       <div style={styles.voiceInterface}>
-        {/* Status Indicator */}
         <div style={styles.statusContainer}>
           <div style={{
             ...styles.statusRing,
@@ -454,17 +538,14 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Status Text */}
         <p style={styles.statusText}>{getStatusText(voiceState)}</p>
 
-        {/* Transcript Preview */}
         {transcript && voiceState === STATE.LISTENING && (
           <div style={styles.transcriptPreview}>
             "{transcript}"
           </div>
         )}
 
-        {/* Control Buttons */}
         <div style={styles.controls}>
           {voiceState === STATE.IDLE && (
             <button onClick={startListening} style={styles.controlButton}>
@@ -501,9 +582,9 @@ export default function Home() {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-6px); }
         }
-        @keyframes spin {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.1); }
+        @keyframes blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
         }
       `}</style>
     </div>
@@ -524,7 +605,7 @@ function getStateEmoji(state) {
   switch (state) {
     case STATE.LISTENING: return "👂";
     case STATE.THINKING: return "💭";
-    case STATE.SPEAKING: return "🔊";
+    case STATE.SPEAKING: return "🗣️";
     default: return "💜";
   }
 }
@@ -534,28 +615,27 @@ function getStatusText(state) {
     case STATE.LISTENING: return "Ich höre zu...";
     case STATE.THINKING: return "Ich denke nach...";
     case STATE.SPEAKING: return "Amiya spricht...";
-    default: return "Tippe auf Sprechen oder sprich einfach los";
+    default: return "Tippe auf Sprechen";
   }
 }
 
 function getStatusRingStyle(state) {
   switch (state) {
     case STATE.LISTENING:
-      return { 
-        borderColor: "#ef4444", 
+      return {
+        borderColor: "#ef4444",
         boxShadow: "0 0 20px rgba(239,68,68,0.4)",
         animation: "pulse 1.5s infinite"
       };
     case STATE.THINKING:
-      return { 
-        borderColor: "#f59e0b", 
-        boxShadow: "0 0 20px rgba(245,158,11,0.4)",
-        animation: "spin 1s infinite"
+      return {
+        borderColor: "#f59e0b",
+        boxShadow: "0 0 20px rgba(245,158,11,0.4)"
       };
     case STATE.SPEAKING:
-      return { 
-        borderColor: "#22c55e", 
-        boxShadow: "0 0 20px rgba(34,197,94,0.4)" 
+      return {
+        borderColor: "#22c55e",
+        boxShadow: "0 0 20px rgba(34,197,94,0.4)"
       };
     default:
       return { borderColor: "#8b5cf6" };
@@ -695,6 +775,10 @@ const styles = {
     color: "#1f2937",
     borderBottomLeftRadius: "4px",
     boxShadow: "0 2px 8px rgba(0,0,0,0.06)"
+  },
+  typingCursor: {
+    animation: "blink 1s infinite",
+    marginLeft: "2px"
   },
   voiceInterface: {
     background: "rgba(255,255,255,0.95)",
