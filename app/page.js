@@ -49,6 +49,27 @@ const STATE = {
   SPEAKING: "speaking"
 };
 
+// Helper function to get supported audio mimeType (Safari compatibility)
+function getSupportedMimeType() {
+  if (typeof window === 'undefined') return '';
+  
+  const types = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/mp4',
+    'audio/ogg;codecs=opus',
+    ''  // Empty string = browser default
+  ];
+  
+  for (const type of types) {
+    if (type === '' || MediaRecorder.isTypeSupported(type)) {
+      console.log('Using mimeType:', type || 'browser default');
+      return type;
+    }
+  }
+  return '';
+}
+
 export default function Home() {
   const [messages, setMessages] = useState([]);
   const [started, setStarted] = useState(false);
@@ -237,9 +258,11 @@ export default function Home() {
         }
       });
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "audio/webm;codecs=opus"
-      });
+      // Get supported mimeType (Safari doesn't support webm)
+      const mimeType = getSupportedMimeType();
+      const mediaRecorder = mimeType 
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
