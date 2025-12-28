@@ -70,8 +70,12 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(false);
   const [sessionTime, setSessionTime] = useState(0);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const messagesEndRef = useRef(null);
   const timerRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -88,15 +92,82 @@ export default function Home() {
     };
   }, [started]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
+      const SpeechRecognition = window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = "de-DE";
+
+      recognitionRef.current.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(transcript);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onerror = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+  }, []);
+
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
-  const startSession = () => {
+  const speakText = async (text) => {
+    if (!voiceEnabled) return;
+    
+    setIsSpeaking(true);
+    try {
+      const response = await fetch("/api/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+
+      if (response.ok) {
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audio.onended = () => setIsSpeaking(false);
+        await audio.play();
+      } else {
+        setIsSpeaking(false);
+      }
+    } catch (err) {
+      console.error("Speech error:", err);
+      setIsSpeaking(false);
+    }
+  };
+
+  const startSession = async () => {
     setStarted(true);
-    setMessages([{ role: "assistant", content: "Hey. Was ist los?" }]);
+    const greeting = "Hey. Was ist los?";
+    setMessages([{ role: "assistant", content: greeting }]);
+    await speakText(greeting);
+  };
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      alert("Spracherkennung wird von deinem Browser nicht unterstützt. Bitte nutze Chrome.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
   };
 
   const sendMessage = async () => {
@@ -125,6 +196,7 @@ export default function Home() {
       }
 
       setMessages([...newMessages, { role: "assistant", content: data.message }]);
+      await speakText(data.message);
     } catch (err) {
       console.error("Error:", err);
       setMessages([
@@ -217,34 +289,53 @@ export default function Home() {
           <div style={{
             width: "40px",
             height: "40px",
-            background: "linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)",
+            background: isSpeaking 
+              ? "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)"
+              : "linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)",
             borderRadius: "12px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: "20px"
+            fontSize: "20px",
+            transition: "background 0.3s"
           }}>
-            💜
+            {isSpeaking ? "🔊" : "💜"}
           </div>
           <div>
             <div style={{ fontWeight: "600", color: "#1f2937" }}>Amiya</div>
             <div style={{ fontSize: "12px", color: "#6b7280" }}>Solo Session • {formatTime(sessionTime)}</div>
           </div>
         </div>
-        <button
-          onClick={resetSession}
-          style={{
-            padding: "8px 16px",
-            background: "#f3f4f6",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            color: "#4b5563",
-            fontSize: "14px"
-          }}
-        >
-          Beenden
-        </button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button
+            onClick={() => setVoiceEnabled(!voiceEnabled)}
+            style={{
+              padding: "8px 12px",
+              background: voiceEnabled ? "#8b5cf6" : "#e5e7eb",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              color: voiceEnabled ? "white" : "#6b7280",
+              fontSize: "14px"
+            }}
+          >
+            {voiceEnabled ? "🔊" : "🔇"}
+          </button>
+          <button
+            onClick={resetSession}
+            style={{
+              padding: "8px 16px",
+              background: "#f3f4f6",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              color: "#4b5563",
+              fontSize: "14px"
+            }}
+          >
+            Beenden
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -305,18 +396,36 @@ export default function Home() {
         padding: "16px"
       }}>
         <div style={{ display: "flex", gap: "8px", maxWidth: "600px", margin: "0 auto" }}>
+          <button
+            onClick={toggleListening}
+            disabled={loading || isSpeaking}
+            style={{
+              padding: "12px 16px",
+              background: isListening 
+                ? "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
+                : "linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)",
+              color: "white",
+              border: "none",
+              borderRadius: "12px",
+              cursor: loading || isSpeaking ? "default" : "pointer",
+              opacity: loading || isSpeaking ? 0.5 : 1,
+              fontSize: "18px"
+            }}
+          >
+            {isListening ? "⏹" : "🎤"}
+          </button>
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            placeholder="Schreib hier..."
-            disabled={loading}
+            placeholder={isListening ? "Ich höre zu..." : "Schreib oder sprich..."}
+            disabled={loading || isListening}
             style={{
               flex: 1,
               padding: "12px 16px",
-              background: "#f3f4f6",
-              border: "none",
+              background: isListening ? "#fef2f2" : "#f3f4f6",
+              border: isListening ? "2px solid #ef4444" : "none",
               borderRadius: "12px",
               outline: "none",
               fontSize: "16px"
@@ -324,15 +433,15 @@ export default function Home() {
           />
           <button
             onClick={sendMessage}
-            disabled={loading || !input.trim()}
+            disabled={loading || !input.trim() || isSpeaking}
             style={{
               padding: "12px 20px",
               background: "linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)",
               color: "white",
               border: "none",
               borderRadius: "12px",
-              cursor: loading || !input.trim() ? "default" : "pointer",
-              opacity: loading || !input.trim() ? 0.5 : 1,
+              cursor: loading || !input.trim() || isSpeaking ? "default" : "pointer",
+              opacity: loading || !input.trim() || isSpeaking ? 0.5 : 1,
               fontSize: "16px"
             }}
           >
