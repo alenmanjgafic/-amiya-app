@@ -1,362 +1,150 @@
 "use client";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
-const SYSTEM_PROMPT = `Du bist Amiya, ein erfahrener Paartherapeut in einer Solo-Session. Die Person spricht alleine mit dir über ihre Beziehung.
-
-## DEIN CHARAKTER
-- Direkt, warm, aufmerksam
-- Du führst das Gespräch – du bist nicht passiv
-- Kurze Sätze, kein Therapeuten-Jargon
-- Du sagst auch unbequeme Wahrheiten
-
-## WICHTIG FÜR VOICE
-- Halte Antworten KURZ (1-3 Sätze max)
-- Sprich natürlich, nicht schriftlich
-- Eine Frage pro Antwort
-
-## DEINE KERN-PRINZIPIEN
-
-### CLARITY OVER COMFORT
-Dein Ziel ist Klarheit, nicht Wohlgefühl.
-
-### FAKTEN ZUERST
-Bevor du interpretierst, sammle konkrete Fakten:
-- "Wie viele Kinder habt ihr? Wie alt?"
-- "Wie oft passiert das?"
-- "Was genau hat sie gesagt?"
-
-### BEIDE PERSPEKTIVEN
-- "Wie siehst du das?"
-- "Wie glaubst du sieht sie das?"
-
-### AKTIV FÜHREN
-- Benenne Muster wenn du sie siehst
-- Konfrontiere Vermeidung direkt
-
-## START
-Beginne mit: "Hey. Was ist los?"`;
+const AGENT_ID = "agent_8601kdk8kndtedgbn0ea13zff5aa";
 
 const STATE = {
   IDLE: "idle",
+  CONNECTING: "connecting",
   LISTENING: "listening",
   THINKING: "thinking",
   SPEAKING: "speaking"
 };
 
-function getSupportedMimeType() {
-  if (typeof window === 'undefined') return '';
-  const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', ''];
-  for (const type of types) {
-    if (type === '' || MediaRecorder.isTypeSupported(type)) return type;
-  }
-  return '';
-}
-
 export default function Home() {
-  const [messages, setMessages] = useState([]);
   const [started, setStarted] = useState(false);
   const [voiceState, setVoiceState] = useState(STATE.IDLE);
-  const [transcript, setTranscript] = useState("");
+  const [messages, setMessages] = useState([]);
   const [sessionTime, setSessionTime] = useState(0);
-  const [currentResponse, setCurrentResponse] = useState("");
-
-  // Refs
-  const audioRef = useRef(null);
-  const socketRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const streamRef = useRef(null);
+  const [currentTranscript, setCurrentTranscript] = useState("");
+  
+  const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const silenceTimerRef = useRef(null);
-  
-  // State refs
-  const voiceStateRef = useRef(voiceState);
-  const messagesRef = useRef(messages);
-  const transcriptRef = useRef("");
-  const isProcessingRef = useRef(false);
 
-  useEffect(() => { voiceStateRef.current = voiceState; }, [voiceState]);
-  useEffect(() => { messagesRef.current = messages; }, [messages]);
-
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, currentResponse]);
+  }, [messages]);
 
+  // Session timer
   useEffect(() => {
     if (started && !timerRef.current) {
       timerRef.current = setInterval(() => setSessionTime(t => t + 1), 1000);
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [started]);
 
   const formatTime = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`;
 
-  // ============ STOP AUDIO IMMEDIATELY ============
-  const stopAudio = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
-  }, []);
-
-  // ============ SPEAK TEXT ============
-  const speakText = useCallback(async (text) => {
-    try {
-      const response = await fetch("/api/speak-stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) throw new Error("TTS failed");
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      
-      return new Promise((resolve) => {
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        
-        audio.onended = () => {
-          URL.revokeObjectURL(url);
-          audioRef.current = null;
-          resolve();
-        };
-
-        audio.onerror = () => {
-          URL.revokeObjectURL(url);
-          audioRef.current = null;
-          resolve();
-        };
-
-        audio.play().catch(() => resolve());
-      });
-    } catch (err) {
-      console.error("Speak error:", err);
-    }
-  }, []);
-
-  // ============ SEND MESSAGE ============
-  const sendMessage = useCallback(async (text) => {
-    if (!text?.trim() || isProcessingRef.current) return;
-    
-    isProcessingRef.current = true;
-    setVoiceState(STATE.THINKING);
-    setTranscript("");
-    transcriptRef.current = "";
-
-    const userMessage = { role: "user", content: text.trim() };
-    const newMessages = [...messagesRef.current, userMessage];
-    setMessages(newMessages);
-    messagesRef.current = newMessages;
+  // Start conversation
+  const startSession = useCallback(async () => {
+    setStarted(true);
+    setVoiceState(STATE.CONNECTING);
 
     try {
-      const response = await fetch("/api/chat-stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages, system: SYSTEM_PROMPT }),
-      });
+      // Dynamically import ElevenLabs SDK
+      const { Conversation } = await import("@11labs/client");
 
-      if (!response.ok) throw new Error("Chat API error");
+      // Request microphone permission
+      await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let fullResponse = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        fullResponse += decoder.decode(value, { stream: true });
-        setCurrentResponse(fullResponse);
-      }
-
-      const assistantMessage = { role: "assistant", content: fullResponse };
-      const updatedMessages = [...newMessages, assistantMessage];
-      setMessages(updatedMessages);
-      messagesRef.current = updatedMessages;
-      setCurrentResponse("");
-
-      // Speak
-      setVoiceState(STATE.SPEAKING);
-      await speakText(fullResponse);
-      
-      // Back to listening
-      setVoiceState(STATE.LISTENING);
-      isProcessingRef.current = false;
-
-    } catch (err) {
-      console.error("Error:", err);
-      const errorMsg = "Entschuldige, da gab es ein Problem.";
-      setMessages(prev => [...prev, { role: "assistant", content: errorMsg }]);
-      setCurrentResponse("");
-      setVoiceState(STATE.SPEAKING);
-      await speakText(errorMsg);
-      setVoiceState(STATE.LISTENING);
-      isProcessingRef.current = false;
-    }
-  }, [speakText]);
-
-  // ============ HANDLE SPEECH DETECTED ============
-  const handleSpeechDetected = useCallback(() => {
-    // If Amiya is speaking, interrupt immediately
-    if (voiceStateRef.current === STATE.SPEAKING) {
-      console.log("User interrupted - stopping audio");
-      stopAudio();
-      setVoiceState(STATE.LISTENING);
-    }
-  }, [stopAudio]);
-
-  // ============ START ALWAYS-ON MICROPHONE ============
-  const startMicrophone = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true }
-      });
-      streamRef.current = stream;
-
-      const tokenRes = await fetch("/api/deepgram-token");
-      const { token } = await tokenRes.json();
-
-      if (!token) {
-        console.error("No Deepgram token");
-        return;
-      }
-
-      const socket = new WebSocket(
-        `wss://api.deepgram.com/v1/listen?model=nova-2&language=de&smart_format=true&interim_results=true&endpointing=800&punctuate=true&vad_events=true`,
-        ["token", token]
-      );
-      socketRef.current = socket;
-
-      socket.onopen = () => {
-        console.log("Deepgram connected - always listening");
-        
-        const mimeType = getSupportedMimeType();
-        const recorder = mimeType 
-          ? new MediaRecorder(stream, { mimeType })
-          : new MediaRecorder(stream);
-        
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0 && socket.readyState === WebSocket.OPEN) {
-            socket.send(e.data);
+      const conversation = await Conversation.startSession({
+        agentId: AGENT_ID,
+        onConnect: () => {
+          console.log("Connected to ElevenLabs");
+          setVoiceState(STATE.LISTENING);
+        },
+        onDisconnect: () => {
+          console.log("Disconnected from ElevenLabs");
+          setVoiceState(STATE.IDLE);
+        },
+        onMessage: (message) => {
+          console.log("Message:", message);
+          
+          // Handle different message types
+          if (message.type === "user_transcript") {
+            setCurrentTranscript(message.text || "");
           }
-        };
-        
-        recorder.start(100);
-        mediaRecorderRef.current = recorder;
-        setVoiceState(STATE.LISTENING);
-      };
-
-      socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        
-        // VAD: Speech started
-        if (data.type === "SpeechStarted") {
-          handleSpeechDetected();
-          return;
-        }
-
-        // Transcript
-        if (data.channel?.alternatives?.[0]) {
-          const text = data.channel.alternatives[0].transcript;
-          const isFinal = data.is_final;
-
-          // Any speech = interrupt if speaking
-          if (text && voiceStateRef.current === STATE.SPEAKING) {
-            handleSpeechDetected();
-          }
-
-          if (text && voiceStateRef.current === STATE.LISTENING) {
-            if (isFinal) {
-              transcriptRef.current += text + " ";
-              setTranscript(transcriptRef.current.trim());
-              
-              if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-              
-              silenceTimerRef.current = setTimeout(() => {
-                const finalText = transcriptRef.current.trim();
-                if (finalText && voiceStateRef.current === STATE.LISTENING && !isProcessingRef.current) {
-                  sendMessage(finalText);
-                }
-              }, 1500);
-            } else {
-              setTranscript(transcriptRef.current + text);
+          
+          if (message.type === "agent_response") {
+            // User message (final)
+            if (message.user_transcript) {
+              setMessages(prev => [...prev, { 
+                role: "user", 
+                content: message.user_transcript 
+              }]);
+              setCurrentTranscript("");
+            }
+            
+            // Agent message
+            if (message.agent_response) {
+              setMessages(prev => [...prev, { 
+                role: "assistant", 
+                content: message.agent_response 
+              }]);
             }
           }
+        },
+        onModeChange: (mode) => {
+          console.log("Mode changed:", mode);
+          
+          if (mode.mode === "listening") {
+            setVoiceState(STATE.LISTENING);
+          } else if (mode.mode === "thinking") {
+            setVoiceState(STATE.THINKING);
+          } else if (mode.mode === "speaking") {
+            setVoiceState(STATE.SPEAKING);
+          }
+        },
+        onError: (error) => {
+          console.error("ElevenLabs error:", error);
+          setVoiceState(STATE.IDLE);
         }
-      };
+      });
 
-      socket.onerror = (err) => {
-        console.error("Deepgram error:", err);
-      };
+      conversationRef.current = conversation;
 
-      socket.onclose = () => {
-        console.log("Deepgram closed");
-      };
-
-    } catch (err) {
-      console.error("Microphone error:", err);
-      alert("Mikrofon-Zugriff benötigt.");
-    }
-  }, [handleSpeechDetected, sendMessage]);
-
-  // ============ STOP MICROPHONE ============
-  const stopMicrophone = useCallback(() => {
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    if (mediaRecorderRef.current?.state !== "inactive") {
-      mediaRecorderRef.current?.stop();
-    }
-    if (socketRef.current) {
-      socketRef.current.close();
-      socketRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
+    } catch (error) {
+      console.error("Failed to start session:", error);
+      alert("Konnte Sitzung nicht starten. Bitte Mikrofon-Zugriff erlauben.");
+      setStarted(false);
+      setVoiceState(STATE.IDLE);
     }
   }, []);
 
-  // ============ SESSION ============
-  const startSession = async () => {
-    setStarted(true);
-    const greeting = "Hey. Was ist los?";
-    setMessages([{ role: "assistant", content: greeting }]);
-    messagesRef.current = [{ role: "assistant", content: greeting }];
+  // End conversation
+  const endSession = useCallback(async () => {
+    if (conversationRef.current) {
+      await conversationRef.current.endSession();
+      conversationRef.current = null;
+    }
     
-    // Start microphone FIRST (always on)
-    await startMicrophone();
-    
-    // Then speak greeting
-    setVoiceState(STATE.SPEAKING);
-    await speakText(greeting);
-    setVoiceState(STATE.LISTENING);
-  };
-
-  const endSession = () => {
-    stopMicrophone();
-    stopAudio();
-    setMessages([]);
-    messagesRef.current = [];
     setStarted(false);
-    setSessionTime(0);
-    setTranscript("");
-    transcriptRef.current = "";
-    setCurrentResponse("");
     setVoiceState(STATE.IDLE);
-    isProcessingRef.current = false;
+    setMessages([]);
+    setSessionTime(0);
+    setCurrentTranscript("");
+    
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-  };
+  }, []);
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopMicrophone();
-      stopAudio();
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (conversationRef.current) {
+        conversationRef.current.endSession();
+      }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
     };
-  }, [stopMicrophone, stopAudio]);
+  }, []);
 
   // ============ START SCREEN ============
   if (!started) {
@@ -368,7 +156,7 @@ export default function Home() {
           <p style={styles.subtitle}>Solo Session</p>
           <p style={styles.description}>
             Sprich frei. Ich höre zu und antworte dir.<br/>
-            Du kannst mich jederzeit unterbrechen – einfach anfangen zu sprechen.
+            Du kannst mich jederzeit unterbrechen.
           </p>
           <button onClick={startSession} style={styles.startButton}>
             Session starten
@@ -406,36 +194,50 @@ export default function Home() {
             {msg.content}
           </div>
         ))}
-        {currentResponse && (
-          <div style={{...styles.messageBubble, ...styles.assistantBubble}}>
-            {currentResponse}<span style={styles.cursor}>|</span>
-          </div>
-        )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Voice Status */}
       <div style={styles.voiceStatus}>
-        <div style={{...styles.statusIndicator, ...getStatusStyle(voiceState)}}>
-          <div style={styles.statusDot} />
-          <span style={styles.statusLabel}>{getStatusText(voiceState)}</span>
+        {/* Status Ring */}
+        <div style={{...styles.statusRing, ...getStatusRingStyle(voiceState)}}>
+          <div style={styles.statusInner}>
+            {voiceState === STATE.CONNECTING && <div style={styles.spinner} />}
+            {voiceState === STATE.LISTENING && <div style={styles.listeningPulse} />}
+            {voiceState === STATE.THINKING && <div style={styles.thinkingDots}><span>.</span><span>.</span><span>.</span></div>}
+            {voiceState === STATE.SPEAKING && <div style={styles.speakingWave}><div/><div/><div/><div/><div/></div>}
+            {voiceState === STATE.IDLE && <span style={styles.micIcon}>🎤</span>}
+          </div>
         </div>
-        
-        {transcript && (
+
+        {/* Status Text */}
+        <p style={styles.statusText}>{getStatusText(voiceState)}</p>
+
+        {/* Live Transcript */}
+        {currentTranscript && (
           <div style={styles.transcriptBox}>
-            "{transcript}"
+            "{currentTranscript}"
           </div>
         )}
       </div>
 
       <style jsx global>{`
         @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(1.1); }
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.15); opacity: 0.7; }
         }
-        @keyframes blink {
-          0%, 50% { opacity: 1; }
-          51%, 100% { opacity: 0; }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes dots {
+          0%, 20% { opacity: 0; }
+          50% { opacity: 1; }
+          80%, 100% { opacity: 0; }
+        }
+        @keyframes wave {
+          0%, 100% { height: 8px; }
+          50% { height: 24px; }
         }
       `}</style>
     </div>
@@ -445,6 +247,7 @@ export default function Home() {
 // Helpers
 function getStateColor(state) {
   const colors = {
+    [STATE.CONNECTING]: "linear-gradient(135deg, #6b7280, #4b5563)",
     [STATE.LISTENING]: "linear-gradient(135deg, #22c55e, #16a34a)",
     [STATE.THINKING]: "linear-gradient(135deg, #f59e0b, #d97706)",
     [STATE.SPEAKING]: "linear-gradient(135deg, #8b5cf6, #a855f7)",
@@ -455,6 +258,7 @@ function getStateColor(state) {
 
 function getStateEmoji(state) {
   const emojis = {
+    [STATE.CONNECTING]: "⏳",
     [STATE.LISTENING]: "👂",
     [STATE.THINKING]: "💭",
     [STATE.SPEAKING]: "🗣️",
@@ -465,6 +269,7 @@ function getStateEmoji(state) {
 
 function getStatusText(state) {
   const texts = {
+    [STATE.CONNECTING]: "Verbinde...",
     [STATE.LISTENING]: "Ich höre zu...",
     [STATE.THINKING]: "Ich denke nach...",
     [STATE.SPEAKING]: "Amiya spricht...",
@@ -473,17 +278,15 @@ function getStatusText(state) {
   return texts[state] || "";
 }
 
-function getStatusStyle(state) {
-  if (state === STATE.LISTENING) {
-    return { background: "rgba(34, 197, 94, 0.1)", borderColor: "#22c55e" };
-  }
-  if (state === STATE.SPEAKING) {
-    return { background: "rgba(139, 92, 246, 0.1)", borderColor: "#8b5cf6" };
-  }
-  if (state === STATE.THINKING) {
-    return { background: "rgba(245, 158, 11, 0.1)", borderColor: "#f59e0b" };
-  }
-  return { background: "rgba(107, 114, 128, 0.1)", borderColor: "#6b7280" };
+function getStatusRingStyle(state) {
+  const styles = {
+    [STATE.CONNECTING]: { borderColor: "#6b7280" },
+    [STATE.LISTENING]: { borderColor: "#22c55e", boxShadow: "0 0 20px rgba(34,197,94,0.4)" },
+    [STATE.THINKING]: { borderColor: "#f59e0b", boxShadow: "0 0 20px rgba(245,158,11,0.4)" },
+    [STATE.SPEAKING]: { borderColor: "#8b5cf6", boxShadow: "0 0 20px rgba(139,92,246,0.4)" },
+    [STATE.IDLE]: { borderColor: "#6b7280" }
+  };
+  return styles[state] || styles[STATE.IDLE];
 }
 
 // Styles
@@ -528,7 +331,7 @@ const styles = {
   headerIcon: {
     width: "44px", height: "44px", borderRadius: "12px",
     display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: "22px", transition: "background 0.3s"
+    fontSize: "22px", transition: "all 0.3s"
   },
   headerTitle: { fontWeight: "600", color: "#1f2937", fontSize: "17px" },
   headerSubtitle: { fontSize: "13px", color: "#6b7280" },
@@ -553,24 +356,54 @@ const styles = {
     alignSelf: "flex-start", background: "white", color: "#1f2937",
     borderBottomLeftRadius: "4px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)"
   },
-  cursor: { animation: "blink 1s infinite", marginLeft: "2px" },
   voiceStatus: {
     background: "rgba(255,255,255,0.95)", backdropFilter: "blur(10px)",
-    borderTop: "1px solid #e9d5ff", padding: "16px 20px",
-    display: "flex", flexDirection: "column", alignItems: "center", gap: "12px"
+    borderTop: "1px solid #e9d5ff", padding: "24px 20px 32px",
+    display: "flex", flexDirection: "column", alignItems: "center"
   },
-  statusIndicator: {
-    display: "flex", alignItems: "center", gap: "8px",
-    padding: "8px 16px", borderRadius: "20px",
-    border: "2px solid", transition: "all 0.3s"
+  statusRing: {
+    width: "100px", height: "100px", borderRadius: "50%",
+    border: "4px solid #6b7280", display: "flex",
+    alignItems: "center", justifyContent: "center",
+    transition: "all 0.3s"
   },
-  statusDot: {
-    width: "8px", height: "8px", borderRadius: "50%",
-    background: "currentColor", animation: "pulse 1.5s infinite"
+  statusInner: {
+    width: "80px", height: "80px", borderRadius: "50%",
+    background: "rgba(139,92,246,0.1)", display: "flex",
+    alignItems: "center", justifyContent: "center"
   },
-  statusLabel: { fontSize: "14px", fontWeight: "500", color: "#374151" },
+  spinner: {
+    width: "30px", height: "30px", border: "3px solid #e5e7eb",
+    borderTopColor: "#6b7280", borderRadius: "50%",
+    animation: "spin 1s linear infinite"
+  },
+  listeningPulse: {
+    width: "40px", height: "40px", borderRadius: "50%",
+    background: "#22c55e", animation: "pulse 1.5s infinite"
+  },
+  thinkingDots: {
+    display: "flex", gap: "4px", fontSize: "32px", color: "#f59e0b",
+    "& span:nth-child(1)": { animation: "dots 1.4s infinite 0s" },
+    "& span:nth-child(2)": { animation: "dots 1.4s infinite 0.2s" },
+    "& span:nth-child(3)": { animation: "dots 1.4s infinite 0.4s" }
+  },
+  speakingWave: {
+    display: "flex", alignItems: "center", gap: "4px", height: "30px",
+    "& div": {
+      width: "4px", background: "#8b5cf6", borderRadius: "2px",
+      animation: "wave 0.6s ease-in-out infinite"
+    },
+    "& div:nth-child(1)": { animationDelay: "0s" },
+    "& div:nth-child(2)": { animationDelay: "0.1s" },
+    "& div:nth-child(3)": { animationDelay: "0.2s" },
+    "& div:nth-child(4)": { animationDelay: "0.3s" },
+    "& div:nth-child(5)": { animationDelay: "0.4s" }
+  },
+  micIcon: { fontSize: "32px" },
+  statusText: { color: "#6b7280", fontSize: "14px", marginTop: "16px" },
   transcriptBox: {
-    padding: "10px 16px", background: "#f3f4f6", borderRadius: "12px",
-    maxWidth: "90%", color: "#4b5563", fontSize: "14px", fontStyle: "italic"
+    marginTop: "12px", padding: "12px 20px", background: "#f3f4f6",
+    borderRadius: "12px", maxWidth: "90%", color: "#4b5563",
+    fontSize: "14px", fontStyle: "italic"
   }
 };
