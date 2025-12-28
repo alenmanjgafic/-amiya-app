@@ -61,6 +61,24 @@ export default function Home() {
   const silenceTimerRef = useRef(null);
   const timerRef = useRef(null);
   const messagesEndRef = useRef(null);
+  
+  // Refs to track current state (to avoid closure issues)
+  const voiceStateRef = useRef(voiceState);
+  const transcriptRef = useRef(transcript);
+  const messagesRef = useRef(messages);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    voiceStateRef.current = voiceState;
+  }, [voiceState]);
+
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Scroll to bottom
   useEffect(() => {
@@ -79,85 +97,47 @@ export default function Home() {
 
   const formatTime = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`;
 
-  // Initialize speech recognition
-  useEffect(() => {
-    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
-      const SR = window.webkitSpeechRecognition;
-      recognitionRef.current = new SR();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = "de-DE";
-
-      recognitionRef.current.onresult = (e) => {
-        let interim = "";
-        let final = "";
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          if (e.results[i].isFinal) {
-            final += e.results[i][0].transcript;
-          } else {
-            interim += e.results[i][0].transcript;
-          }
-        }
-        
-        setTranscript(prev => {
-          const newTranscript = prev + final;
-          if (interim) return newTranscript + interim;
-          return newTranscript;
-        });
-
-        // Reset silence timer on speech
-        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-        
-        if (final) {
-          // Start silence detection after final result
-          silenceTimerRef.current = setTimeout(() => {
-            if (voiceState === STATE.LISTENING) {
-              handleSendMessage();
-            }
-          }, 1500);
-        }
-      };
-
-      recognitionRef.current.onerror = (e) => {
-        console.error("Speech error:", e.error);
-        if (e.error !== "no-speech") {
-          setVoiceState(STATE.IDLE);
-        }
-      };
-
-      recognitionRef.current.onend = () => {
-        // Restart if still in listening mode
-        if (voiceState === STATE.LISTENING) {
-          try {
-            recognitionRef.current.start();
-          } catch (err) {}
-        }
-      };
-    }
-  }, [voiceState]);
-
-  const startListening = useCallback(() => {
-    if (!recognitionRef.current) {
-      alert("Spracherkennung nicht unterstützt. Bitte nutze Chrome.");
+  // Send message function (defined early so it can be used in recognition setup)
+  const sendMessage = useCallback(async (textToSend, currentMessages) => {
+    if (!textToSend || !textToSend.trim()) {
       return;
     }
+
+    setVoiceState(STATE.THINKING);
+    
+    const newMessages = [...currentMessages, { role: "user", content: textToSend.trim() }];
+    setMessages(newMessages);
     setTranscript("");
-    setVoiceState(STATE.LISTENING);
+
     try {
-      recognitionRef.current.start();
-    } catch (err) {}
-  }, []);
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: newMessages, system: SYSTEM_PROMPT }),
+      });
 
-  const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (err) {}
+      const data = await response.json();
+      
+      if (data.error) throw new Error(data.error);
+      
+      const updatedMessages = [...newMessages, { role: "assistant", content: data.message }];
+      setMessages(updatedMessages);
+      messagesRef.current = updatedMessages;
+      
+      // Speak the response
+      await speakTextInternal(data.message);
+    } catch (err) {
+      console.error("Error:", err);
+      const errorMsg = "Entschuldige, da gab es ein Problem. Kannst du das nochmal sagen?";
+      const updatedMessages = [...newMessages, { role: "assistant", content: errorMsg }];
+      setMessages(updatedMessages);
+      messagesRef.current = updatedMessages;
+      await speakTextInternal(errorMsg);
     }
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
   }, []);
 
-  const speakText = useCallback(async (text) => {
+  // Internal speak function
+  const speakTextInternal = async (text) => {
     setVoiceState(STATE.SPEAKING);
     try {
       const response = await fetch("/api/speak", {
@@ -174,20 +154,158 @@ export default function Home() {
         audioRef.current.onended = () => {
           setVoiceState(STATE.IDLE);
           // Auto-start listening after Amiya finishes
-          setTimeout(() => startListening(), 300);
+          setTimeout(() => {
+            startListeningInternal();
+          }, 300);
         };
         
         await audioRef.current.play();
       } else {
         setVoiceState(STATE.IDLE);
-        startListening();
+        setTimeout(() => startListeningInternal(), 300);
       }
     } catch (err) {
       console.error("Speech error:", err);
       setVoiceState(STATE.IDLE);
-      startListening();
+      setTimeout(() => startListeningInternal(), 300);
     }
-  }, [startListening]);
+  };
+
+  // Internal start listening function
+  const startListeningInternal = () => {
+    if (!recognitionRef.current) {
+      return;
+    }
+    setTranscript("");
+    transcriptRef.current = "";
+    setVoiceState(STATE.LISTENING);
+    voiceStateRef.current = STATE.LISTENING;
+    try {
+      recognitionRef.current.start();
+    } catch (err) {
+      console.log("Recognition already started or error:", err);
+    }
+  };
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
+      const SR = window.webkitSpeechRecognition;
+      recognitionRef.current = new SR();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = "de-DE";
+
+      let finalTranscript = "";
+
+      recognitionRef.current.onresult = (e) => {
+        let interimTranscript = "";
+        
+        // Process results
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const result = e.results[i];
+          if (result.isFinal) {
+            finalTranscript += result[0].transcript + " ";
+          } else {
+            interimTranscript += result[0].transcript;
+          }
+        }
+        
+        // Update display: show final + interim
+        const displayText = (finalTranscript + interimTranscript).trim();
+        setTranscript(displayText);
+        transcriptRef.current = displayText;
+
+        // Reset silence timer on any speech activity
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+        }
+        
+        // Only start silence timer if we have final results and are listening
+        if (finalTranscript.trim() && voiceStateRef.current === STATE.LISTENING) {
+          silenceTimerRef.current = setTimeout(() => {
+            console.log("Silence detected, sending:", finalTranscript.trim());
+            
+            // Stop recognition first
+            try {
+              recognitionRef.current.stop();
+            } catch (err) {}
+            
+            // Send the message
+            const textToSend = finalTranscript.trim();
+            finalTranscript = ""; // Reset for next turn
+            
+            if (textToSend) {
+              sendMessage(textToSend, messagesRef.current);
+            }
+          }, 1800); // 1.8 seconds of silence
+        }
+      };
+
+      recognitionRef.current.onstart = () => {
+        finalTranscript = ""; // Reset on new listening session
+      };
+
+      recognitionRef.current.onerror = (e) => {
+        console.error("Speech error:", e.error);
+        if (e.error === "no-speech") {
+          // Restart if no speech detected but still in listening mode
+          if (voiceStateRef.current === STATE.LISTENING) {
+            try {
+              recognitionRef.current.start();
+            } catch (err) {}
+          }
+        } else if (e.error !== "aborted") {
+          setVoiceState(STATE.IDLE);
+        }
+      };
+
+      recognitionRef.current.onend = () => {
+        // Only restart if still supposed to be listening
+        if (voiceStateRef.current === STATE.LISTENING) {
+          try {
+            recognitionRef.current.start();
+          } catch (err) {
+            console.log("Could not restart recognition");
+          }
+        }
+      };
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (err) {}
+      }
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+    };
+  }, [sendMessage]);
+
+  const startListening = useCallback(() => {
+    if (!recognitionRef.current) {
+      alert("Spracherkennung nicht unterstützt. Bitte nutze Chrome.");
+      return;
+    }
+    startListeningInternal();
+  }, []);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (err) {}
+    }
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+  }, []);
+
+  const speakText = useCallback(async (text) => {
+    await speakTextInternal(text);
+  }, []);
 
   const stopSpeaking = useCallback(() => {
     if (audioRef.current) {
@@ -198,39 +316,15 @@ export default function Home() {
   }, []);
 
   const handleSendMessage = useCallback(async () => {
-    const text = transcript.trim();
+    const text = transcriptRef.current.trim();
     if (!text) {
       startListening();
       return;
     }
 
     stopListening();
-    setVoiceState(STATE.THINKING);
-    
-    const newMessages = [...messages, { role: "user", content: text }];
-    setMessages(newMessages);
-    setTranscript("");
-
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages, system: SYSTEM_PROMPT }),
-      });
-
-      const data = await response.json();
-      
-      if (data.error) throw new Error(data.error);
-      
-      setMessages([...newMessages, { role: "assistant", content: data.message }]);
-      await speakText(data.message);
-    } catch (err) {
-      console.error("Error:", err);
-      const errorMsg = "Entschuldige, da gab es ein Problem. Kannst du das nochmal sagen?";
-      setMessages([...newMessages, { role: "assistant", content: errorMsg }]);
-      await speakText(errorMsg);
-    }
-  }, [transcript, messages, stopListening, speakText, startListening]);
+    await sendMessage(text, messagesRef.current);
+  }, [stopListening, startListening, sendMessage]);
 
   // Handle interruption
   const handleInterrupt = useCallback(() => {
@@ -244,6 +338,7 @@ export default function Home() {
     setStarted(true);
     const greeting = "Hey. Was ist los?";
     setMessages([{ role: "assistant", content: greeting }]);
+    messagesRef.current = [{ role: "assistant", content: greeting }];
     await speakText(greeting);
   };
 
@@ -251,10 +346,13 @@ export default function Home() {
     stopListening();
     stopSpeaking();
     setMessages([]);
+    messagesRef.current = [];
     setStarted(false);
     setSessionTime(0);
     setTranscript("");
+    transcriptRef.current = "";
     setVoiceState(STATE.IDLE);
+    voiceStateRef.current = STATE.IDLE;
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
