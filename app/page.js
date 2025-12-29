@@ -103,15 +103,49 @@ export default function Home() {
       const { Conversation } = await import("@11labs/client");
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
+      // Solo Session System Prompt mit Kontext
+      const soloSystemPrompt = `Du bist Amiya, eine erfahrene und einfühlsame Paartherapeutin. Du führst gerade eine Solo-Sitzung mit ${profile?.name || "dem User"}.
+
+${userContext ? userContext : "Keine früheren Gespräche vorhanden."}
+
+UMGANG MIT KONTEXT AUS FRÜHEREN GESPRÄCHEN:
+- Die Informationen oben sind chronologisch sortiert (neueste zuerst)
+- Bei Widersprüchen gilt IMMER die neuere Information
+- Beziehe dich auf vergangene Gespräche nur wenn es relevant ist
+- Wenn unsicher ob etwas noch aktuell ist, frag nach
+- Nutze das Wissen um Muster zu erkennen
+
+DEINE ROLLE:
+- Du hörst aktiv zu und validierst Gefühle
+- Du stellst offene Fragen um tiefer zu gehen
+- Du bist warm, aber professionell
+- Du hilfst ${profile?.name || "dem User"} die eigene Perspektive zu reflektieren
+
+KOMMUNIKATIONSSTIL:
+- Schweizerdeutsch-freundliches Hochdeutsch
+- Kurze Sätze (1-3 Sätze pro Antwort)
+- Warm aber klar
+- Keine Floskeln
+
+GRENZEN:
+- Du bist kein Ersatz für echte Therapie
+- Bei komplexen Themen (Trauma, Sucht, psychische Erkrankungen) empfiehlst du professionelle Unterstützung
+
+Partner von ${profile?.name || "dem User"}: ${profile?.partner_name || "unbekannt"}`;
+
+      console.log("System prompt length:", soloSystemPrompt.length);
+
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
-        dynamicVariables: {
-          user_name: profile?.name || "",
-          partner_name: profile?.partner_name || "",
-          user_context: userContext,
+        overrides: {
+          agent: {
+            prompt: {
+              prompt: soloSystemPrompt
+            }
+          }
         },
         onConnect: () => {
-          console.log("Connected to ElevenLabs");
+          console.log("Connected to ElevenLabs with context");
           setVoiceState(STATE.LISTENING);
         },
         onDisconnect: () => {
