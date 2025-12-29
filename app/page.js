@@ -179,6 +179,22 @@ export default function Home() {
     }
   }, []);
 
+  // resetSession muss VOR endSession definiert werden
+  const resetSession = useCallback(() => {
+    setStarted(false);
+    setVoiceState(STATE.IDLE);
+    messagesRef.current = [];
+    setMessageCount(0);
+    setSessionTime(0);
+    setCurrentSessionId(null);
+    setIsGeneratingAnalysis(false);
+    
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
   const endSession = useCallback(async (requestAnalysis = false) => {
     const sessionIdToAnalyze = currentSessionId;
     const currentMessages = messagesRef.current;
@@ -254,21 +270,6 @@ export default function Home() {
       resetSession();
     }
   }, [currentSessionId, profile, checkAnalysisViability, resetSession]);
-
-  const resetSession = useCallback(() => {
-    setStarted(false);
-    setVoiceState(STATE.IDLE);
-    messagesRef.current = [];
-    setMessageCount(0);
-    setSessionTime(0);
-    setCurrentSessionId(null);
-    setIsGeneratingAnalysis(false);
-    
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
 
   const handleCloseAnalysis = () => {
     setShowAnalysis(false);
