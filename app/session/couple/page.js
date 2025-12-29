@@ -11,9 +11,6 @@ import { sessionsService } from "../../../lib/sessions";
 
 const AGENT_ID = "agent_8601kdk8kndtedgbn0ea13zff5aa";
 
-// Minimum messages required for meaningful analysis
-const MIN_MESSAGES_FOR_ANALYSIS = 4;
-
 // Couple Session System Prompt Override
 const COUPLE_SYSTEM_PROMPT = `Du bist Amiya, eine erfahrene und einfühlsame Paartherapeutin. Du führst gerade eine gemeinsame Sitzung mit {{user_name}} und {{partner_name}}.
 
@@ -231,16 +228,33 @@ export default function CoupleSessionPage() {
     setShowEndDialog(true);
   }, []);
 
-  // Prüfen ob genug Inhalt für Analyse vorhanden
-  const hasEnoughContentForAnalysis = useCallback(() => {
+  // Prüft via Claude ob genug Kontext für eine sinnvolle Analyse vorhanden ist
+  const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
-    if (messages.length < MIN_MESSAGES_FOR_ANALYSIS) return false;
+    if (messages.length === 0) return { viable: false, reason: "empty" };
     
-    // Prüfe ob mindestens eine User-Nachricht substanziell ist (>20 Zeichen)
-    const userMessages = messages.filter(m => m.role === "user");
-    const hasSubstantialContent = userMessages.some(m => m.content.length > 20);
+    // Erstelle Transcript für Check
+    const transcript = messages
+      .map(m => `${m.role === "user" ? "Paar" : "Amiya"}: ${m.content}`)
+      .join("\n");
     
-    return hasSubstantialContent;
+    try {
+      const response = await fetch("/api/check-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript }),
+      });
+      
+      if (!response.ok) {
+        return { viable: true, reason: null };
+      }
+      
+      const data = await response.json();
+      return { viable: data.viable, reason: data.reason };
+    } catch (error) {
+      console.error("Analysis viability check failed:", error);
+      return { viable: true, reason: null };
+    }
   }, []);
 
   const resetSession = useCallback(() => {
@@ -276,24 +290,31 @@ export default function CoupleSessionPage() {
         await sessionsService.end(currentSessionId, summary, []);
         
         if (requestAnalysis) {
+          // Zeige Loading-State während Viability-Check
+          setIsGeneratingAnalysis(true);
+          setShowEndDialog(false);
+          
           // Prüfe ob genug Inhalt vorhanden
-          if (!hasEnoughContentForAnalysis()) {
-            setAnalysisError("Keine Analyse möglich – das Gespräch war zu kurz oder enthielt keinen verwertbaren Inhalt.");
-            setShowEndDialog(false);
+          const viability = await checkAnalysisViability();
+          
+          if (!viability.viable) {
+            setIsGeneratingAnalysis(false);
+            const errorMessages = {
+              "empty": "Keine Analyse möglich – es wurden keine Gespräche aufgezeichnet.",
+              "too_short": "Keine Analyse möglich – das Gespräch war zu kurz für eine aussagekräftige Auswertung.",
+              "no_context": "Keine Analyse möglich – es fehlt verwertbarer Kontext für eine sinnvolle Analyse.",
+              "unclear": "Keine Analyse möglich – der Gesprächsinhalt war nicht klar genug für eine Auswertung."
+            };
+            setAnalysisError(errorMessages[viability.reason] || "Keine Analyse möglich – nicht genügend Inhalt vorhanden.");
             setTimeout(() => {
               router.push("/wir");
             }, 3000);
             return;
           }
           
-          // Zeige Loading-State
-          setIsGeneratingAnalysis(true);
-          setShowEndDialog(false);
-          
           try {
             await sessionsService.requestAnalysis(currentSessionId);
             setIsGeneratingAnalysis(false);
-            // Navigate to history with session
             router.push(`/history?session=${sessionIdToAnalyze}`);
           } catch (analysisErr) {
             console.error("Analysis failed:", analysisErr);
@@ -308,6 +329,13 @@ export default function CoupleSessionPage() {
       } catch (error) {
         console.error("Failed to save session:", error);
       }
+    } else if (requestAnalysis && !hasMessages) {
+      setAnalysisError("Keine Analyse möglich – es wurden keine Gespräche aufgezeichnet.");
+      setShowEndDialog(false);
+      setTimeout(() => {
+        router.push("/wir");
+      }, 3000);
+      return;
     }
     
     if (!requestAnalysis) {
@@ -315,68 +343,7 @@ export default function CoupleSessionPage() {
       resetSession();
       router.push("/wir");
     }
-  }, [currentSessionId, userName, partnerName, router, hasEnoughContentForAnalysis, resetSession]);
-
-  const handleCancelEnd = useCallback(async () => {
-    // Session wurde bereits beendet, muss neu gestartet werden
-    setShowEndDialog(false);
-    setAnalysisError(null);
-    
-    // Restart session
-    if (messagesRef.current.length > 0) {
-      setVoiceState(STATE.CONNECTING);
-      try {
-        const { Conversation } = await import("@11labs/client");
-        
-        const customPrompt = COUPLE_SYSTEM_PROMPT
-          .replace(/\{\{user_name\}\}/g, userName)
-          .replace(/\{\{partner_name\}\}/g, partnerName);
-
-        const conversation = await Conversation.startSession({
-          agentId: AGENT_ID,
-          dynamicVariables: {
-            user_name: userName,
-            partner_name: partnerName,
-          },
-          overrides: {
-            agent: {
-              prompt: {
-                prompt: customPrompt
-              }
-            }
-          },
-          onConnect: () => setVoiceState(STATE.LISTENING),
-          onDisconnect: () => setVoiceState(STATE.IDLE),
-          onMessage: (message) => {
-            if (message.source && message.message) {
-              const role = message.source === "user" ? "user" : "assistant";
-              const content = message.message;
-              const lastMsg = messagesRef.current[messagesRef.current.length - 1];
-              if (!(lastMsg && lastMsg.role === role && lastMsg.content === content)) {
-                messagesRef.current.push({ role, content });
-                setMessageCount(messagesRef.current.length);
-              }
-            }
-          },
-          onModeChange: (mode) => {
-            const modeValue = mode.mode || mode;
-            if (modeValue === "listening") setVoiceState(STATE.LISTENING);
-            else if (modeValue === "thinking") setVoiceState(STATE.THINKING);
-            else if (modeValue === "speaking") setVoiceState(STATE.SPEAKING);
-          },
-          onError: (error) => {
-            console.error("ElevenLabs error:", error);
-            setVoiceState(STATE.IDLE);
-          }
-        });
-        
-        conversationRef.current = conversation;
-      } catch (error) {
-        console.error("Failed to restart session:", error);
-        router.push("/wir");
-      }
-    }
-  }, [userName, partnerName, router]);
+  }, [currentSessionId, userName, partnerName, router, checkAnalysisViability, resetSession]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -492,11 +459,9 @@ export default function CoupleSessionPage() {
           <div style={styles.dialog}>
             <h3 style={styles.dialogTitle}>Session beenden?</h3>
             <p style={styles.dialogText}>
-              {messageCount >= MIN_MESSAGES_FOR_ANALYSIS
+              {messageCount > 0
                 ? "Möchtet ihr eine gemeinsame Analyse?"
-                : messageCount > 0
-                  ? `Nur ${messageCount} Nachricht${messageCount > 1 ? "en" : ""} – für eine Analyse braucht es etwas mehr Gespräch.`
-                  : "Keine Gespräche aufgezeichnet."
+                : "Keine Gespräche aufgezeichnet."
               }
             </p>
             <div style={styles.dialogButtons}>
@@ -504,26 +469,20 @@ export default function CoupleSessionPage() {
                 onClick={() => endSession(false)} 
                 style={styles.dialogButtonSecondary}
               >
-                Nur beenden
+                Ohne Analyse
               </button>
               <button 
                 onClick={() => endSession(true)} 
                 style={{
                   ...styles.dialogButtonPrimary,
-                  opacity: messageCount >= MIN_MESSAGES_FOR_ANALYSIS ? 1 : 0.5,
-                  cursor: messageCount >= MIN_MESSAGES_FOR_ANALYSIS ? "pointer" : "not-allowed"
+                  opacity: messageCount > 0 ? 1 : 0.5,
+                  cursor: messageCount > 0 ? "pointer" : "not-allowed"
                 }}
-                disabled={messageCount < MIN_MESSAGES_FOR_ANALYSIS}
+                disabled={messageCount === 0}
               >
                 Mit Analyse
               </button>
             </div>
-            <button 
-              onClick={handleCancelEnd} 
-              style={styles.dialogCancel}
-            >
-              Weiter sprechen
-            </button>
           </div>
         </div>
       )}
@@ -844,13 +803,6 @@ const styles = {
     borderRadius: "12px",
     fontSize: "15px",
     fontWeight: "600",
-    cursor: "pointer",
-  },
-  dialogCancel: {
-    background: "none",
-    border: "none",
-    color: "#6b7280",
-    fontSize: "14px",
     cursor: "pointer",
   },
 };
