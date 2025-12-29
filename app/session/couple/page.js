@@ -14,6 +14,15 @@ const AGENT_ID = "agent_8601kdk8kndtedgbn0ea13zff5aa";
 // Couple Session System Prompt Override
 const COUPLE_SYSTEM_PROMPT = `Du bist Amiya, eine erfahrene und einfühlsame Paartherapeutin. Du führst gerade eine gemeinsame Sitzung mit {{user_name}} und {{partner_name}}.
 
+{{user_context}}
+
+UMGANG MIT KONTEXT AUS FRÜHEREN GESPRÄCHEN:
+- Die Informationen oben sind chronologisch sortiert (neueste zuerst)
+- Bei Widersprüchen gilt IMMER die neuere Information
+- Beziehe dich auf vergangene Gespräche nur wenn es relevant ist
+- Wenn unsicher ob etwas noch aktuell ist, frag nach: "Letztens habt ihr über X gesprochen - ist das noch ein Thema?"
+- Nutze das Wissen um Muster zu erkennen und darauf einzugehen
+
 DEINE ROLLE:
 - Du moderierst das Gespräch aktiv zwischen beiden Partnern
 - Du sorgst für Balance - beide bekommen gleich viel Raum
@@ -131,6 +140,28 @@ export default function CoupleSessionPage() {
     setAnalysisError(null);
 
     try {
+      // Lade Kontext aus früheren Sessions
+      let userContext = "";
+      try {
+        const contextResponse = await fetch("/api/get-context", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            userId: user.id,
+            coupleId: profile?.couple_id || null
+          }),
+        });
+        
+        if (contextResponse.ok) {
+          const contextData = await contextResponse.json();
+          userContext = contextData.context || "";
+          console.log(`Loaded context from ${contextData.sessionCount} sessions`);
+        }
+      } catch (contextError) {
+        console.error("Failed to load context:", contextError);
+        // Weitermachen ohne Kontext
+      }
+
       // Create session in database as "couple" type
       const session = await sessionsService.create(user.id, "couple", profile.couple_id);
       setCurrentSessionId(session.id);
@@ -151,6 +182,7 @@ export default function CoupleSessionPage() {
         dynamicVariables: {
           user_name: userName,
           partner_name: partnerName,
+          user_context: userContext,
         },
         overrides: {
           agent: {
