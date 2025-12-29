@@ -138,6 +138,7 @@ export default function Home() {
 
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
+        connectionType: "websocket",
         dynamicVariables: {
           user_name: profile?.name || "User",
           partner_name: profile?.partner_name || "Partner",
