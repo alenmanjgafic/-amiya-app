@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
 export default function AnalysisView({ sessionId, onClose }) {
   const [analysis, setAnalysis] = useState(null);
@@ -8,14 +9,40 @@ export default function AnalysisView({ sessionId, onClose }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    generateAnalysis();
+    loadOrGenerateAnalysis();
   }, [sessionId]);
 
-  const generateAnalysis = async () => {
+  const loadOrGenerateAnalysis = async () => {
     try {
       setLoading(true);
       setError(null);
 
+      // First, check if analysis already exists
+      const { data: session, error: fetchError } = await supabase
+        .from("sessions")
+        .select("analysis, themes")
+        .eq("id", sessionId)
+        .single();
+
+      if (fetchError) {
+        throw new Error("Session nicht gefunden");
+      }
+
+      // If analysis exists, show it
+      if (session.analysis) {
+        setAnalysis(session.analysis);
+        // Parse themes if it's a string
+        if (session.themes) {
+          const parsedThemes = typeof session.themes === 'string' 
+            ? JSON.parse(session.themes) 
+            : session.themes;
+          setThemes(parsedThemes || []);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // No analysis yet - generate one
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -50,14 +77,52 @@ export default function AnalysisView({ sessionId, onClose }) {
     anerkennung: "⭐ Anerkennung",
   };
 
+  // Simple markdown-like rendering
+  const renderAnalysis = (text) => {
+    if (!text) return null;
+    
+    return text.split("\n").map((line, i) => {
+      // Headers with ##
+      if (line.startsWith("## ")) {
+        return (
+          <h2 key={i} style={styles.mainTitle}>
+            {line.replace("## ", "")}
+          </h2>
+        );
+      }
+      // Bold sections **text**
+      if (line.startsWith("**") && line.endsWith("**")) {
+        return (
+          <h3 key={i} style={styles.sectionTitle}>
+            {line.replace(/\*\*/g, "")}
+          </h3>
+        );
+      }
+      // Lines with bold at start
+      if (line.startsWith("**")) {
+        const parts = line.split("**");
+        return (
+          <p key={i} style={styles.paragraph}>
+            <strong>{parts[1]}</strong>{parts[2]}
+          </p>
+        );
+      }
+      // Regular paragraphs
+      if (line.trim()) {
+        return <p key={i} style={styles.paragraph}>{line}</p>;
+      }
+      return null;
+    });
+  };
+
   if (loading) {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
           <div style={styles.loadingContainer}>
             <div style={styles.spinner} />
-            <p style={styles.loadingText}>Analyse wird erstellt...</p>
-            <p style={styles.loadingSubtext}>Das dauert einen Moment</p>
+            <p style={styles.loadingText}>Analyse wird geladen...</p>
+            <p style={styles.loadingSubtext}>Einen Moment</p>
           </div>
         </div>
       </div>
@@ -99,19 +164,7 @@ export default function AnalysisView({ sessionId, onClose }) {
         )}
 
         <div style={styles.analysisContent}>
-          {analysis.split("\n").map((paragraph, i) => {
-            if (paragraph.startsWith("**") && paragraph.endsWith("**")) {
-              return (
-                <h3 key={i} style={styles.sectionTitle}>
-                  {paragraph.replace(/\*\*/g, "")}
-                </h3>
-              );
-            }
-            if (paragraph.trim()) {
-              return <p key={i} style={styles.paragraph}>{paragraph}</p>;
-            }
-            return null;
-          })}
+          {renderAnalysis(analysis)}
         </div>
 
         <button onClick={onClose} style={styles.doneButton}>
@@ -189,6 +242,13 @@ const styles = {
   },
   analysisContent: {
     marginBottom: "24px",
+  },
+  mainTitle: {
+    fontSize: "18px",
+    fontWeight: "bold",
+    color: "#8b5cf6",
+    marginTop: "0",
+    marginBottom: "16px",
   },
   sectionTitle: {
     fontSize: "16px",
