@@ -1,6 +1,7 @@
 /**
  * MAIN PAGE - app/page.js
  * Hauptseite mit Solo Voice-Session
+ * OPTIMIERT: Sofortiges Audio-Stop + Analyse-Loading-State
  */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -19,6 +20,9 @@ const STATE = {
   SPEAKING: "speaking"
 };
 
+// Minimum messages required for meaningful analysis
+const MIN_MESSAGES_FOR_ANALYSIS = 4;
+
 export default function Home() {
   const { user, profile, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
@@ -31,6 +35,8 @@ export default function Home() {
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisSessionId, setAnalysisSessionId] = useState(null);
   const [messageCount, setMessageCount] = useState(0);
+  const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
+  const [analysisError, setAnalysisError] = useState(null);
   
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
@@ -69,6 +75,7 @@ export default function Home() {
     setVoiceState(STATE.CONNECTING);
     messagesRef.current = [];
     setMessageCount(0);
+    setAnalysisError(null);
 
     try {
       const session = await sessionsService.create(user.id, "solo");
@@ -129,19 +136,40 @@ export default function Home() {
     }
   }, [user, profile]);
 
-  const handleEndClick = () => {
-    setShowEndDialog(true);
-  };
-
-  const endSession = useCallback(async (requestAnalysis = false) => {
+  // OPTIMIERT: Sofort Audio stoppen wenn End-Button geklickt wird
+  const handleEndClick = useCallback(async () => {
+    // Sofort aufhören zuzuhören
     if (conversationRef.current) {
-      await conversationRef.current.endSession();
+      try {
+        await conversationRef.current.endSession();
+      } catch (e) {
+        console.log("Session already ended");
+      }
       conversationRef.current = null;
     }
+    setVoiceState(STATE.IDLE);
+    setShowEndDialog(true);
+  }, []);
+
+  // Prüfen ob genug Inhalt für Analyse vorhanden
+  const hasEnoughContentForAnalysis = useCallback(() => {
+    const messages = messagesRef.current;
+    if (messages.length < MIN_MESSAGES_FOR_ANALYSIS) return false;
     
+    // Prüfe ob mindestens eine User-Nachricht substanziell ist (>20 Zeichen)
+    const userMessages = messages.filter(m => m.role === "user");
+    const hasSubstantialContent = userMessages.some(m => m.content.length > 20);
+    
+    return hasSubstantialContent;
+  }, []);
+
+  const endSession = useCallback(async (requestAnalysis = false) => {
     const sessionIdToAnalyze = currentSessionId;
     const currentMessages = messagesRef.current;
     const hasMessages = currentMessages.length > 0;
+    
+    // Reset error state
+    setAnalysisError(null);
     
     if (currentSessionId && hasMessages) {
       try {
@@ -156,38 +184,122 @@ export default function Home() {
         await sessionsService.end(currentSessionId, summary, []);
         
         if (requestAnalysis) {
-          await sessionsService.requestAnalysis(currentSessionId);
+          // Prüfe ob genug Inhalt vorhanden
+          if (!hasEnoughContentForAnalysis()) {
+            setAnalysisError("Keine Analyse möglich – das Gespräch war zu kurz oder enthielt keinen verwertbaren Inhalt.");
+            setShowEndDialog(false);
+            setTimeout(() => {
+              resetSession();
+            }, 3000);
+            return;
+          }
+          
+          // Zeige Loading-State
+          setIsGeneratingAnalysis(true);
+          setShowEndDialog(false);
+          
+          try {
+            await sessionsService.requestAnalysis(currentSessionId);
+            setIsGeneratingAnalysis(false);
+            setAnalysisSessionId(sessionIdToAnalyze);
+            setShowAnalysis(true);
+          } catch (analysisErr) {
+            console.error("Analysis failed:", analysisErr);
+            setIsGeneratingAnalysis(false);
+            setAnalysisError("Analyse konnte nicht erstellt werden. Bitte versuche es später erneut.");
+            setTimeout(() => {
+              resetSession();
+            }, 3000);
+            return;
+          }
         }
       } catch (error) {
         console.error("Failed to save session:", error);
       }
     }
     
-    setShowEndDialog(false);
+    if (!requestAnalysis) {
+      setShowEndDialog(false);
+      resetSession();
+    }
+  }, [currentSessionId, profile, hasEnoughContentForAnalysis]);
+
+  const resetSession = useCallback(() => {
     setStarted(false);
     setVoiceState(STATE.IDLE);
     messagesRef.current = [];
     setMessageCount(0);
     setSessionTime(0);
     setCurrentSessionId(null);
+    setIsGeneratingAnalysis(false);
     
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-
-    if (requestAnalysis && sessionIdToAnalyze && hasMessages) {
-      setAnalysisSessionId(sessionIdToAnalyze);
-      setShowAnalysis(true);
-    } else if (requestAnalysis && !hasMessages) {
-      alert("Keine Nachrichten zum Analysieren vorhanden.");
-    }
-  }, [currentSessionId, profile]);
+  }, []);
 
   const handleCloseAnalysis = () => {
     setShowAnalysis(false);
     setAnalysisSessionId(null);
+    setAnalysisError(null);
+    resetSession();
   };
+
+  const handleCancelEnd = useCallback(async () => {
+    // Session wurde bereits beendet, muss neu gestartet werden
+    setShowEndDialog(false);
+    setAnalysisError(null);
+    
+    // Frage ob User weitermachen möchte
+    if (messagesRef.current.length > 0) {
+      // Restart session with same context
+      setVoiceState(STATE.CONNECTING);
+      try {
+        const { Conversation } = await import("@11labs/client");
+        
+        const conversation = await Conversation.startSession({
+          agentId: AGENT_ID,
+          dynamicVariables: {
+            user_name: profile?.name || "",
+            partner_name: profile?.partner_name || "",
+          },
+          onConnect: () => {
+            setVoiceState(STATE.LISTENING);
+          },
+          onDisconnect: () => {
+            setVoiceState(STATE.IDLE);
+          },
+          onMessage: (message) => {
+            if (message.source && message.message) {
+              const role = message.source === "user" ? "user" : "assistant";
+              const content = message.message;
+              const lastMsg = messagesRef.current[messagesRef.current.length - 1];
+              if (!(lastMsg && lastMsg.role === role && lastMsg.content === content)) {
+                messagesRef.current.push({ role, content });
+                setMessageCount(messagesRef.current.length);
+              }
+            }
+          },
+          onModeChange: (mode) => {
+            const modeValue = mode.mode || mode;
+            if (modeValue === "listening") setVoiceState(STATE.LISTENING);
+            else if (modeValue === "thinking") setVoiceState(STATE.THINKING);
+            else if (modeValue === "speaking") setVoiceState(STATE.SPEAKING);
+          },
+          onError: (error) => {
+            console.error("ElevenLabs error:", error);
+            setVoiceState(STATE.IDLE);
+          }
+        });
+        
+        conversationRef.current = conversation;
+      } catch (error) {
+        console.error("Failed to restart session:", error);
+        resetSession();
+      }
+    }
+  }, [profile, resetSession]);
 
   useEffect(() => {
     return () => {
@@ -218,7 +330,7 @@ export default function Home() {
   }
 
   // ============ START SCREEN ============
-  if (!started) {
+  if (!started && !isGeneratingAnalysis) {
     return (
       <div style={styles.container}>
         <div style={styles.startScreen}>
@@ -245,6 +357,13 @@ export default function Home() {
             Hey {displayName}. Erzähl mir was dich beschäftigt –<br/>
             über dich und {partnerName}.
           </p>
+          
+          {analysisError && (
+            <div style={styles.errorBanner}>
+              <span style={styles.errorIcon}>⚠️</span>
+              <p style={styles.errorText}>{analysisError}</p>
+            </div>
+          )}
           
           <button onClick={startSession} style={styles.startButton}>
             Session starten
@@ -279,6 +398,33 @@ export default function Home() {
             onClose={handleCloseAnalysis} 
           />
         )}
+      </div>
+    );
+  }
+
+  // ============ ANALYSIS GENERATING SCREEN ============
+  if (isGeneratingAnalysis) {
+    return (
+      <div style={styles.sessionContainer}>
+        <div style={styles.analysisLoadingContainer}>
+          <div style={styles.analysisSpinner} />
+          <h2 style={styles.analysisLoadingTitle}>Analyse wird erstellt...</h2>
+          <p style={styles.analysisLoadingText}>
+            Amiya wertet euer Gespräch aus.<br/>
+            Das dauert einen Moment.
+          </p>
+        </div>
+
+        <style jsx global>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+        `}</style>
       </div>
     );
   }
@@ -324,9 +470,11 @@ export default function Home() {
           <div style={styles.dialog}>
             <h3 style={styles.dialogTitle}>Session beenden?</h3>
             <p style={styles.dialogText}>
-              {messageCount > 0 
+              {messageCount >= MIN_MESSAGES_FOR_ANALYSIS
                 ? "Möchtest du eine Analyse dieser Session?"
-                : "Keine Gespräche aufgezeichnet."
+                : messageCount > 0
+                  ? `Nur ${messageCount} Nachricht${messageCount > 1 ? "en" : ""} – für eine Analyse braucht es etwas mehr Gespräch.`
+                  : "Keine Gespräche aufgezeichnet."
               }
             </p>
             <div style={styles.dialogButtons}>
@@ -340,21 +488,29 @@ export default function Home() {
                 onClick={() => endSession(true)} 
                 style={{
                   ...styles.dialogButtonPrimary,
-                  opacity: messageCount > 0 ? 1 : 0.5
+                  opacity: messageCount >= MIN_MESSAGES_FOR_ANALYSIS ? 1 : 0.5,
+                  cursor: messageCount >= MIN_MESSAGES_FOR_ANALYSIS ? "pointer" : "not-allowed"
                 }}
-                disabled={messageCount === 0}
+                disabled={messageCount < MIN_MESSAGES_FOR_ANALYSIS}
               >
                 Mit Analyse
               </button>
             </div>
             <button 
-              onClick={() => setShowEndDialog(false)} 
+              onClick={handleCancelEnd} 
               style={styles.dialogCancel}
             >
               Weiter sprechen
             </button>
           </div>
         </div>
+      )}
+
+      {showAnalysis && analysisSessionId && (
+        <AnalysisView 
+          sessionId={analysisSessionId} 
+          onClose={handleCloseAnalysis} 
+        />
       )}
 
       <style jsx global>{`
@@ -529,6 +685,27 @@ const styles = {
     marginBottom: "32px", 
     lineHeight: "1.8" 
   },
+  errorBanner: {
+    background: "#fef2f2",
+    border: "1px solid #fecaca",
+    borderRadius: "12px",
+    padding: "16px",
+    marginBottom: "24px",
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "12px",
+    textAlign: "left",
+  },
+  errorIcon: {
+    fontSize: "20px",
+    flexShrink: 0,
+  },
+  errorText: {
+    color: "#dc2626",
+    fontSize: "14px",
+    margin: 0,
+    lineHeight: "1.5",
+  },
   startButton: {
     padding: "18px 40px",
     background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
@@ -656,6 +833,36 @@ const styles = {
     marginTop: "12px",
     minHeight: "20px",
   },
+  // Analysis Loading Screen
+  analysisLoadingContainer: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "40px 20px",
+  },
+  analysisSpinner: {
+    width: "60px",
+    height: "60px",
+    border: "5px solid #e5e7eb",
+    borderTopColor: "#8b5cf6",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+    marginBottom: "24px",
+  },
+  analysisLoadingTitle: {
+    fontSize: "22px",
+    fontWeight: "bold",
+    color: "#1f2937",
+    marginBottom: "12px",
+  },
+  analysisLoadingText: {
+    color: "#6b7280",
+    fontSize: "15px",
+    textAlign: "center",
+    lineHeight: "1.6",
+  },
   dialogOverlay: {
     position: "fixed",
     top: 0,
@@ -686,6 +893,7 @@ const styles = {
   dialogText: {
     color: "#6b7280",
     marginBottom: "24px",
+    lineHeight: "1.5",
   },
   dialogButtons: {
     display: "flex",
