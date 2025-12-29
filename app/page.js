@@ -117,17 +117,31 @@ export default function Home() {
       const session = await sessionsService.create(user.id, "solo");
       setCurrentSessionId(session.id);
 
-      const { Conversation } = await import("@11labs/client");
+      const { Conversation } = await import("@elevenlabs/client");
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
       console.log("Context length:", userContext.length);
+      console.log("Context preview:", userContext.substring(0, 300));
+
+      // Sanitize context for ElevenLabs - remove problematic characters and limit length
+      let sanitizedContext = userContext
+        .replace(/\n/g, ' ')  // Replace newlines with spaces
+        .replace(/\s+/g, ' ') // Collapse multiple spaces
+        .trim()
+        .substring(0, 800);   // Limit to 800 chars
+      
+      if (userContext.length > 800) {
+        sanitizedContext += "...";
+      }
+      
+      console.log("Sanitized context:", sanitizedContext);
 
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
         dynamicVariables: {
-          user_name: profile?.name || "",
-          partner_name: profile?.partner_name || "",
-          user_context: userContext || "Keine früheren Gespräche vorhanden.",
+          user_name: profile?.name || "User",
+          partner_name: profile?.partner_name || "Partner",
+          user_context: sanitizedContext || "Keine früheren Gespräche vorhanden.",
         },
         onConnect: () => {
           console.log("Connected to ElevenLabs");
