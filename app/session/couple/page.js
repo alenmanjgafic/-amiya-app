@@ -114,7 +114,7 @@ export default function CoupleSessionPage() {
       setCurrentSessionId(session.id);
 
       // Dynamically import ElevenLabs SDK
-      const { Conversation } = await import("@11labs/client");
+      const { Conversation } = await import("@elevenlabs/client");
 
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
