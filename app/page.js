@@ -75,6 +75,28 @@ export default function Home() {
     setAnalysisError(null);
 
     try {
+      // Lade Kontext aus früheren Sessions
+      let userContext = "";
+      try {
+        const contextResponse = await fetch("/api/get-context", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            userId: user.id,
+            coupleId: profile?.couple_id || null
+          }),
+        });
+        
+        if (contextResponse.ok) {
+          const contextData = await contextResponse.json();
+          userContext = contextData.context || "";
+          console.log(`Loaded context from ${contextData.sessionCount} sessions`);
+        }
+      } catch (contextError) {
+        console.error("Failed to load context:", contextError);
+        // Weitermachen ohne Kontext
+      }
+
       const session = await sessionsService.create(user.id, "solo");
       setCurrentSessionId(session.id);
 
@@ -86,6 +108,7 @@ export default function Home() {
         dynamicVariables: {
           user_name: profile?.name || "",
           partner_name: profile?.partner_name || "",
+          user_context: userContext,
         },
         onConnect: () => {
           console.log("Connected to ElevenLabs");
