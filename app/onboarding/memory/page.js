@@ -27,10 +27,14 @@ export default function MemoryConsentPage() {
     }
   }, [profile, loading, router, user]);
 
-  // Skip if already has consent decision
+  // Skip if already has consent decision (explicitly set)
   useEffect(() => {
-    if (!loading && profile && profile.memory_consent !== null && profile.memory_consent !== undefined) {
-      router.push("/");
+    if (!loading && profile) {
+      // Only skip if consent was explicitly set (has a timestamp)
+      const hasDecided = profile.memory_consent_at !== null && profile.memory_consent_at !== undefined;
+      if (hasDecided) {
+        router.push("/");
+      }
     }
   }, [profile, loading, router]);
 
