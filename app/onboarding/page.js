@@ -1,17 +1,20 @@
 /**
- * MEMORY CONSENT PAGE - app/onboarding/memory/page.js
- * Consent-Screen für Memory-System nach Namen-Eingabe
+ * ONBOARDING PAGE - app/onboarding/page.js
+ * Pflicht-Eingabe von Name + Partner-Name nach Registrierung
  */
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../../../lib/AuthContext";
+import { useAuth } from "../../lib/AuthContext";
 
-export default function MemoryConsentPage() {
+export default function OnboardingPage() {
   const { user, profile, loading, updateProfile } = useAuth();
   const router = useRouter();
   
+  const [name, setName] = useState("");
+  const [partnerName, setPartnerName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   // Redirect if not logged in
   useEffect(() => {
@@ -20,35 +23,48 @@ export default function MemoryConsentPage() {
     }
   }, [user, loading, router]);
 
-  // Redirect if no name yet (should do regular onboarding first)
+  // Redirect if onboarding already done - go to memory consent if needed
   useEffect(() => {
-    if (!loading && user && profile && (!profile.name || !profile.partner_name)) {
-      router.push("/onboarding");
-    }
-  }, [profile, loading, router, user]);
-
-  // Skip if already has consent decision
-  useEffect(() => {
-    if (!loading && profile && profile.memory_consent !== null && profile.memory_consent !== undefined) {
-      router.push("/");
+    if (!loading && profile?.name && profile?.partner_name) {
+      // Check if memory consent is needed
+      if (profile.memory_consent === null || profile.memory_consent === undefined) {
+        router.push("/onboarding/memory");
+      } else {
+        router.push("/");
+      }
     }
   }, [profile, loading, router]);
 
-  const handleConsent = async (consent) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!name.trim()) {
+      setError("Bitte gib deinen Namen ein");
+      return;
+    }
+    if (!partnerName.trim()) {
+      setError("Bitte gib den Namen deines Partners / deiner Partnerin ein");
+      return;
+    }
+
     setSaving(true);
+    setError("");
+
     try {
       await updateProfile({
-        memory_consent: consent,
-        memory_consent_at: consent ? new Date().toISOString() : null,
+        name: name.trim(),
+        partner_name: partnerName.trim(),
       });
-      router.push("/");
-    } catch (error) {
-      console.error("Failed to save consent:", error);
+      // Go to memory consent screen
+      router.push("/onboarding/memory");
+    } catch (err) {
+      setError(err.message || "Fehler beim Speichern");
+    } finally {
       setSaving(false);
     }
   };
 
-  if (loading || !profile) {
+  if (loading) {
     return (
       <div style={styles.loadingContainer}>
         <div style={styles.spinner} />
@@ -57,87 +73,80 @@ export default function MemoryConsentPage() {
     );
   }
 
-  const partnerName = profile?.partner_name || "Partner";
+  if (!user) {
+    return null;
+  }
 
   return (
     <div style={styles.container}>
       <div style={styles.card}>
         {/* Header */}
         <div style={styles.header}>
-          <div style={styles.logo}>🧠</div>
-          <h1 style={styles.title}>Soll Amiya sich erinnern?</h1>
+          <div style={styles.logo}>💜</div>
+          <h1 style={styles.title}>Willkommen bei Amiya</h1>
+          <p style={styles.subtitle}>
+            Bevor es losgeht, erzähl mir kurz von euch.
+          </p>
         </div>
 
-        {/* Explanation */}
-        <div style={styles.content}>
-          <p style={styles.intro}>
-            Amiya kann sich an eure Gespräche erinnern, um euch besser zu begleiten.
-          </p>
+        {/* Progress indicator */}
+        <div style={styles.progress}>
+          <div style={styles.progressDot} />
+          <div style={styles.progressLine} />
+          <div style={{...styles.progressDot, ...styles.progressDotInactive}} />
+        </div>
 
-          {/* What Amiya remembers */}
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Was Amiya sich merkt:</h3>
-            
-            <div style={styles.subsection}>
-              <p style={styles.subsectionTitle}>Nur für dich (aus Solo Sessions):</p>
-              <ul style={styles.list}>
-                <li>Was du erzählt hast</li>
-                <li>Deine persönlichen Themen</li>
-              </ul>
-            </div>
-
-            <div style={styles.subsection}>
-              <p style={styles.subsectionTitle}>Für euch beide (aus Couple Sessions):</p>
-              <ul style={styles.list}>
-                <li>Gemeinsame Fakten (Kinder, Beziehungsdauer)</li>
-                <li>Eure Stärken als Paar</li>
-                <li>Was bei euch funktioniert</li>
-                <li>Eure Vereinbarungen</li>
-                <li>Euren Fortschritt über Zeit</li>
-              </ul>
-            </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Wie heisst du?</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Dein Vorname"
+              style={styles.input}
+              autoFocus
+            />
           </div>
 
-          {/* What Amiya doesn't do */}
-          <div style={styles.noteBox}>
-            <p style={styles.noteText}>
-              <strong>Wichtig:</strong> Amiya erstellt keine Diagnosen oder Bewertungen. 
-              Sie speichert nur was ihr selbst erzählt habt.
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Wie heisst dein/e Partner/in?</label>
+            <input
+              type="text"
+              value={partnerName}
+              onChange={(e) => setPartnerName(e.target.value)}
+              placeholder="Vorname deines Partners / deiner Partnerin"
+              style={styles.input}
+            />
+            <p style={styles.hint}>
+              Diese Namen nutze ich, um unsere Gespräche persönlicher zu machen.
             </p>
           </div>
-        </div>
 
-        {/* Buttons */}
-        <div style={styles.buttons}>
-          <button
-            onClick={() => handleConsent(true)}
-            style={styles.primaryButton}
+          {error && <p style={styles.error}>{error}</p>}
+
+          <button 
+            type="submit" 
+            style={styles.submitButton}
             disabled={saving}
           >
-            {saving ? "Speichern..." : "Ja, Amiya darf sich erinnern"}
+            {saving ? "Speichern..." : "Weiter"}
           </button>
-          
-          <button
-            onClick={() => handleConsent(false)}
-            style={styles.secondaryButton}
-            disabled={saving}
-          >
-            Nein, jede Session startet neu
-          </button>
-        </div>
+        </form>
 
-        {/* Footer note */}
-        <p style={styles.footer}>
-          Du kannst das jederzeit in den Einstellungen ändern und alle Notizen löschen.
+        {/* Privacy note */}
+        <p style={styles.privacyNote}>
+          🔒 Deine Daten werden verschlüsselt in der Schweiz gespeichert.
         </p>
       </div>
 
-      <style jsx global>{`
+      <style jsx global>{\`
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-      `}</style>
+      \`}</style>
     </div>
   );
 }
@@ -170,7 +179,7 @@ const styles = {
   },
   card: {
     width: "100%",
-    maxWidth: "480px",
+    maxWidth: "440px",
     background: "white",
     borderRadius: "24px",
     padding: "32px",
@@ -196,65 +205,73 @@ const styles = {
     fontSize: "24px",
     fontWeight: "bold",
     color: "#1f2937",
-    margin: 0,
+    margin: "0 0 8px 0",
   },
-  content: {
-    marginBottom: "24px",
-  },
-  intro: {
+  subtitle: {
     color: "#6b7280",
+    margin: 0,
     fontSize: "15px",
-    textAlign: "center",
-    marginBottom: "24px",
-    lineHeight: "1.6",
+    lineHeight: "1.5",
   },
-  section: {
-    marginBottom: "20px",
+  progress: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "0",
+    marginBottom: "32px",
   },
-  sectionTitle: {
+  progressDot: {
+    width: "12px",
+    height: "12px",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+  },
+  progressDotInactive: {
+    background: "#e5e7eb",
+  },
+  progressLine: {
+    width: "40px",
+    height: "3px",
+    background: "#e5e7eb",
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "24px",
+  },
+  inputGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  label: {
     fontSize: "15px",
     fontWeight: "600",
     color: "#374151",
-    marginBottom: "16px",
   },
-  subsection: {
-    background: "#f9fafb",
-    borderRadius: "12px",
+  input: {
     padding: "16px",
-    marginBottom: "12px",
-  },
-  subsectionTitle: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#6b7280",
-    marginBottom: "8px",
-  },
-  list: {
-    margin: 0,
-    paddingLeft: "20px",
-    color: "#4b5563",
-    fontSize: "14px",
-    lineHeight: "1.8",
-  },
-  noteBox: {
-    background: "#fef3c7",
     borderRadius: "12px",
-    padding: "16px",
-    borderLeft: "4px solid #f59e0b",
+    border: "2px solid #e5e7eb",
+    fontSize: "16px",
+    outline: "none",
+    transition: "border-color 0.2s",
   },
-  noteText: {
+  hint: {
+    fontSize: "13px",
+    color: "#9ca3af",
     margin: 0,
+    lineHeight: "1.4",
+  },
+  error: {
+    color: "#dc2626",
     fontSize: "14px",
-    color: "#92400e",
-    lineHeight: "1.5",
+    background: "#fef2f2",
+    padding: "12px",
+    borderRadius: "8px",
+    margin: 0,
   },
-  buttons: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    marginBottom: "16px",
-  },
-  primaryButton: {
+  submitButton: {
     padding: "16px",
     background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
     color: "white",
@@ -263,21 +280,12 @@ const styles = {
     fontSize: "16px",
     fontWeight: "600",
     cursor: "pointer",
+    marginTop: "8px",
   },
-  secondaryButton: {
-    padding: "16px",
-    background: "#f3f4f6",
-    color: "#6b7280",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "16px",
-    fontWeight: "500",
-    cursor: "pointer",
-  },
-  footer: {
+  privacyNote: {
+    marginTop: "24px",
     textAlign: "center",
     fontSize: "13px",
     color: "#9ca3af",
-    margin: 0,
   },
 };
