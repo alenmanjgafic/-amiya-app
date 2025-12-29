@@ -51,6 +51,19 @@ export default function Home() {
     }
   }, [user, profile, authLoading, router]);
 
+  // Check for memory consent
+  useEffect(() => {
+    if (!authLoading && user && profile && profile.name && profile.partner_name) {
+      // Redirect if memory_consent is null/undefined OR if it's false but was never explicitly set
+      const neverDecided = profile.memory_consent === null || 
+                           profile.memory_consent === undefined ||
+                           (profile.memory_consent === false && !profile.memory_consent_at);
+      if (neverDecided) {
+        router.push("/onboarding/memory");
+      }
+    }
+  }, [user, profile, authLoading, router]);
+
   useEffect(() => {
     if (started && !timerRef.current) {
       timerRef.current = setInterval(() => setSessionTime(t => t + 1), 1000);
