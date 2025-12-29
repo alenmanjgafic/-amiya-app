@@ -123,6 +123,7 @@ export default function CoupleSessionPage() {
 
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
+        connectionType: "websocket",
         dynamicVariables: {
           user_name: userName,
           partner_name: partnerName,
