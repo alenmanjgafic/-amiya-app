@@ -75,25 +75,29 @@ export default function Home() {
     setAnalysisError(null);
 
     try {
-      // Lade Kontext aus früheren Sessions
+      // Lade Kontext aus Memory System
       let userContext = "";
       try {
-        const contextResponse = await fetch("/api/get-context", {
+        const contextResponse = await fetch("/api/memory/get", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             userId: user.id,
-            coupleId: profile?.couple_id || null
+            coupleId: profile?.couple_id || null,
+            sessionType: "solo"
           }),
         });
         
         if (contextResponse.ok) {
           const contextData = await contextResponse.json();
           userContext = contextData.context || "";
-          console.log(`Loaded context from ${contextData.sessionCount} sessions`);
+          console.log("Memory loaded:", contextData.hasMemory ? "with context" : "no consent");
+          if (contextData.debug) {
+            console.log("Debug:", contextData.debug);
+          }
         }
       } catch (contextError) {
-        console.error("Failed to load context:", contextError);
+        console.error("Failed to load memory:", contextError);
         // Weitermachen ohne Kontext
       }
 
@@ -103,7 +107,7 @@ export default function Home() {
       const { Conversation } = await import("@11labs/client");
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      console.log("Context loaded, length:", userContext.length);
+      console.log("Context length:", userContext.length);
 
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
@@ -264,7 +268,27 @@ export default function Home() {
           }
           
           try {
-            await sessionsService.requestAnalysis(currentSessionId);
+            const analysisResult = await sessionsService.requestAnalysis(currentSessionId);
+            
+            // Memory Update nach erfolgreicher Analyse
+            try {
+              await fetch("/api/memory/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  userId: user.id,
+                  coupleId: profile?.couple_id || null,
+                  sessionId: currentSessionId,
+                  sessionType: "solo",
+                  analysis: analysisResult?.analysis || summary
+                }),
+              });
+              console.log("Memory updated after solo session");
+            } catch (memoryError) {
+              console.error("Memory update failed:", memoryError);
+              // Weitermachen - Memory-Fehler sollte UX nicht blockieren
+            }
+            
             setIsGeneratingAnalysis(false);
             setAnalysisSessionId(sessionIdToAnalyze);
             setShowAnalysis(true);
