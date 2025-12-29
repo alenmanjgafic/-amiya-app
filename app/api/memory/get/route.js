@@ -112,9 +112,13 @@ ${personal.expressed.slice(-5).map(e => `- ${e}`).join("\n")}`);
   }
 
   if (personal?.solo_journey?.recent_topics?.length > 0) {
-    const recent = personal.solo_journey.recent_topics.slice(-2);
-    parts.push(`LETZTE SOLO SESSIONS:
+    const recent = personal.solo_journey.recent_topics
+      .filter(t => t && t.date && t.topic) // Filter out invalid entries
+      .slice(-2);
+    if (recent.length > 0) {
+      parts.push(`LETZTE SOLO SESSIONS:
 ${recent.map(t => `- ${t.date}: ${t.topic}${t.open ? ` (offen: ${t.open})` : ""}`).join("\n")}`);
+    }
   }
 
   // Shared context
@@ -223,16 +227,21 @@ function buildSharedSection(sharedContext, profile) {
 
   // Basic facts
   const factLines = [];
-  if (facts?.together_since) {
+  if (facts?.together_since && !isNaN(facts.together_since)) {
     const years = new Date().getFullYear() - facts.together_since;
-    factLines.push(`${years} Jahre zusammen`);
+    if (years > 0) {
+      factLines.push(`${years} Jahre zusammen`);
+    }
   }
-  if (facts?.married_since) {
+  if (facts?.married_since && !isNaN(facts.married_since)) {
     factLines.push(`verheiratet seit ${facts.married_since}`);
   }
   if (facts?.children?.length > 0) {
-    const childInfo = facts.children.map(c => `${c.name} (${c.age})`).join(", ");
-    factLines.push(`Kinder: ${childInfo}`);
+    const validChildren = facts.children.filter(c => c && c.name);
+    if (validChildren.length > 0) {
+      const childInfo = validChildren.map(c => c.age ? `${c.name} (${c.age})` : c.name).join(", ");
+      factLines.push(`Kinder: ${childInfo}`);
+    }
   }
 
   if (factLines.length > 0) {
@@ -242,8 +251,11 @@ ${factLines.map(f => `- ${f}`).join("\n")}`);
 
   // Strengths
   if (sharedContext.strengths?.length > 0) {
-    parts.push(`STÄRKEN:
-${sharedContext.strengths.slice(-3).map(s => `- ${s}`).join("\n")}`);
+    const validStrengths = sharedContext.strengths.filter(s => s && typeof s === 'string');
+    if (validStrengths.length > 0) {
+      parts.push(`STÄRKEN:
+${validStrengths.slice(-3).map(s => `- ${s}`).join("\n")}`);
+    }
   }
 
   return parts.join("\n\n");
