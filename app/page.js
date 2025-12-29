@@ -276,6 +276,22 @@ export default function Home() {
           <p style={styles.hint}>🎧 Beste Erfahrung mit Kopfhörern</p>
         </div>
 
+        {/* Bottom Navigation */}
+        <div style={styles.bottomNav}>
+          <button style={{...styles.navItem, ...styles.navItemActive}}>
+            <span style={styles.navIcon}>🏠</span>
+            <span style={{...styles.navLabel, ...styles.navLabelActive}}>Home</span>
+          </button>
+          <button onClick={() => router.push("/wir")} style={styles.navItem}>
+            <span style={styles.navIcon}>💑</span>
+            <span style={styles.navLabel}>Wir</span>
+          </button>
+          <button onClick={() => router.push("/profile")} style={styles.navItem}>
+            <span style={styles.navIcon}>👤</span>
+            <span style={styles.navLabel}>Profil</span>
+          </button>
+        </div>
+
         {/* Show analysis overlay if active */}
         {showAnalysis && analysisSessionId && (
           <AnalysisView 
@@ -460,6 +476,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     padding: "20px",
+    paddingBottom: "100px",
     background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
   },
   startScreen: { 
@@ -729,5 +746,39 @@ const styles = {
     color: "#6b7280",
     fontSize: "14px",
     cursor: "pointer",
+  },
+  // Bottom Navigation
+  bottomNav: {
+    position: "fixed",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    background: "white",
+    borderTop: "1px solid #e5e7eb",
+    display: "flex",
+    justifyContent: "space-around",
+    padding: "12px 0 24px 0",
+  },
+  navItem: {
+    background: "none",
+    border: "none",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "4px",
+    cursor: "pointer",
+    padding: "8px 16px",
+  },
+  navItemActive: {},
+  navIcon: {
+    fontSize: "24px",
+  },
+  navLabel: {
+    fontSize: "12px",
+    color: "#9ca3af",
+  },
+  navLabelActive: {
+    color: "#8b5cf6",
+    fontWeight: "600",
   },
 };
