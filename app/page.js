@@ -138,7 +138,7 @@ export default function Home() {
 
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
-        connectionType: "websocket",
+        connectionType: "webrtc",
         dynamicVariables: {
           user_name: profile?.name || "User",
           partner_name: profile?.partner_name || "Partner",
@@ -148,11 +148,19 @@ export default function Home() {
           console.log("Connected to ElevenLabs");
           setVoiceState(STATE.LISTENING);
         },
-        onDisconnect: () => {
-          console.log("Disconnected from ElevenLabs");
+        onDisconnect: (details) => {
+          console.log("Disconnected from ElevenLabs", details);
           setVoiceState(STATE.IDLE);
         },
+        onError: (error) => {
+          console.error("ElevenLabs error:", error);
+          setVoiceState(STATE.IDLE);
+        },
+        onStatusChange: (status) => {
+          console.log("Status changed:", status);
+        },
         onMessage: (message) => {
+          console.log("Message received:", message);
           if (message.source && message.message) {
             const role = message.source === "user" ? "user" : "assistant";
             const content = message.message;
@@ -165,6 +173,7 @@ export default function Home() {
           }
         },
         onModeChange: (mode) => {
+          console.log("Mode changed:", mode);
           const modeValue = mode.mode || mode;
           if (modeValue === "listening") {
             setVoiceState(STATE.LISTENING);
