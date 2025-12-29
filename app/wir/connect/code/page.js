@@ -173,23 +173,26 @@ export default function CodePage() {
         return;
       }
 
-      // Create couple
+      // Create couple with both user IDs
       const { data: couple, error: coupleError } = await supabase
         .from("couples")
         .insert({
-          owner_id: inviteCode.user_id, // The inviter owns the subscription
+          user_a_id: inviteCode.user_id,  // The inviter
+          user_b_id: user.id,              // The invited
+          owner_id: inviteCode.user_id,    // Inviter owns subscription
         })
         .select()
         .single();
 
       if (coupleError) {
+        console.error("Couple creation error:", coupleError);
         setError("Fehler beim Verbinden");
         setPairing(false);
         return;
       }
 
-      // Update both profiles with couple_id
-      await supabase
+      // Update both profiles with couple_id and partner_id
+      const { error: updateAError } = await supabase
         .from("profiles")
         .update({ 
           couple_id: couple.id,
@@ -197,13 +200,21 @@ export default function CodePage() {
         })
         .eq("id", inviteCode.user_id);
 
-      await supabase
+      if (updateAError) {
+        console.error("Profile A update error:", updateAError);
+      }
+
+      const { error: updateBError } = await supabase
         .from("profiles")
         .update({ 
           couple_id: couple.id,
           partner_id: inviteCode.user_id 
         })
         .eq("id", user.id);
+
+      if (updateBError) {
+        console.error("Profile B update error:", updateBError);
+      }
 
       // Mark code as used
       await supabase
