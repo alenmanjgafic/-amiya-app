@@ -141,12 +141,12 @@ export default function OnboardingPage() {
         </p>
       </div>
 
-      <style jsx global>{\`
+      <style jsx global>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-      \`}</style>
+      `}</style>
     </div>
   );
 }
