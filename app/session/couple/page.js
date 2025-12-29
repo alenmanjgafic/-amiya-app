@@ -87,26 +87,26 @@ export default function CoupleSessionPage() {
     setAnalysisError(null);
 
     try {
-      // Lade Kontext aus früheren Sessions
+      // Lade Kontext aus Memory System
       let userContext = "";
       try {
-        const contextResponse = await fetch("/api/get-context", {
+        const contextResponse = await fetch("/api/memory/get", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             userId: user.id,
-            coupleId: profile?.couple_id || null
+            coupleId: profile.couple_id,
+            sessionType: "couple"
           }),
         });
         
         if (contextResponse.ok) {
           const contextData = await contextResponse.json();
           userContext = contextData.context || "";
-          console.log(`Loaded context from ${contextData.sessionCount} sessions`);
+          console.log("Couple memory loaded:", contextData.hasMemory ? "with context" : "no consent");
         }
       } catch (contextError) {
-        console.error("Failed to load context:", contextError);
-        // Weitermachen ohne Kontext
+        console.error("Failed to load memory:", contextError);
       }
 
       // Create session in database as "couple" type
@@ -119,14 +119,14 @@ export default function CoupleSessionPage() {
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      console.log("Context loaded for couple session, length:", userContext.length);
+      console.log("Couple context length:", userContext.length);
 
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
         dynamicVariables: {
           user_name: userName,
           partner_name: partnerName,
-          user_context: userContext || "Keine früheren Gespräche vorhanden.",
+          user_context: userContext || "Erste gemeinsame Session.",
         },
         onConnect: () => {
           console.log("Connected to ElevenLabs (Couple Session)");
@@ -282,7 +282,26 @@ export default function CoupleSessionPage() {
           }
           
           try {
-            await sessionsService.requestAnalysis(currentSessionId);
+            const analysisResult = await sessionsService.requestAnalysis(currentSessionId);
+            
+            // Memory Update nach erfolgreicher Analyse
+            try {
+              await fetch("/api/memory/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  userId: user.id,
+                  coupleId: profile.couple_id,
+                  sessionId: currentSessionId,
+                  sessionType: "couple",
+                  analysis: analysisResult?.analysis || summary
+                }),
+              });
+              console.log("Memory updated after couple session");
+            } catch (memoryError) {
+              console.error("Memory update failed:", memoryError);
+            }
+            
             setIsGeneratingAnalysis(false);
             router.push(`/history?session=${sessionIdToAnalyze}`);
           } catch (analysisErr) {
