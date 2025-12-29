@@ -1,7 +1,6 @@
 /**
  * MAIN PAGE - app/page.js
- * Hauptseite mit Voice-Session (ElevenLabs)
- * Redirect zu /onboarding wenn Name oder Partner-Name fehlt
+ * Hauptseite mit Solo Voice-Session
  */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -37,21 +36,18 @@ export default function Home() {
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
 
-  // Redirect to auth if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/auth");
     }
   }, [user, authLoading, router]);
 
-  // Redirect to onboarding if names missing
   useEffect(() => {
     if (!authLoading && user && profile && (!profile.name || !profile.partner_name)) {
       router.push("/onboarding");
     }
   }, [user, profile, authLoading, router]);
 
-  // Session timer
   useEffect(() => {
     if (started && !timerRef.current) {
       timerRef.current = setInterval(() => setSessionTime(t => t + 1), 1000);
@@ -63,11 +59,9 @@ export default function Home() {
 
   const formatTime = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`;
 
-  // Get display names
   const displayName = profile?.name || "du";
   const partnerName = profile?.partner_name || "";
 
-  // Start conversation
   const startSession = useCallback(async () => {
     if (!user) return;
     
@@ -77,14 +71,10 @@ export default function Home() {
     setMessageCount(0);
 
     try {
-      // Create session in database
       const session = await sessionsService.create(user.id, "solo");
       setCurrentSessionId(session.id);
 
-      // Dynamically import ElevenLabs SDK
       const { Conversation } = await import("@11labs/client");
-
-      // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
       const conversation = await Conversation.startSession({
@@ -102,12 +92,10 @@ export default function Home() {
           setVoiceState(STATE.IDLE);
         },
         onMessage: (message) => {
-          // Store messages in background (not shown in UI)
           if (message.source && message.message) {
             const role = message.source === "user" ? "user" : "assistant";
             const content = message.message;
             
-            // Avoid duplicates
             const lastMsg = messagesRef.current[messagesRef.current.length - 1];
             if (!(lastMsg && lastMsg.role === role && lastMsg.content === content)) {
               messagesRef.current.push({ role, content });
@@ -141,12 +129,10 @@ export default function Home() {
     }
   }, [user, profile]);
 
-  // End conversation - show dialog
   const handleEndClick = () => {
     setShowEndDialog(true);
   };
 
-  // Actually end the session
   const endSession = useCallback(async (requestAnalysis = false) => {
     if (conversationRef.current) {
       await conversationRef.current.endSession();
@@ -157,10 +143,8 @@ export default function Home() {
     const currentMessages = messagesRef.current;
     const hasMessages = currentMessages.length > 0;
     
-    // Save session to database (temporarily for analysis)
     if (currentSessionId && hasMessages) {
       try {
-        // Add names to summary for personalized analysis
         let summary = "";
         if (profile?.name || profile?.partner_name) {
           summary += `[Kontext: User=${profile?.name || "unbekannt"}, Partner=${profile?.partner_name || "unbekannt"}]\n\n`;
@@ -179,7 +163,6 @@ export default function Home() {
       }
     }
     
-    // Reset session state
     setShowEndDialog(false);
     setStarted(false);
     setVoiceState(STATE.IDLE);
@@ -193,7 +176,6 @@ export default function Home() {
       timerRef.current = null;
     }
 
-    // Show analysis if requested
     if (requestAnalysis && sessionIdToAnalyze && hasMessages) {
       setAnalysisSessionId(sessionIdToAnalyze);
       setShowAnalysis(true);
@@ -202,13 +184,11 @@ export default function Home() {
     }
   }, [currentSessionId, profile]);
 
-  // Close analysis view
   const handleCloseAnalysis = () => {
     setShowAnalysis(false);
     setAnalysisSessionId(null);
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (conversationRef.current) {
@@ -220,7 +200,6 @@ export default function Home() {
     };
   }, []);
 
-  // Loading state
   if (authLoading) {
     return (
       <div style={styles.loadingContainer}>
@@ -230,7 +209,6 @@ export default function Home() {
     );
   }
 
-  // Not logged in or onboarding needed (will redirect)
   if (!user || !profile?.name || !profile?.partner_name) {
     return (
       <div style={styles.loadingContainer}>
@@ -244,7 +222,6 @@ export default function Home() {
     return (
       <div style={styles.container}>
         <div style={styles.startScreen}>
-          {/* User bar with profile link */}
           <div style={styles.userBar}>
             <button 
               onClick={() => router.push("/profile")} 
@@ -286,13 +263,16 @@ export default function Home() {
             <span style={styles.navIcon}>💑</span>
             <span style={styles.navLabel}>Wir</span>
           </button>
+          <button onClick={() => router.push("/history")} style={styles.navItem}>
+            <span style={styles.navIcon}>📋</span>
+            <span style={styles.navLabel}>Verlauf</span>
+          </button>
           <button onClick={() => router.push("/profile")} style={styles.navItem}>
             <span style={styles.navIcon}>👤</span>
             <span style={styles.navLabel}>Profil</span>
           </button>
         </div>
 
-        {/* Show analysis overlay if active */}
         {showAnalysis && analysisSessionId && (
           <AnalysisView 
             sessionId={analysisSessionId} 
@@ -303,24 +283,22 @@ export default function Home() {
     );
   }
 
-  // ============ SESSION SCREEN (Voice-only) ============
+  // ============ SESSION SCREEN ============
   return (
     <div style={styles.sessionContainer}>
-      {/* Header */}
       <div style={styles.header}>
         <div style={styles.headerLeft}>
           <div style={{...styles.headerIcon, background: getStateColor(voiceState)}}>
             {getStateEmoji(voiceState)}
           </div>
           <div>
-            <div style={styles.headerTitle}>Amiya</div>
+            <div style={styles.headerTitle}>Solo Session</div>
             <div style={styles.headerSubtitle}>{formatTime(sessionTime)}</div>
           </div>
         </div>
         <button onClick={handleEndClick} style={styles.endButton}>Beenden</button>
       </div>
 
-      {/* Voice-only Interface */}
       <div style={styles.voiceOnlyContainer}>
         <div style={{...styles.statusRing, ...getStatusRingStyle(voiceState)}}>
           <div style={styles.statusInner}>
@@ -341,7 +319,6 @@ export default function Home() {
         </p>
       </div>
 
-      {/* End Session Dialog */}
       {showEndDialog && (
         <div style={styles.dialogOverlay}>
           <div style={styles.dialog}>
@@ -398,7 +375,6 @@ export default function Home() {
   );
 }
 
-// Helpers
 function getStateColor(state) {
   const colors = {
     [STATE.CONNECTING]: "linear-gradient(135deg, #6b7280, #4b5563)",
@@ -443,7 +419,6 @@ function getStatusRingStyle(state) {
   return ringStyles[state] || ringStyles[STATE.IDLE];
 }
 
-// Styles
 const styles = {
   loadingContainer: {
     minHeight: "100vh",
@@ -489,7 +464,7 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "32px",
-    padding: "8px 8px 8px 8px",
+    padding: "8px",
     background: "white",
     borderRadius: "12px",
     boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
@@ -503,7 +478,6 @@ const styles = {
     cursor: "pointer",
     padding: "6px 10px",
     borderRadius: "8px",
-    transition: "background 0.2s",
     fontSize: "15px",
     color: "#374151",
   },
@@ -747,7 +721,6 @@ const styles = {
     fontSize: "14px",
     cursor: "pointer",
   },
-  // Bottom Navigation
   bottomNav: {
     position: "fixed",
     bottom: 0,
