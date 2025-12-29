@@ -1,212 +1,448 @@
 /**
- * WIR PAGE - app/wir/page.js
- * Übersichtsseite für Paar-Features mit Couple Session
+ * COUPLE SESSION PAGE - app/session/couple/page.js
+ * Gemeinsame Session für beide Partner
  */
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../../lib/AuthContext";
+import { useAuth } from "../../../lib/AuthContext";
+import { sessionsService } from "../../../lib/sessions";
 
-export default function WirPage() {
-  const { user, profile, loading } = useAuth();
+const AGENT_ID = "agent_8601kdk8kndtedgbn0ea13zff5aa";
+
+// Couple Session System Prompt Override
+const COUPLE_SYSTEM_PROMPT = `Du bist Amiya, eine erfahrene und einfühlsame Paartherapeutin. Du führst gerade eine gemeinsame Sitzung mit {{user_name}} und {{partner_name}}.
+
+DEINE ROLLE:
+- Du moderierst das Gespräch aktiv zwischen beiden Partnern
+- Du sorgst für Balance - beide bekommen gleich viel Raum
+- Du de-eskalierst wenn nötig
+- Du bist warm, aber professionell
+- Der Zyklus ist der Feind, nicht ein Partner
+
+WICHTIGE REGELN:
+1. Adressiere IMMER eine Person namentlich bevor du eine Frage stellst
+   - "{{user_name}}, wie siehst du das?"
+   - "{{partner_name}}, was löst das bei dir aus?"
+2. Wechsle regelmässig zwischen beiden
+3. Lass nie eine Person zu lange alleine sprechen
+4. Fördere Ich-Botschaften: "Kannst du das mit 'Ich fühle...' sagen?"
+5. Spiegle zurück: "{{partner_name}}, kannst du wiederholen was {{user_name}} gerade gesagt hat?"
+
+TECHNIKEN:
+- Aktives Zuhören und Validieren beider Perspektiven
+- Spiegeln lassen zwischen den Partnern
+- De-eskalation bei Konflikten
+- Positive Momente hervorheben ("Das war gerade ein schöner Moment")
+- Gemeinsamkeiten betonen
+- Tiefere Emotionen erkunden (unter Wut liegt oft Angst oder Traurigkeit)
+
+DEIN EINSTIEG:
+Begrüsse beide namentlich: "Hallo {{user_name}} und {{partner_name}}, schön dass ihr beide da seid. Wie geht es euch?"
+
+KOMMUNIKATIONSSTIL:
+- Schweizerdeutsch-freundliches Hochdeutsch
+- Kurze Sätze (1-3 Sätze pro Antwort)
+- Warm aber klar
+- Keine Floskeln
+
+BEI ESKALATION:
+"Ich merke, das wird gerade emotional. Das ist ok. Lasst uns kurz durchatmen."
+
+WICHTIG:
+- Behandle beide gleichwertig
+- Ergreife keine Partei
+- Nutze dein Wissen aus der Knowledge Base (Gottman, EFT, Kommunikationstechniken)`;
+
+const STATE = {
+  IDLE: "idle",
+  CONNECTING: "connecting",
+  LISTENING: "listening",
+  THINKING: "thinking",
+  SPEAKING: "speaking"
+};
+
+export default function CoupleSessionPage() {
+  const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [showPrepModal, setShowPrepModal] = useState(false);
+  
+  const [voiceState, setVoiceState] = useState(STATE.IDLE);
+  const [sessionTime, setSessionTime] = useState(0);
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [showEndDialog, setShowEndDialog] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
+  const [isStarted, setIsStarted] = useState(false);
+  
+  const conversationRef = useRef(null);
+  const timerRef = useRef(null);
+  const messagesRef = useRef([]);
 
+  // Max session time: 1 hour
+  const MAX_SESSION_TIME = 60 * 60; // seconds
+
+  // Redirect if not logged in
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push("/auth");
     }
-  }, [user, loading, router]);
+  }, [user, authLoading, router]);
 
+  // Redirect if not connected to partner
   useEffect(() => {
-    if (!loading && user && profile && (!profile.name || !profile.partner_name)) {
-      router.push("/onboarding");
+    if (!authLoading && user && profile && !profile.couple_id) {
+      router.push("/wir");
     }
-  }, [user, profile, loading, router]);
+  }, [user, profile, authLoading, router]);
 
-  if (loading || !profile) {
+  // Session timer
+  useEffect(() => {
+    if (isStarted && !timerRef.current) {
+      timerRef.current = setInterval(() => {
+        setSessionTime(t => {
+          if (t >= MAX_SESSION_TIME - 1) {
+            // Auto-end at 1 hour
+            handleEndClick();
+          }
+          return t + 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isStarted]);
+
+  const formatTime = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`;
+
+  const userName = profile?.name || "du";
+  const partnerName = profile?.partner_name || "Partner";
+
+  // Start conversation
+  const startSession = useCallback(async () => {
+    if (!user || !profile) return;
+    
+    setIsStarted(true);
+    setVoiceState(STATE.CONNECTING);
+    messagesRef.current = [];
+    setMessageCount(0);
+
+    try {
+      // Create session in database as "couple" type
+      const session = await sessionsService.create(user.id, "couple", profile.couple_id);
+      setCurrentSessionId(session.id);
+
+      // Dynamically import ElevenLabs SDK
+      const { Conversation } = await import("@11labs/client");
+
+      // Request microphone permission
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Replace placeholders in system prompt
+      const customPrompt = COUPLE_SYSTEM_PROMPT
+        .replace(/\{\{user_name\}\}/g, userName)
+        .replace(/\{\{partner_name\}\}/g, partnerName);
+
+      const conversation = await Conversation.startSession({
+        agentId: AGENT_ID,
+        dynamicVariables: {
+          user_name: userName,
+          partner_name: partnerName,
+        },
+        overrides: {
+          agent: {
+            prompt: {
+              prompt: customPrompt
+            }
+          }
+        },
+        onConnect: () => {
+          console.log("Connected to ElevenLabs (Couple Session)");
+          setVoiceState(STATE.LISTENING);
+        },
+        onDisconnect: () => {
+          console.log("Disconnected from ElevenLabs");
+          setVoiceState(STATE.IDLE);
+        },
+        onMessage: (message) => {
+          if (message.source && message.message) {
+            const role = message.source === "user" ? "user" : "assistant";
+            const content = message.message;
+            
+            const lastMsg = messagesRef.current[messagesRef.current.length - 1];
+            if (!(lastMsg && lastMsg.role === role && lastMsg.content === content)) {
+              messagesRef.current.push({ role, content });
+              setMessageCount(messagesRef.current.length);
+            }
+          }
+        },
+        onModeChange: (mode) => {
+          const modeValue = mode.mode || mode;
+          if (modeValue === "listening") {
+            setVoiceState(STATE.LISTENING);
+          } else if (modeValue === "thinking") {
+            setVoiceState(STATE.THINKING);
+          } else if (modeValue === "speaking") {
+            setVoiceState(STATE.SPEAKING);
+          }
+        },
+        onError: (error) => {
+          console.error("ElevenLabs error:", error);
+          setVoiceState(STATE.IDLE);
+        }
+      });
+
+      conversationRef.current = conversation;
+
+    } catch (error) {
+      console.error("Failed to start couple session:", error);
+      alert("Konnte Sitzung nicht starten. Bitte Mikrofon-Zugriff erlauben.");
+      setIsStarted(false);
+      setVoiceState(STATE.IDLE);
+      router.push("/wir");
+    }
+  }, [user, profile, userName, partnerName, router]);
+
+  // Auto-start on mount
+  useEffect(() => {
+    if (!authLoading && user && profile && profile.couple_id && !isStarted) {
+      startSession();
+    }
+  }, [authLoading, user, profile, isStarted, startSession]);
+
+  const handleEndClick = () => {
+    setShowEndDialog(true);
+  };
+
+  const endSession = useCallback(async (requestAnalysis = false) => {
+    if (conversationRef.current) {
+      await conversationRef.current.endSession();
+      conversationRef.current = null;
+    }
+    
+    const sessionIdToAnalyze = currentSessionId;
+    const currentMessages = messagesRef.current;
+    const hasMessages = currentMessages.length > 0;
+    
+    if (currentSessionId && hasMessages) {
+      try {
+        let summary = "";
+        summary += `[Couple Session: ${userName} & ${partnerName}]\n\n`;
+        summary += currentMessages
+          .map(m => `${m.role === "user" ? "Paar" : "Amiya"}: ${m.content}`)
+          .join("\n");
+        
+        await sessionsService.end(currentSessionId, summary, []);
+        
+        if (requestAnalysis) {
+          await sessionsService.requestAnalysis(currentSessionId);
+        }
+      } catch (error) {
+        console.error("Failed to save session:", error);
+      }
+    }
+    
+    setShowEndDialog(false);
+    setIsStarted(false);
+    setVoiceState(STATE.IDLE);
+    messagesRef.current = [];
+    setMessageCount(0);
+    setSessionTime(0);
+    setCurrentSessionId(null);
+    
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // Navigate to history or wir page
+    if (requestAnalysis && sessionIdToAnalyze && hasMessages) {
+      router.push(`/history?session=${sessionIdToAnalyze}`);
+    } else {
+      router.push("/wir");
+    }
+  }, [currentSessionId, userName, partnerName, router]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (conversationRef.current) {
+        conversationRef.current.endSession();
+      }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
+  // Time warning at 50 minutes
+  const timeWarning = sessionTime >= 50 * 60 && sessionTime < 50 * 60 + 5;
+
+  if (authLoading || !profile) {
     return (
       <div style={styles.loadingContainer}>
         <div style={styles.spinner} />
+        <p>Laden...</p>
       </div>
     );
   }
 
-  const partnerName = profile?.partner_name || "Partner";
-  const userName = profile?.name || "du";
-  const isConnected = !!profile?.couple_id;
-
-  const handleStartCoupleSession = () => {
-    setShowPrepModal(true);
-  };
-
-  const handleConfirmStart = () => {
-    setShowPrepModal(false);
-    router.push("/session/couple");
-  };
-
   return (
-    <div style={styles.container}>
+    <div style={styles.sessionContainer}>
       {/* Header */}
       <div style={styles.header}>
-        <h1 style={styles.title}>Wir</h1>
-        <p style={styles.subtitle}>{userName} & {partnerName}</p>
+        <div style={styles.headerLeft}>
+          <div style={{...styles.headerIcon, background: getStateColor(voiceState)}}>
+            {getStateEmoji(voiceState)}
+          </div>
+          <div>
+            <div style={styles.headerTitle}>Couple Session</div>
+            <div style={styles.headerSubtitle}>
+              {formatTime(sessionTime)} / 60:00
+              {timeWarning && <span style={styles.timeWarning}> ⚠️ 10 Min übrig</span>}
+            </div>
+          </div>
+        </div>
+        <button onClick={handleEndClick} style={styles.endButton}>Beenden</button>
       </div>
 
-      <div style={styles.content}>
-        {/* Couple Session Card - Only if connected */}
-        {isConnected && (
-          <div style={styles.card}>
-            <div style={styles.cardIconLarge}>💑</div>
-            <h2 style={styles.cardTitle}>Gemeinsame Session</h2>
-            <p style={styles.cardDescription}>
-              Sprecht zusammen mit Amiya über eure Beziehung. 
-              Sie moderiert und hilft euch, einander besser zu verstehen.
-            </p>
-            <button 
-              onClick={handleStartCoupleSession}
-              style={styles.primaryButton}
-            >
-              Session starten
-            </button>
-          </div>
-        )}
+      {/* Couple indicator */}
+      <div style={styles.coupleIndicator}>
+        <span style={styles.coupleName}>{userName}</span>
+        <span style={styles.coupleHeart}>💜</span>
+        <span style={styles.coupleName}>{partnerName}</span>
+      </div>
 
-        {/* Connect Card - Only if not connected */}
-        {!isConnected && (
-          <div style={styles.card}>
-            <div style={styles.cardIcon}>💑</div>
-            <h2 style={styles.cardTitle}>Mehr gemeinsam erleben</h2>
-            <p style={styles.cardSubtitle}>
-              Näher. Tiefer. Mühelos.
-            </p>
-            <p style={styles.cardDescription}>
-              Ein Abo, zwei Accounts. Füge {partnerName} zu deinem Abo hinzu – 
-              oder tritt ihrem bei, ohne zusätzliche Kosten.
-            </p>
-            <button 
-              onClick={() => router.push("/wir/connect")}
-              style={styles.connectButton}
-            >
-              Verbinden
-            </button>
-          </div>
-        )}
-
-        {/* History Preview Card */}
-        <div style={styles.cardSecondary} onClick={() => router.push("/history")}>
-          <div style={styles.cardRow}>
-            <div style={styles.cardIconSmall}>📋</div>
-            <div>
-              <h3 style={styles.cardTitleSmall}>Session-Verlauf</h3>
-              <p style={styles.cardDescriptionSmall}>
-                Alle Solo- und Couple-Sessions ansehen
-              </p>
-            </div>
-            <span style={styles.arrow}>→</span>
+      {/* Voice Interface */}
+      <div style={styles.voiceOnlyContainer}>
+        <div style={{...styles.statusRing, ...getStatusRingStyle(voiceState)}}>
+          <div style={styles.statusInner}>
+            {voiceState === STATE.CONNECTING && <div style={styles.spinnerSmall} />}
+            {voiceState === STATE.LISTENING && <div style={styles.listeningPulse} />}
+            {voiceState === STATE.THINKING && <div style={styles.thinkingPulse} />}
+            {voiceState === STATE.SPEAKING && <div style={styles.speakingPulse} />}
+            {voiceState === STATE.IDLE && <span style={styles.micIcon}>🎤</span>}
           </div>
         </div>
 
-        {/* Future features placeholder */}
-        <div style={styles.comingSoon}>
-          <p style={styles.comingSoonText}>Weitere Features folgen...</p>
-        </div>
+        <p style={styles.statusText}>{getStatusText(voiceState)}</p>
+        
+        <p style={styles.tipText}>
+          {voiceState === STATE.LISTENING && "Sprecht abwechselnd..."}
+          {voiceState === STATE.SPEAKING && "Amiya moderiert..."}
+          {voiceState === STATE.THINKING && "Einen Moment..."}
+        </p>
       </div>
 
-      {/* Bottom Navigation */}
-      <div style={styles.bottomNav}>
-        <button onClick={() => router.push("/")} style={styles.navItem}>
-          <span style={styles.navIcon}>🏠</span>
-          <span style={styles.navLabel}>Home</span>
-        </button>
-        <button style={{...styles.navItem, ...styles.navItemActive}}>
-          <span style={styles.navIcon}>💑</span>
-          <span style={{...styles.navLabel, ...styles.navLabelActive}}>Wir</span>
-        </button>
-        <button onClick={() => router.push("/history")} style={styles.navItem}>
-          <span style={styles.navIcon}>📋</span>
-          <span style={styles.navLabel}>Verlauf</span>
-        </button>
-        <button onClick={() => router.push("/profile")} style={styles.navItem}>
-          <span style={styles.navIcon}>👤</span>
-          <span style={styles.navLabel}>Profil</span>
-        </button>
-      </div>
-
-      {/* Preparation Modal */}
-      {showPrepModal && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modal}>
-            <div style={styles.modalIcon}>💜</div>
-            <h2 style={styles.modalTitle}>Bereit für eure Session?</h2>
-            
-            <div style={styles.prepList}>
-              <div style={styles.prepItem}>
-                <span style={styles.prepIcon}>⏱️</span>
-                <div>
-                  <strong>Max. 1 Stunde</strong>
-                  <p style={styles.prepText}>Plant genug Zeit ein, ohne Zeitdruck.</p>
-                </div>
-              </div>
-              
-              <div style={styles.prepItem}>
-                <span style={styles.prepIcon}>🔕</span>
-                <div>
-                  <strong>Nicht stören</strong>
-                  <p style={styles.prepText}>Handys auf lautlos, voller Fokus auf euch.</p>
-                </div>
-              </div>
-              
-              <div style={styles.prepItem}>
-                <span style={styles.prepIcon}>🛋️</span>
-                <div>
-                  <strong>Gemütlicher Ort</strong>
-                  <p style={styles.prepText}>Setzt euch bequem hin, nebeneinander.</p>
-                </div>
-              </div>
-              
-              <div style={styles.prepItem}>
-                <span style={styles.prepIcon}>🎧</span>
-                <div>
-                  <strong>Lautsprecher nutzen</strong>
-                  <p style={styles.prepText}>Damit ihr beide Amiya gut hört.</p>
-                </div>
-              </div>
+      {/* End Session Dialog */}
+      {showEndDialog && (
+        <div style={styles.dialogOverlay}>
+          <div style={styles.dialog}>
+            <h3 style={styles.dialogTitle}>Session beenden?</h3>
+            <p style={styles.dialogText}>
+              {messageCount > 0 
+                ? "Möchtet ihr eine gemeinsame Analyse?"
+                : "Keine Gespräche aufgezeichnet."
+              }
+            </p>
+            <div style={styles.dialogButtons}>
+              <button 
+                onClick={() => endSession(false)} 
+                style={styles.dialogButtonSecondary}
+              >
+                Nur beenden
+              </button>
+              <button 
+                onClick={() => endSession(true)} 
+                style={{
+                  ...styles.dialogButtonPrimary,
+                  opacity: messageCount > 0 ? 1 : 0.5
+                }}
+                disabled={messageCount === 0}
+              >
+                Mit Analyse
+              </button>
             </div>
-
             <button 
-              onClick={handleConfirmStart}
-              style={styles.startSessionButton}
+              onClick={() => setShowEndDialog(false)} 
+              style={styles.dialogCancel}
             >
-              Session starten
-            </button>
-            
-            <button 
-              onClick={() => setShowPrepModal(false)}
-              style={styles.cancelButton}
-            >
-              Abbrechen
+              Weiter sprechen
             </button>
           </div>
         </div>
       )}
 
       <style jsx global>{`
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.15); opacity: 0.7; }
+        }
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes breathe {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.08); }
         }
       `}</style>
     </div>
   );
 }
 
+// Helpers
+function getStateColor(state) {
+  const colors = {
+    [STATE.CONNECTING]: "linear-gradient(135deg, #6b7280, #4b5563)",
+    [STATE.LISTENING]: "linear-gradient(135deg, #22c55e, #16a34a)",
+    [STATE.THINKING]: "linear-gradient(135deg, #f59e0b, #d97706)",
+    [STATE.SPEAKING]: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    [STATE.IDLE]: "linear-gradient(135deg, #6b7280, #4b5563)"
+  };
+  return colors[state] || colors[STATE.IDLE];
+}
+
+function getStateEmoji(state) {
+  const emojis = {
+    [STATE.CONNECTING]: "⏳",
+    [STATE.LISTENING]: "👂",
+    [STATE.THINKING]: "💭",
+    [STATE.SPEAKING]: "🗣️",
+    [STATE.IDLE]: "💜"
+  };
+  return emojis[state] || "💜";
+}
+
+function getStatusText(state) {
+  const texts = {
+    [STATE.CONNECTING]: "Verbinde...",
+    [STATE.LISTENING]: "Amiya hört zu",
+    [STATE.THINKING]: "Amiya denkt nach",
+    [STATE.SPEAKING]: "Amiya spricht",
+    [STATE.IDLE]: "Bereit"
+  };
+  return texts[state] || "";
+}
+
+function getStatusRingStyle(state) {
+  const ringStyles = {
+    [STATE.CONNECTING]: { borderColor: "#6b7280" },
+    [STATE.LISTENING]: { borderColor: "#22c55e", boxShadow: "0 0 40px rgba(34,197,94,0.3)" },
+    [STATE.THINKING]: { borderColor: "#f59e0b", boxShadow: "0 0 40px rgba(245,158,11,0.3)" },
+    [STATE.SPEAKING]: { borderColor: "#8b5cf6", boxShadow: "0 0 40px rgba(139,92,246,0.3)" },
+    [STATE.IDLE]: { borderColor: "#6b7280" }
+  };
+  return ringStyles[state] || ringStyles[STATE.IDLE];
+}
+
 const styles = {
   loadingContainer: {
     minHeight: "100vh",
     display: "flex",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
+    gap: "16px",
     background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
   },
   spinner: {
@@ -217,233 +453,208 @@ const styles = {
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },
-  container: {
+  spinnerSmall: {
+    width: "40px",
+    height: "40px",
+    border: "4px solid #e5e7eb",
+    borderTopColor: "#6b7280",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+  },
+  sessionContainer: {
     minHeight: "100vh",
-    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
-    paddingBottom: "100px",
+    display: "flex",
+    flexDirection: "column",
+    background: "linear-gradient(135deg, #fce7f3 0%, #f5f3ff 50%, #fdf4ff 100%)",
   },
   header: {
-    padding: "24px 20px 16px",
-    textAlign: "center",
-  },
-  title: {
-    fontSize: "28px",
-    fontWeight: "bold",
-    color: "#1f2937",
-    margin: "0 0 4px 0",
-  },
-  subtitle: {
-    fontSize: "15px",
-    color: "#8b5cf6",
-    margin: 0,
-    fontWeight: "500",
-  },
-  content: {
-    padding: "0 20px",
-  },
-  card: {
-    background: "white",
-    borderRadius: "24px",
-    padding: "32px 24px",
-    textAlign: "center",
-    boxShadow: "0 4px 20px rgba(139, 92, 246, 0.1)",
-    marginBottom: "16px",
-  },
-  cardIconLarge: {
-    fontSize: "64px",
-    marginBottom: "16px",
-  },
-  cardIcon: {
-    fontSize: "48px",
-    marginBottom: "16px",
-  },
-  cardTitle: {
-    fontSize: "22px",
-    fontWeight: "bold",
-    color: "#1f2937",
-    margin: "0 0 8px 0",
-  },
-  cardSubtitle: {
-    fontSize: "16px",
-    color: "#8b5cf6",
-    fontWeight: "500",
-    margin: "0 0 16px 0",
-  },
-  cardDescription: {
-    fontSize: "15px",
-    color: "#6b7280",
-    lineHeight: "1.6",
-    margin: "0 0 24px 0",
-  },
-  primaryButton: {
-    padding: "16px 32px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    color: "white",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "16px",
-    fontWeight: "600",
-    cursor: "pointer",
-    boxShadow: "0 4px 15px rgba(139, 92, 246, 0.3)",
-    width: "100%",
-  },
-  connectButton: {
-    padding: "16px 32px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    color: "white",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "16px",
-    fontWeight: "600",
-    cursor: "pointer",
-    boxShadow: "0 4px 15px rgba(139, 92, 246, 0.3)",
-  },
-  cardSecondary: {
-    background: "white",
-    borderRadius: "16px",
-    padding: "20px",
-    boxShadow: "0 2px 10px rgba(139, 92, 246, 0.08)",
-    marginBottom: "16px",
-    cursor: "pointer",
-  },
-  cardRow: {
+    background: "rgba(255,255,255,0.9)",
+    backdropFilter: "blur(10px)",
+    borderBottom: "1px solid #f9a8d4",
+    padding: "12px 20px",
     display: "flex",
     alignItems: "center",
-    gap: "16px",
+    justifyContent: "space-between",
   },
-  cardIconSmall: {
-    fontSize: "32px",
+  headerLeft: { 
+    display: "flex", 
+    alignItems: "center", 
+    gap: "12px" 
   },
-  cardTitleSmall: {
+  headerIcon: {
+    width: "44px",
+    height: "44px",
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "22px",
+    transition: "all 0.3s",
+  },
+  headerTitle: { 
+    fontWeight: "600", 
+    color: "#1f2937", 
+    fontSize: "17px" 
+  },
+  headerSubtitle: { 
+    fontSize: "13px", 
+    color: "#6b7280" 
+  },
+  timeWarning: {
+    color: "#f59e0b",
+    fontWeight: "600",
+  },
+  endButton: {
+    padding: "8px 16px",
+    background: "#fee2e2",
+    color: "#dc2626",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "500",
+  },
+  coupleIndicator: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "12px",
+    padding: "16px",
+    background: "rgba(255,255,255,0.6)",
+  },
+  coupleName: {
     fontSize: "16px",
     fontWeight: "600",
-    color: "#1f2937",
-    margin: "0 0 4px 0",
-  },
-  cardDescriptionSmall: {
-    fontSize: "13px",
     color: "#6b7280",
-    margin: 0,
   },
-  arrow: {
-    marginLeft: "auto",
+  coupleHeart: {
     fontSize: "20px",
-    color: "#9ca3af",
   },
-  comingSoon: {
-    marginTop: "24px",
-    padding: "20px",
-    textAlign: "center",
-  },
-  comingSoonText: {
-    color: "#9ca3af",
-    fontSize: "14px",
-  },
-  bottomNav: {
-    position: "fixed",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    background: "white",
-    borderTop: "1px solid #e5e7eb",
-    display: "flex",
-    justifyContent: "space-around",
-    padding: "12px 0 24px 0",
-  },
-  navItem: {
-    background: "none",
-    border: "none",
+  voiceOnlyContainer: {
+    flex: 1,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "4px",
-    cursor: "pointer",
-    padding: "8px 16px",
+    justifyContent: "center",
+    padding: "40px 20px",
   },
-  navItemActive: {},
-  navIcon: {
-    fontSize: "24px",
+  statusRing: {
+    width: "180px",
+    height: "180px",
+    borderRadius: "50%",
+    border: "6px solid #6b7280",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "all 0.3s",
   },
-  navLabel: {
-    fontSize: "12px",
-    color: "#9ca3af",
+  statusInner: {
+    width: "150px",
+    height: "150px",
+    borderRadius: "50%",
+    background: "rgba(255,255,255,0.9)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  navLabelActive: {
-    color: "#8b5cf6",
+  listeningPulse: {
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #22c55e, #16a34a)",
+    animation: "pulse 2s ease-in-out infinite",
+  },
+  thinkingPulse: {
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #f59e0b, #d97706)",
+    animation: "breathe 1.5s ease-in-out infinite",
+  },
+  speakingPulse: {
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    animation: "pulse 1s ease-in-out infinite",
+  },
+  micIcon: {
+    fontSize: "60px",
+  },
+  statusText: { 
+    color: "#374151", 
+    fontSize: "20px", 
     fontWeight: "600",
+    marginTop: "32px" 
   },
-  // Modal styles
-  modalOverlay: {
+  tipText: {
+    color: "#9ca3af",
+    fontSize: "14px",
+    marginTop: "12px",
+    minHeight: "20px",
+  },
+  dialogOverlay: {
     position: "fixed",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    background: "rgba(0,0,0,0.6)",
+    background: "rgba(0,0,0,0.5)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     padding: "20px",
     zIndex: 1000,
   },
-  modal: {
+  dialog: {
     background: "white",
     borderRadius: "24px",
-    padding: "32px 24px",
+    padding: "32px",
     maxWidth: "400px",
     width: "100%",
     textAlign: "center",
-    maxHeight: "90vh",
-    overflowY: "auto",
   },
-  modalIcon: {
-    fontSize: "48px",
-    marginBottom: "16px",
-  },
-  modalTitle: {
-    fontSize: "22px",
+  dialogTitle: {
+    fontSize: "20px",
     fontWeight: "bold",
     color: "#1f2937",
-    margin: "0 0 24px 0",
+    marginBottom: "12px",
   },
-  prepList: {
-    textAlign: "left",
+  dialogText: {
+    color: "#6b7280",
     marginBottom: "24px",
   },
-  prepItem: {
+  dialogButtons: {
     display: "flex",
-    gap: "16px",
-    marginBottom: "20px",
-    alignItems: "flex-start",
+    gap: "12px",
+    marginBottom: "16px",
   },
-  prepIcon: {
-    fontSize: "24px",
-    marginTop: "2px",
+  dialogButtonSecondary: {
+    flex: 1,
+    padding: "14px",
+    background: "#f3f4f6",
+    color: "#374151",
+    border: "none",
+    borderRadius: "12px",
+    fontSize: "15px",
+    fontWeight: "500",
+    cursor: "pointer",
   },
-  prepText: {
-    fontSize: "13px",
-    color: "#6b7280",
-    margin: "4px 0 0 0",
-  },
-  startSessionButton: {
-    width: "100%",
-    padding: "18px",
+  dialogButtonPrimary: {
+    flex: 1,
+    padding: "14px",
     background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
     color: "white",
     border: "none",
-    borderRadius: "14px",
-    fontSize: "17px",
+    borderRadius: "12px",
+    fontSize: "15px",
     fontWeight: "600",
     cursor: "pointer",
-    boxShadow: "0 4px 15px rgba(139, 92, 246, 0.3)",
-    marginBottom: "12px",
   },
-  cancelButton: {
+  dialogCancel: {
     background: "none",
     border: "none",
     color: "#6b7280",
-    fontSize: "15px",
+    fontSize: "14px",
     cursor: "pointer",
-    padding: "8px",
   },
 };
