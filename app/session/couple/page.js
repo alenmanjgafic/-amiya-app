@@ -229,7 +229,8 @@ export default function CoupleSessionPage() {
               });
             }
             
-            setMessageCount(messagesRef.current.length);
+            // Don't update state during messages - prevents audio interruption
+            // Count will be updated when session ends
           }
         },
         onModeChange: (mode) => {
@@ -277,6 +278,8 @@ export default function CoupleSessionPage() {
       conversationRef.current = null;
     }
     setVoiceState(STATE.IDLE);
+    // Update message count now that session is over
+    setMessageCount(messagesRef.current.length);
     setShowEndDialog(true);
   }, []);
 
