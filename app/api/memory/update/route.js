@@ -1,6 +1,14 @@
 /**
  * MEMORY UPDATE API - /api/memory/update
  * Aktualisiert Kontext nach Session-Ende
+ * 
+ * EVIDENCE-BASED SCHEMA v2.0
+ * Extrahiert: Core Needs, Statements, Patterns, Dynamics (Gottman-based)
+ * 
+ * Wichtige Regeln:
+ * - Solo Session: Updates personal_context + shared facts (wenn neu)
+ * - Couple Session: Updates shared_context only (personal bleibt getrennt)
+ * - Statements werden mit Datum gespeichert für Widerspruchs-Erkennung
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
@@ -14,35 +22,131 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const UPDATE_PROMPT = `Du bist ein Assistent der Gesprächsnotizen für einen Beziehungscoach pflegt.
+// ═══════════════════════════════════════════════════════════
+// EXTRACTION PROMPTS (Evidence-based)
+// ═══════════════════════════════════════════════════════════
+
+const SOLO_UPDATE_PROMPT = `Du bist ein Assistent der Gesprächsnotizen für einen Beziehungscoach pflegt.
+Diese Notizen sind PRIVAT für den User und werden nicht mit dem Partner geteilt.
 
 AKTUELLE NOTIZEN:
 {current_context}
 
-NEUE SESSION ({session_type}, {date}):
+NEUE SOLO SESSION ({date}):
 {analysis}
 
 AUFGABE:
-Aktualisiere die Notizen basierend auf der neuen Session. Gib NUR valides JSON zurück.
+Extrahiere relevante Informationen und aktualisiere die Notizen. Gib NUR valides JSON zurück.
+
+WICHTIG - Was zu extrahieren ist:
+
+1. CORE_NEEDS: Tiefe Bedürfnisse die der User ausdrückt
+   - "Ich brauche mehr Nähe" → {need: "Körperliche Nähe und Zuneigung", identified: "{date}", source: "solo"}
+   - Max 3 behalten, älteste ersetzen wenn nötig
+
+2. STATEMENTS: Konkrete Aussagen mit Datum (KRITISCH für Widerspruchs-Erkennung!)
+   - Aussagen über sich selbst
+   - Aussagen über den Partner (subjektiv!)
+   - Format: {date: "{date}", said: "...", source: "solo", theme: "intimacy|communication|workload|trust|..."}
+   - Max 7 behalten, älteste entfernen
+
+3. PARTNER_PERSPECTIVE: Wie der User den Partner sieht (nur aus Solo!)
+   - {date: "{date}", observation: "...", context: "..."}
+   - Max 3 behalten
+
+4. OWN_PATTERNS: Muster die der User bei sich selbst erkennt
+   - {pattern: "Verfolger bei Intimität", recognized: "{date}", insight: "..."}
+   - Max 3 behalten
+
+5. TASKS: Konkrete Aufgaben die sich der User vornimmt
+   - {task: "...", from_session: "solo", assigned: "{date}", status: "open"}
+   - Alte erledigte entfernen, max 5 offene
+
+6. COACHING_STYLE: Was bei diesem User funktioniert
+   - responds_well: ["Validierung", "konkrete Beispiele"]
+   - avoid: ["direkte Kritik"]
+
+7. SOLO_JOURNEY: Session-Historie aktualisieren
+   - recent_topics: [{date, topic, open}] - max 5
+   - next_solo.followup: Was nächstes Mal nachfragen
+
+8. SHARED FACTS (nur wenn NEU erwähnt und objektiv):
+   - Kinder-Anzahl/Alter, Beziehungsdauer, Arbeitssituation
+   - Diese gehen in ein separates "shared_facts_update" Objekt
 
 REGELN:
-1. FACTS: Neue Fakten hinzufügen, veraltete überschreiben (Kinder-Alter aktualisieren, etc.)
-2. EXPRESSED: Wichtige neue Aussagen ergänzen (max 5 behalten, älteste entfernen)
-3. STRENGTHS: Aktualisieren wenn sich etwas geändert hat (max 5)
-4. JOURNEY.PROGRESS: Wenn ein Thema Fortschritt zeigt, hinzufügen/aktualisieren
-5. JOURNEY.RECURRING: Wenn ein Thema wiederholt auftaucht, notieren
-6. JOURNEY.RECENT_SESSIONS: Diese Session vorne hinzufügen (max 3 behalten)
-7. COACHING.WORKS_WELL: Was in dieser Session gut funktioniert hat
-8. NEXT_SESSION.FOLLOWUP: Was nächstes Mal nachgefragt werden sollte
-9. NEXT_SESSION.SENSITIVE: Sensible Themen notieren
-
-WICHTIG:
 - Keine Diagnosen oder klinischen Bewertungen
-- Nur was der User selbst gesagt/erzählt hat
-- Neutral formulieren
-- Bei Widersprüchen: Neuere Info überschreibt
+- Neutral formulieren, auch bei negativen Aussagen über Partner
+- Bei Widersprüchen zu früheren Aussagen: BEIDE behalten (für Erkennung!)
+- Datum immer im Format YYYY-MM-DD
 
-Antworte NUR mit dem aktualisierten JSON, keine Erklärungen.`;
+Antworte NUR mit JSON in diesem Format:
+{
+  "personal_context": { ... aktualisierter personal_context ... },
+  "shared_facts_update": { ... nur neue Fakten, oder null ... }
+}`;
+
+const COUPLE_UPDATE_PROMPT = `Du bist ein Assistent der Gesprächsnotizen für einen Beziehungscoach pflegt.
+Diese Notizen sind GEMEINSAM für beide Partner sichtbar.
+
+AKTUELLE NOTIZEN:
+{current_context}
+
+NEUE COUPLE SESSION ({date}):
+{analysis}
+
+AUFGABE:
+Extrahiere relevante Informationen und aktualisiere die gemeinsamen Notizen. Gib NUR valides JSON zurück.
+
+WICHTIG - Was zu extrahieren ist (Gottman-basiert):
+
+1. FACTS: Objektive Fakten die BEIDE bestätigt haben
+   - together_years: Anzahl Jahre zusammen
+   - children_count: Anzahl Kinder
+   - children_ages: [10, 8, 6, 2] (KEINE Namen - GDPR!)
+   - work_dynamic: {partner_a: "...", partner_b: "..."}
+   - date_frequency: "alle 2 Wochen" etc.
+
+2. DYNAMICS: Beziehungsdynamik (Gottman-Konzepte)
+   - expressed_needs: {partner_a: "...", partner_b: "..."} - was jeder braucht
+   - core_tension: Die zentrale Spannung zwischen den Bedürfnissen
+   - shared_concerns: ["...", "..."] - Sorgen die BEIDE teilen
+   - patterns: [{pattern: "pursuer-distancer", context: "intimacy", recognized_by: "both", date: "{date}"}]
+     Mögliche Muster: "pursuer-distancer", "criticism-defensiveness", "stonewalling", "contempt", "demand-withdraw"
+
+3. STRENGTHS: Was das Paar stark macht
+   - Nur hinzufügen wenn klar positiv
+   - Max 5 behalten
+
+4. JOURNEY: Gemeinsamer Fortschritt
+   - milestones: [{date, achievement}] - wichtige Durchbrüche
+   - perpetual_issues: ["..."] - Themen die immer wiederkommen (Gottman: 69% sind normal!)
+   - recent_sessions: [{date, topic, outcome}] - max 3
+
+5. AGREEMENTS: Vereinbarungen die BEIDE gemacht haben
+   - {title: "...", created: "{date}", agreed_by: "both", check_in: "YYYY-MM-DD", status: "active"}
+   - Alte abgeschlossene auf "completed" setzen
+
+6. COACHING: Was bei diesem Paar funktioniert
+   - works_well: ["...", "..."]
+   - avoid: ["...", "..."]
+
+7. NEXT_SESSION: Vorbereitung für nächste Session
+   - followup_questions: ["..."] - Was nachfragen
+   - topics_to_explore: ["..."] - Themen vertiefen
+   - sensitive: ["..."] - Vorsichtig ansprechen
+
+REGELN:
+- NUR was BEIDE gesagt/bestätigt haben in shared_context
+- Keine Aussagen von einem Partner über den anderen (das ist subjektiv!)
+- Neutral und wertfrei formulieren
+- Keine Kinder-Namen speichern (GDPR)
+- Bei Vereinbarungen: nur wenn BEIDE zugestimmt haben
+
+Antworte NUR mit JSON:
+{
+  "shared_context": { ... aktualisierter shared_context ... }
+}`;
 
 export async function POST(request) {
   try {
@@ -85,58 +189,63 @@ export async function POST(request) {
     // 3. Update based on session type
     if (sessionType === "solo") {
       // Update personal context
-      const updatedPersonal = await updateContext(
+      const result = await updateSoloContext(
         profile.personal_context || getDefaultPersonalContext(),
         analysis,
-        "solo",
-        today,
-        "personal"
+        today
       );
 
-      if (updatedPersonal) {
+      if (result?.personal_context) {
         await supabase
           .from("profiles")
-          .update({ personal_context: updatedPersonal })
+          .update({ personal_context: result.personal_context })
           .eq("id", userId);
       }
 
       // Also update shared facts if new facts were mentioned
-      if (coupleId && sharedContext) {
-        const updatedShared = await updateContext(
-          sharedContext,
-          analysis,
-          "solo",
-          today,
-          "shared_facts_only"
-        );
-
-        if (updatedShared) {
-          await supabase
-            .from("couples")
-            .update({ shared_context: updatedShared })
-            .eq("id", coupleId);
-        }
+      if (coupleId && result?.shared_facts_update) {
+        const currentShared = sharedContext || getDefaultSharedContext();
+        const mergedFacts = mergeFacts(currentShared.facts, result.shared_facts_update);
+        
+        await supabase
+          .from("couples")
+          .update({ 
+            shared_context: {
+              ...currentShared,
+              facts: mergedFacts
+            }
+          })
+          .eq("id", coupleId);
       }
+
+      return Response.json({ 
+        success: true, 
+        updated: "personal_context",
+        sharedFactsUpdated: !!result?.shared_facts_update
+      });
 
     } else if (sessionType === "couple") {
       // Update shared context only
       if (coupleId) {
         const currentShared = sharedContext || getDefaultSharedContext();
         
-        const updatedShared = await updateContext(
+        const result = await updateCoupleContext(
           currentShared,
           analysis,
-          "couple",
-          today,
-          "shared"
+          today
         );
 
-        if (updatedShared) {
+        if (result?.shared_context) {
           await supabase
             .from("couples")
-            .update({ shared_context: updatedShared })
+            .update({ shared_context: result.shared_context })
             .eq("id", coupleId);
         }
+
+        return Response.json({ 
+          success: true, 
+          updated: "shared_context"
+        });
       }
     }
 
@@ -149,28 +258,18 @@ export async function POST(request) {
 }
 
 /**
- * Use Claude to intelligently update context
+ * Update personal context from solo session
  */
-async function updateContext(currentContext, analysis, sessionType, date, updateType) {
+async function updateSoloContext(currentContext, analysis, date) {
   try {
-    let prompt = UPDATE_PROMPT
+    const prompt = SOLO_UPDATE_PROMPT
       .replace("{current_context}", JSON.stringify(currentContext, null, 2))
-      .replace("{session_type}", sessionType)
-      .replace("{date}", date)
+      .replace(/{date}/g, date)
       .replace("{analysis}", analysis);
-
-    // Adjust prompt based on update type
-    if (updateType === "personal") {
-      prompt += "\n\nFOKUS: Aktualisiere personal context (expressed, solo_journey, next_solo).";
-    } else if (updateType === "shared_facts_only") {
-      prompt += "\n\nFOKUS: Aktualisiere NUR facts (Kinder, Beziehungsdauer, etc.) wenn neue erwähnt wurden. Andere Felder nicht ändern.";
-    } else if (updateType === "shared") {
-      prompt += "\n\nFOKUS: Aktualisiere shared context vollständig (facts, strengths, journey, coaching, next_session).";
-    }
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 2048,
+      max_tokens: 3000,
       messages: [
         {
           role: "user",
@@ -180,25 +279,122 @@ async function updateContext(currentContext, analysis, sessionType, date, update
     });
 
     const responseText = message.content[0].text.trim();
-    
-    // Parse JSON - handle potential markdown code blocks
-    let jsonStr = responseText;
-    if (jsonStr.startsWith("```")) {
-      jsonStr = jsonStr.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    }
-
-    const updated = JSON.parse(jsonStr);
-    return updated;
+    return parseJsonResponse(responseText);
 
   } catch (error) {
-    console.error("Context update failed:", error);
-    // Return null to indicate failure - caller will keep existing context
+    console.error("Solo context update failed:", error);
     return null;
   }
 }
 
+/**
+ * Update shared context from couple session
+ */
+async function updateCoupleContext(currentContext, analysis, date) {
+  try {
+    const prompt = COUPLE_UPDATE_PROMPT
+      .replace("{current_context}", JSON.stringify(currentContext, null, 2))
+      .replace(/{date}/g, date)
+      .replace("{analysis}", analysis);
+
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 3000,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
+
+    const responseText = message.content[0].text.trim();
+    return parseJsonResponse(responseText);
+
+  } catch (error) {
+    console.error("Couple context update failed:", error);
+    return null;
+  }
+}
+
+/**
+ * Parse JSON from Claude response (handles markdown code blocks)
+ */
+function parseJsonResponse(responseText) {
+  let jsonStr = responseText;
+  
+  // Remove markdown code blocks if present
+  if (jsonStr.startsWith("```")) {
+    jsonStr = jsonStr.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+  }
+  
+  try {
+    return JSON.parse(jsonStr);
+  } catch (error) {
+    console.error("Failed to parse JSON:", jsonStr.substring(0, 500));
+    return null;
+  }
+}
+
+/**
+ * Merge new facts with existing facts (don't overwrite with null)
+ */
+function mergeFacts(existingFacts, newFacts) {
+  if (!newFacts) return existingFacts;
+  
+  const merged = { ...existingFacts };
+  
+  for (const [key, value] of Object.entries(newFacts)) {
+    if (value !== null && value !== undefined) {
+      // For arrays, merge intelligently
+      if (Array.isArray(value) && Array.isArray(merged[key])) {
+        // For children_ages, replace entirely if provided
+        if (key === 'children_ages') {
+          merged[key] = value;
+        } else {
+          // For other arrays, merge unique values
+          merged[key] = [...new Set([...merged[key], ...value])];
+        }
+      } else if (typeof value === 'object' && typeof merged[key] === 'object') {
+        // For nested objects, merge recursively
+        merged[key] = { ...merged[key], ...value };
+      } else {
+        // For primitives, overwrite
+        merged[key] = value;
+      }
+    }
+  }
+  
+  return merged;
+}
+
+/**
+ * Default personal context structure
+ */
 function getDefaultPersonalContext() {
   return {
+    // Gottman: Core emotional needs
+    core_needs: [],
+    
+    // Statements with dates for contradiction detection
+    statements: [],
+    
+    // Subjective view of partner (solo only)
+    partner_perspective: [],
+    
+    // Self-recognized patterns
+    own_patterns: [],
+    
+    // Tasks/commitments
+    tasks: [],
+    
+    // Coaching preferences
+    coaching_style: {
+      responds_well: [],
+      avoid: []
+    },
+    
+    // Legacy fields (backwards compatibility)
     expressed: [],
     solo_journey: {
       started: new Date().toISOString().split("T")[0],
@@ -210,29 +406,64 @@ function getDefaultPersonalContext() {
   };
 }
 
+/**
+ * Default shared context structure
+ */
 function getDefaultSharedContext() {
   return {
+    // Objective facts (GDPR-compliant)
     facts: {
-      together_since: null,
+      together_years: null,
+      together_since: null,  // Legacy
       married_since: null,
-      children: [],
-      work: {}
+      children_count: null,
+      children_ages: [],
+      children: [],  // Legacy (with names) - deprecated
+      work_dynamic: null,
+      work: {},  // Legacy
+      date_frequency: null
     },
+    
+    // Gottman: Relationship dynamics
+    dynamics: {
+      expressed_needs: {
+        partner_a: null,
+        partner_b: null
+      },
+      core_tension: null,
+      shared_concerns: [],
+      patterns: []
+    },
+    
+    // Strengths
     strengths: [],
+    
+    // Journey together
     journey: {
       started_with_amiya: new Date().toISOString().split("T")[0],
-      initial_topics: [],
-      progress: [],
-      recurring: [],
+      milestones: [],
+      perpetual_issues: [],
+      initial_topics: [],  // Legacy
+      progress: [],  // Legacy
+      recurring: [],  // Legacy
       recent_sessions: []
     },
+    
+    // Agreements between partners
+    agreements: [],
+    
+    // Coaching style for couple
     coaching: {
       works_well: [],
       avoid: []
     },
+    
+    // Next session preparation
     next_session: {
-      followup: null,
-      open_agreements: [],
+      followup: null,  // Legacy
+      followup_questions: [],
+      topics_to_explore: [],
+      open_agreements: [],  // Legacy
       sensitive: []
     }
   };
