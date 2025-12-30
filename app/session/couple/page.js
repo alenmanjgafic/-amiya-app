@@ -1,11 +1,7 @@
 /**
  * COUPLE SESSION PAGE - app/session/couple/page.js
  * Gemeinsame Session für beide Partner
- * 
- * v2.4: Clean mic handling + Speaker Detection
- * - Let ElevenLabs manage its own audio stream
- * - Proper cleanup on all exit paths
- * - Speaker detection based on who Amiya addresses
+ * OPTIMIERT: Sofortiges Audio-Stop + Analyse-Loading-State
  */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -39,29 +35,31 @@ export default function CoupleSessionPage() {
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
-  
-  // Speaker Detection: Track who Amiya last addressed
-  const lastAddressedRef = useRef(null);
 
-  const MAX_SESSION_TIME = 60 * 60;
+  // Max session time: 1 hour
+  const MAX_SESSION_TIME = 60 * 60; // seconds
 
+  // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/auth");
     }
   }, [user, authLoading, router]);
 
+  // Redirect if not connected to partner
   useEffect(() => {
     if (!authLoading && user && profile && !profile.couple_id) {
       router.push("/wir");
     }
   }, [user, profile, authLoading, router]);
 
+  // Session timer
   useEffect(() => {
     if (isStarted && !timerRef.current) {
       timerRef.current = setInterval(() => {
         setSessionTime(t => {
           if (t >= MAX_SESSION_TIME - 1) {
+            // Auto-end at 1 hour
             handleEndClick();
           }
           return t + 1;
@@ -78,68 +76,7 @@ export default function CoupleSessionPage() {
   const userName = profile?.name || "du";
   const partnerName = profile?.partner_name || "Partner";
 
-  /**
-   * Detect who is being addressed in Amiya's message
-   */
-  const detectAddressedPerson = useCallback((amiyaMessage) => {
-    if (!amiyaMessage) return null;
-    
-    const messageLower = amiyaMessage.toLowerCase();
-    const userNameLower = userName.toLowerCase();
-    const partnerNameLower = partnerName.toLowerCase();
-    
-    const addressPatterns = [
-      new RegExp(`${userNameLower}[,?]?\\s*$`, 'i'),
-      new RegExp(`${userNameLower},\\s+(was|wie|kannst|möchtest|würdest)`, 'i'),
-      new RegExp(`(und du|was denkst du|wie siehst du das),?\\s*${userNameLower}`, 'i'),
-    ];
-    
-    const partnerPatterns = [
-      new RegExp(`${partnerNameLower}[,?]?\\s*$`, 'i'),
-      new RegExp(`${partnerNameLower},\\s+(was|wie|kannst|möchtest|würdest)`, 'i'),
-      new RegExp(`(und du|was denkst du|wie siehst du das),?\\s*${partnerNameLower}`, 'i'),
-    ];
-    
-    for (const pattern of addressPatterns) {
-      if (pattern.test(messageLower)) return "user";
-    }
-    
-    for (const pattern of partnerPatterns) {
-      if (pattern.test(messageLower)) return "partner";
-    }
-    
-    const userMentioned = messageLower.includes(userNameLower);
-    const partnerMentioned = messageLower.includes(partnerNameLower);
-    
-    if (userMentioned && !partnerMentioned) return "user";
-    if (partnerMentioned && !userMentioned) return "partner";
-    
-    return null;
-  }, [userName, partnerName]);
-
-  /**
-   * Determine speaker label for a user message
-   */
-  const getSpeakerLabel = useCallback((userMessage) => {
-    if (lastAddressedRef.current === "user") return userName;
-    if (lastAddressedRef.current === "partner") return partnerName;
-    
-    const messageLower = userMessage.toLowerCase();
-    
-    if (messageLower.includes("ich als " + userName.toLowerCase()) ||
-        messageLower.includes("ich, " + userName.toLowerCase()) ||
-        messageLower.startsWith(userName.toLowerCase() + " hier")) {
-      return userName;
-    }
-    if (messageLower.includes("ich als " + partnerName.toLowerCase()) ||
-        messageLower.includes("ich, " + partnerName.toLowerCase()) ||
-        messageLower.startsWith(partnerName.toLowerCase() + " hier")) {
-      return partnerName;
-    }
-    
-    return "Paar";
-  }, [userName, partnerName]);
-
+  // Start conversation
   const startSession = useCallback(async () => {
     if (!user || !profile) return;
     
@@ -148,9 +85,9 @@ export default function CoupleSessionPage() {
     messagesRef.current = [];
     setMessageCount(0);
     setAnalysisError(null);
-    lastAddressedRef.current = null;
 
     try {
+      // Lade Kontext aus Memory System
       let userContext = "";
       try {
         const contextResponse = await fetch("/api/memory/get", {
@@ -172,12 +109,14 @@ export default function CoupleSessionPage() {
         console.error("Failed to load memory:", contextError);
       }
 
+      // Create session in database as "couple" type
       const session = await sessionsService.create(user.id, "couple", profile.couple_id);
       setCurrentSessionId(session.id);
 
+      // Dynamically import ElevenLabs SDK
       const { Conversation } = await import("@elevenlabs/client");
 
-      // Just request permission - ElevenLabs manages its own stream
+      // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
       console.log("Couple context length:", userContext.length);
@@ -200,37 +139,14 @@ export default function CoupleSessionPage() {
         },
         onMessage: (message) => {
           if (message.source && message.message) {
-            const isAmiya = message.source !== "user";
+            const role = message.source === "user" ? "user" : "assistant";
             const content = message.message;
             
             const lastMsg = messagesRef.current[messagesRef.current.length - 1];
-            if (lastMsg && lastMsg.content === content) return;
-            
-            if (isAmiya) {
-              const addressed = detectAddressedPerson(content);
-              if (addressed) {
-                lastAddressedRef.current = addressed;
-                console.log(`Amiya addressed: ${addressed === "user" ? userName : partnerName}`);
-              }
-              
-              messagesRef.current.push({ 
-                role: "assistant", 
-                content,
-                speaker: "Amiya"
-              });
-            } else {
-              const speaker = getSpeakerLabel(content);
-              console.log(`Speaker detected: ${speaker}`);
-              
-              messagesRef.current.push({ 
-                role: "user", 
-                content,
-                speaker: speaker
-              });
+            if (!(lastMsg && lastMsg.role === role && lastMsg.content === content)) {
+              messagesRef.current.push({ role, content });
+              setMessageCount(messagesRef.current.length);
             }
-            
-            // Don't update state during messages - prevents audio interruption
-            // Count will be updated when session ends
           }
         },
         onModeChange: (mode) => {
@@ -258,7 +174,7 @@ export default function CoupleSessionPage() {
       setVoiceState(STATE.IDLE);
       router.push("/wir");
     }
-  }, [user, profile, userName, partnerName, router, detectAddressedPerson, getSpeakerLabel]);
+  }, [user, profile, userName, partnerName, router]);
 
   // Auto-start on mount
   useEffect(() => {
@@ -267,8 +183,9 @@ export default function CoupleSessionPage() {
     }
   }, [authLoading, user, profile, isStarted, startSession]);
 
-  // End ElevenLabs session (stops mic internally)
+  // OPTIMIERT: Sofort Audio stoppen wenn End-Button geklickt wird
   const handleEndClick = useCallback(async () => {
+    // Sofort aufhören zuzuhören
     if (conversationRef.current) {
       try {
         await conversationRef.current.endSession();
@@ -278,17 +195,17 @@ export default function CoupleSessionPage() {
       conversationRef.current = null;
     }
     setVoiceState(STATE.IDLE);
-    // Update message count now that session is over
-    setMessageCount(messagesRef.current.length);
     setShowEndDialog(true);
   }, []);
 
+  // Prüft via Claude ob genug Kontext für eine sinnvolle Analyse vorhanden ist
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
     if (messages.length === 0) return { viable: false, reason: "empty" };
     
+    // Erstelle Transcript für Check
     const transcript = messages
-      .map(m => `${m.speaker || (m.role === "user" ? "Paar" : "Amiya")}: ${m.content}`)
+      .map(m => `${m.role === "user" ? "Paar" : "Amiya"}: ${m.content}`)
       .join("\n");
     
     try {
@@ -298,7 +215,9 @@ export default function CoupleSessionPage() {
         body: JSON.stringify({ transcript }),
       });
       
-      if (!response.ok) return { viable: true, reason: null };
+      if (!response.ok) {
+        return { viable: true, reason: null };
+      }
       
       const data = await response.json();
       return { viable: data.viable, reason: data.reason };
@@ -316,7 +235,6 @@ export default function CoupleSessionPage() {
     setSessionTime(0);
     setCurrentSessionId(null);
     setIsGeneratingAnalysis(false);
-    lastAddressedRef.current = null;
     
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -334,22 +252,19 @@ export default function CoupleSessionPage() {
     if (currentSessionId && hasMessages) {
       try {
         let summary = "";
-        summary += `[Couple Session: ${userName} & ${partnerName}]\n`;
-        summary += `[Hinweis: Wenn "Paar" als Sprecher steht, war der genaue Sprecher nicht eindeutig erkennbar]\n\n`;
-        
+        summary += `[Couple Session: ${userName} & ${partnerName}]\n\n`;
         summary += currentMessages
-          .map(m => {
-            const speaker = m.speaker || (m.role === "user" ? "Paar" : "Amiya");
-            return `${speaker}: ${m.content}`;
-          })
+          .map(m => `${m.role === "user" ? "Paar" : "Amiya"}: ${m.content}`)
           .join("\n");
         
         await sessionsService.end(currentSessionId, summary, []);
         
         if (requestAnalysis) {
+          // Zeige Loading-State während Viability-Check
           setIsGeneratingAnalysis(true);
           setShowEndDialog(false);
           
+          // Prüfe ob genug Inhalt vorhanden
           const viability = await checkAnalysisViability();
           
           if (!viability.viable) {
@@ -370,6 +285,7 @@ export default function CoupleSessionPage() {
           try {
             const analysisResult = await sessionsService.requestAnalysis(currentSessionId);
             
+            // Memory Update nach erfolgreicher Analyse
             try {
               await fetch("/api/memory/update", {
                 method: "POST",
@@ -416,14 +332,13 @@ export default function CoupleSessionPage() {
       resetSession();
       router.push("/wir");
     }
-  }, [currentSessionId, userName, partnerName, router, checkAnalysisViability, resetSession, user, profile]);
+  }, [currentSessionId, userName, partnerName, router, checkAnalysisViability, resetSession]);
 
-  // Cleanup on unmount - ensures mic is released
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (conversationRef.current) {
-        conversationRef.current.endSession().catch(() => {});
-        conversationRef.current = null;
+        conversationRef.current.endSession();
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -431,6 +346,7 @@ export default function CoupleSessionPage() {
     };
   }, []);
 
+  // Time warning at 50 minutes
   const timeWarning = sessionTime >= 50 * 60 && sessionTime < 50 * 60 + 5;
 
   if (authLoading || !profile) {
@@ -442,6 +358,7 @@ export default function CoupleSessionPage() {
     );
   }
 
+  // ============ ANALYSIS GENERATING SCREEN ============
   if (isGeneratingAnalysis) {
     return (
       <div style={styles.sessionContainer}>
@@ -464,6 +381,7 @@ export default function CoupleSessionPage() {
     );
   }
 
+  // ============ ERROR SCREEN ============
   if (analysisError) {
     return (
       <div style={styles.sessionContainer}>
@@ -518,7 +436,7 @@ export default function CoupleSessionPage() {
         <p style={styles.statusText}>{getStatusText(voiceState)}</p>
         
         <p style={styles.tipText}>
-          {voiceState === STATE.LISTENING && "Sprecht abwechselnd – Amiya wird euch ansprechen"}
+          {voiceState === STATE.LISTENING && "Sprecht abwechselnd..."}
           {voiceState === STATE.SPEAKING && "Amiya moderiert..."}
           {voiceState === STATE.THINKING && "Einen Moment..."}
         </p>
@@ -777,8 +695,8 @@ const styles = {
     fontSize: "14px",
     marginTop: "12px",
     minHeight: "20px",
-    textAlign: "center",
   },
+  // Analysis Loading Screen
   analysisLoadingContainer: {
     flex: 1,
     display: "flex",
