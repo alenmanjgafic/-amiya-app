@@ -1,10 +1,7 @@
 /**
  * MAIN PAGE - app/page.js
  * Hauptseite mit Solo Voice-Session
- * 
- * v2.4: Clean mic handling
- * - Let ElevenLabs manage its own audio stream
- * - Proper cleanup on all exit paths (end, unmount, error)
+ * OPTIMIERT: Sofortiges Audio-Stop + Analyse-Loading-State
  */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -57,6 +54,7 @@ export default function Home() {
   // Check for memory consent
   useEffect(() => {
     if (!authLoading && user && profile && profile.name && profile.partner_name) {
+      // Redirect if memory_consent is null/undefined OR if it's false but was never explicitly set
       const neverDecided = profile.memory_consent === null || 
                            profile.memory_consent === undefined ||
                            (profile.memory_consent === false && !profile.memory_consent_at);
@@ -113,28 +111,30 @@ export default function Home() {
         }
       } catch (contextError) {
         console.error("Failed to load memory:", contextError);
+        // Weitermachen ohne Kontext
       }
 
       const session = await sessionsService.create(user.id, "solo");
       setCurrentSessionId(session.id);
 
       const { Conversation } = await import("@elevenlabs/client");
-      
-      // Just request permission - ElevenLabs will manage its own stream
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
       console.log("Context length:", userContext.length);
+      console.log("Context preview:", userContext.substring(0, 300));
 
-      // Sanitize context for ElevenLabs
+      // Sanitize context for ElevenLabs - remove problematic characters and limit length
       let sanitizedContext = userContext
-        .replace(/\n/g, ' ')
-        .replace(/\s+/g, ' ')
+        .replace(/\n/g, ' ')  // Replace newlines with spaces
+        .replace(/\s+/g, ' ') // Collapse multiple spaces
         .trim()
-        .substring(0, 800);
+        .substring(0, 800);   // Limit to 800 chars
       
       if (userContext.length > 800) {
         sanitizedContext += "...";
       }
+      
+      console.log("Sanitized context:", sanitizedContext);
 
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
@@ -156,7 +156,11 @@ export default function Home() {
           console.error("ElevenLabs error:", error);
           setVoiceState(STATE.IDLE);
         },
+        onStatusChange: (status) => {
+          console.log("Status changed:", status);
+        },
         onMessage: (message) => {
+          console.log("Message received:", message);
           if (message.source && message.message) {
             const role = message.source === "user" ? "user" : "assistant";
             const content = message.message;
@@ -164,12 +168,12 @@ export default function Home() {
             const lastMsg = messagesRef.current[messagesRef.current.length - 1];
             if (!(lastMsg && lastMsg.role === role && lastMsg.content === content)) {
               messagesRef.current.push({ role, content });
-              // Don't update state during messages - only update count when session ends
-              // This prevents re-renders that can interrupt audio playback
+              setMessageCount(messagesRef.current.length);
             }
           }
         },
         onModeChange: (mode) => {
+          console.log("Mode changed:", mode);
           const modeValue = mode.mode || mode;
           if (modeValue === "listening") {
             setVoiceState(STATE.LISTENING);
@@ -179,6 +183,10 @@ export default function Home() {
             setVoiceState(STATE.SPEAKING);
           }
         },
+        onError: (error) => {
+          console.error("ElevenLabs error:", error);
+          setVoiceState(STATE.IDLE);
+        }
       });
 
       conversationRef.current = conversation;
@@ -191,8 +199,9 @@ export default function Home() {
     }
   }, [user, profile]);
 
-  // End ElevenLabs session (stops mic internally)
+  // OPTIMIERT: Sofort Audio stoppen wenn End-Button geklickt wird
   const handleEndClick = useCallback(async () => {
+    // Sofort aufhören zuzuhören
     if (conversationRef.current) {
       try {
         await conversationRef.current.endSession();
@@ -202,15 +211,15 @@ export default function Home() {
       conversationRef.current = null;
     }
     setVoiceState(STATE.IDLE);
-    // Update message count now that session is over
-    setMessageCount(messagesRef.current.length);
     setShowEndDialog(true);
   }, []);
 
+  // Prüft via Claude ob genug Kontext für eine sinnvolle Analyse vorhanden ist
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
     if (messages.length === 0) return { viable: false, reason: "empty" };
     
+    // Erstelle Transcript für Check
     const transcript = messages
       .map(m => `${m.role === "user" ? "User" : "Amiya"}: ${m.content}`)
       .join("\n");
@@ -223,6 +232,7 @@ export default function Home() {
       });
       
       if (!response.ok) {
+        // Fallback: Wenn API fehlschlägt, erlaube Analyse
         return { viable: true, reason: null };
       }
       
@@ -230,10 +240,12 @@ export default function Home() {
       return { viable: data.viable, reason: data.reason };
     } catch (error) {
       console.error("Analysis viability check failed:", error);
+      // Fallback: Wenn API fehlschlägt, erlaube Analyse
       return { viable: true, reason: null };
     }
   }, []);
 
+  // resetSession muss VOR endSession definiert werden
   const resetSession = useCallback(() => {
     setStarted(false);
     setVoiceState(STATE.IDLE);
@@ -254,6 +266,7 @@ export default function Home() {
     const currentMessages = messagesRef.current;
     const hasMessages = currentMessages.length > 0;
     
+    // Reset error state
     setAnalysisError(null);
     
     if (currentSessionId && hasMessages) {
@@ -269,9 +282,11 @@ export default function Home() {
         await sessionsService.end(currentSessionId, summary, []);
         
         if (requestAnalysis) {
+          // Zeige Loading-State während Viability-Check
           setIsGeneratingAnalysis(true);
           setShowEndDialog(false);
           
+          // Prüfe ob genug Inhalt vorhanden
           const viability = await checkAnalysisViability();
           
           if (!viability.viable) {
@@ -292,6 +307,7 @@ export default function Home() {
           try {
             const analysisResult = await sessionsService.requestAnalysis(currentSessionId);
             
+            // Memory Update nach erfolgreicher Analyse
             try {
               await fetch("/api/memory/update", {
                 method: "POST",
@@ -307,6 +323,7 @@ export default function Home() {
               console.log("Memory updated after solo session");
             } catch (memoryError) {
               console.error("Memory update failed:", memoryError);
+              // Weitermachen - Memory-Fehler sollte UX nicht blockieren
             }
             
             setIsGeneratingAnalysis(false);
@@ -338,7 +355,7 @@ export default function Home() {
       setShowEndDialog(false);
       resetSession();
     }
-  }, [currentSessionId, profile, checkAnalysisViability, resetSession, user]);
+  }, [currentSessionId, profile, checkAnalysisViability, resetSession]);
 
   const handleCloseAnalysis = () => {
     setShowAnalysis(false);
@@ -347,12 +364,10 @@ export default function Home() {
     resetSession();
   };
 
-  // Cleanup on unmount - ensures mic is released
   useEffect(() => {
     return () => {
       if (conversationRef.current) {
-        conversationRef.current.endSession().catch(() => {});
-        conversationRef.current = null;
+        conversationRef.current.endSession();
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -467,6 +482,10 @@ export default function Home() {
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+          }
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
           }
         `}</style>
       </div>
@@ -869,6 +888,7 @@ const styles = {
     marginTop: "12px",
     minHeight: "20px",
   },
+  // Analysis Loading Screen
   analysisLoadingContainer: {
     flex: 1,
     display: "flex",
