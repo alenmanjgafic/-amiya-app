@@ -38,6 +38,7 @@ export default function Home() {
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
+  const listeningTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -175,12 +176,29 @@ export default function Home() {
         onModeChange: (mode) => {
           console.log("Mode changed:", mode);
           const modeValue = mode.mode || mode;
-          if (modeValue === "listening") {
-            setVoiceState(STATE.LISTENING);
-          } else if (modeValue === "thinking") {
-            setVoiceState(STATE.THINKING);
-          } else if (modeValue === "speaking") {
+          
+          // Sofort zu speaking/thinking wechseln
+          if (modeValue === "speaking") {
+            if (listeningTimeoutRef.current) {
+              clearTimeout(listeningTimeoutRef.current);
+              listeningTimeoutRef.current = null;
+            }
             setVoiceState(STATE.SPEAKING);
+          } else if (modeValue === "thinking") {
+            if (listeningTimeoutRef.current) {
+              clearTimeout(listeningTimeoutRef.current);
+              listeningTimeoutRef.current = null;
+            }
+            setVoiceState(STATE.THINKING);
+          } else if (modeValue === "listening") {
+            // Verzögert zu listening wechseln (verhindert Flackern bei Pausen)
+            if (listeningTimeoutRef.current) {
+              clearTimeout(listeningTimeoutRef.current);
+            }
+            listeningTimeoutRef.current = setTimeout(() => {
+              setVoiceState(STATE.LISTENING);
+              listeningTimeoutRef.current = null;
+            }, 400); // 400ms Verzögerung
           }
         },
         onError: (error) => {
@@ -371,6 +389,9 @@ export default function Home() {
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
+      }
+      if (listeningTimeoutRef.current) {
+        clearTimeout(listeningTimeoutRef.current);
       }
     };
   }, []);
