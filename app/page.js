@@ -1,7 +1,11 @@
 /**
  * MAIN PAGE - app/page.js
  * Hauptseite mit Solo Voice-Session
- * OPTIMIERT: Sofortiges Audio-Stop + Analyse-Loading-State
+ * 
+ * v2.3: Fixed microphone cleanup + prevent auto-restart
+ * - Explicitly stops all media tracks on session end
+ * - Prevents auto-restart after manual end
+ * - Better cleanup on unmount
  */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -35,10 +39,12 @@ export default function Home() {
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
   
+  // NEW: Track if session was manually ended (prevent auto-restart issues)
+  const [manuallyEnded, setManuallyEnded] = useState(false);
+  
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
-  const listeningTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -55,7 +61,6 @@ export default function Home() {
   // Check for memory consent
   useEffect(() => {
     if (!authLoading && user && profile && profile.name && profile.partner_name) {
-      // Redirect if memory_consent is null/undefined OR if it's false but was never explicitly set
       const neverDecided = profile.memory_consent === null || 
                            profile.memory_consent === undefined ||
                            (profile.memory_consent === false && !profile.memory_consent_at);
@@ -79,9 +84,44 @@ export default function Home() {
   const displayName = profile?.name || "du";
   const partnerName = profile?.partner_name || "";
 
-  const startSession = useCallback(async () => {
-    if (!user) return;
+  /**
+   * Cleanup session
+   */
+  const cleanupSession = useCallback(async () => {
+    console.log("Cleaning up solo session...");
     
+    // End ElevenLabs conversation (this handles mic cleanup internally)
+    if (conversationRef.current) {
+      try {
+        await conversationRef.current.endSession();
+        console.log("ElevenLabs session ended");
+      } catch (e) {
+        console.log("ElevenLabs session already ended:", e.message);
+      }
+      conversationRef.current = null;
+    }
+    
+    // Clear timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    // Reset state
+    setVoiceState(STATE.IDLE);
+  }, []);
+
+  const startSession = useCallback(async () => {
+    // Validate user is fully loaded
+    if (!user || !user.id) {
+      console.error("Cannot start session: user not loaded", user);
+      return;
+    }
+    
+    console.log("Starting session for user:", user.id);
+    
+    // Reset manuallyEnded when starting a new session
+    setManuallyEnded(false);
     setStarted(true);
     setVoiceState(STATE.CONNECTING);
     messagesRef.current = [];
@@ -89,9 +129,10 @@ export default function Home() {
     setAnalysisError(null);
 
     try {
-      // Lade Kontext aus Memory System
+      // Load context from Memory System
       let userContext = "";
       try {
+        console.log("Loading memory for user:", user.id, "couple:", profile?.couple_id);
         const contextResponse = await fetch("/api/memory/get", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -109,10 +150,12 @@ export default function Home() {
           if (contextData.debug) {
             console.log("Debug:", contextData.debug);
           }
+        } else {
+          const errorData = await contextResponse.json();
+          console.error("Memory API error:", contextResponse.status, errorData);
         }
       } catch (contextError) {
         console.error("Failed to load memory:", contextError);
-        // Weitermachen ohne Kontext
       }
 
       const session = await sessionsService.create(user.id, "solo");
@@ -120,20 +163,18 @@ export default function Home() {
 
       const { Conversation } = await import("@elevenlabs/client");
       
-      // Request permission and immediately stop the stream
-      // ElevenLabs will create its own stream internally
-      const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      permissionStream.getTracks().forEach(track => track.stop());
+      // Request mic permission (ElevenLabs needs this)
+      await navigator.mediaDevices.getUserMedia({ audio: true });
 
       console.log("Context length:", userContext.length);
       console.log("Context preview:", userContext.substring(0, 300));
 
-      // Sanitize context for ElevenLabs - remove problematic characters and limit length
+      // Sanitize context for ElevenLabs
       let sanitizedContext = userContext
-        .replace(/\n/g, ' ')  // Replace newlines with spaces
-        .replace(/\s+/g, ' ') // Collapse multiple spaces
+        .replace(/\n/g, ' ')
+        .replace(/\s+/g, ' ')
         .trim()
-        .substring(0, 800);   // Limit to 800 chars
+        .substring(0, 800);
       
       if (userContext.length > 800) {
         sanitizedContext += "...";
@@ -148,6 +189,7 @@ export default function Home() {
           user_name: profile?.name || "User",
           partner_name: profile?.partner_name || "Partner",
           user_context: sanitizedContext || "Keine früheren Gespräche vorhanden.",
+          session_mode: "solo",
         },
         onConnect: () => {
           console.log("Connected to ElevenLabs");
@@ -180,34 +222,13 @@ export default function Home() {
         onModeChange: (mode) => {
           console.log("Mode changed:", mode);
           const modeValue = mode.mode || mode;
-          
-          // Sofort zu speaking/thinking wechseln
-          if (modeValue === "speaking") {
-            if (listeningTimeoutRef.current) {
-              clearTimeout(listeningTimeoutRef.current);
-              listeningTimeoutRef.current = null;
-            }
-            setVoiceState(STATE.SPEAKING);
+          if (modeValue === "listening") {
+            setVoiceState(STATE.LISTENING);
           } else if (modeValue === "thinking") {
-            if (listeningTimeoutRef.current) {
-              clearTimeout(listeningTimeoutRef.current);
-              listeningTimeoutRef.current = null;
-            }
             setVoiceState(STATE.THINKING);
-          } else if (modeValue === "listening") {
-            // Verzögert zu listening wechseln (verhindert Flackern bei Pausen)
-            if (listeningTimeoutRef.current) {
-              clearTimeout(listeningTimeoutRef.current);
-            }
-            listeningTimeoutRef.current = setTimeout(() => {
-              setVoiceState(STATE.LISTENING);
-              listeningTimeoutRef.current = null;
-            }, 400); // 400ms Verzögerung
+          } else if (modeValue === "speaking") {
+            setVoiceState(STATE.SPEAKING);
           }
-        },
-        onError: (error) => {
-          console.error("ElevenLabs error:", error);
-          setVoiceState(STATE.IDLE);
         }
       });
 
@@ -221,27 +242,25 @@ export default function Home() {
     }
   }, [user, profile]);
 
-  // OPTIMIERT: Sofort Audio stoppen wenn End-Button geklickt wird
+  /**
+   * FIXED: Handle end click - cleanup and mark as manually ended
+   */
   const handleEndClick = useCallback(async () => {
-    // Sofort aufhören zuzuhören
-    if (conversationRef.current) {
-      try {
-        await conversationRef.current.endSession();
-      } catch (e) {
-        console.log("Session already ended");
-      }
-      conversationRef.current = null;
-    }
-    setVoiceState(STATE.IDLE);
+    // Mark as manually ended
+    setManuallyEnded(true);
+    
+    // Cleanup session
+    await cleanupSession();
+    
+    // Show dialog
     setShowEndDialog(true);
-  }, []);
+  }, [cleanupSession]);
 
-  // Prüft via Claude ob genug Kontext für eine sinnvolle Analyse vorhanden ist
+  // Check if enough context for meaningful analysis
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
     if (messages.length === 0) return { viable: false, reason: "empty" };
     
-    // Erstelle Transcript für Check
     const transcript = messages
       .map(m => `${m.role === "user" ? "User" : "Amiya"}: ${m.content}`)
       .join("\n");
@@ -254,7 +273,6 @@ export default function Home() {
       });
       
       if (!response.ok) {
-        // Fallback: Wenn API fehlschlägt, erlaube Analyse
         return { viable: true, reason: null };
       }
       
@@ -262,12 +280,10 @@ export default function Home() {
       return { viable: data.viable, reason: data.reason };
     } catch (error) {
       console.error("Analysis viability check failed:", error);
-      // Fallback: Wenn API fehlschlägt, erlaube Analyse
       return { viable: true, reason: null };
     }
   }, []);
 
-  // resetSession muss VOR endSession definiert werden
   const resetSession = useCallback(() => {
     setStarted(false);
     setVoiceState(STATE.IDLE);
@@ -276,6 +292,7 @@ export default function Home() {
     setSessionTime(0);
     setCurrentSessionId(null);
     setIsGeneratingAnalysis(false);
+    setManuallyEnded(false);
     
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -288,7 +305,6 @@ export default function Home() {
     const currentMessages = messagesRef.current;
     const hasMessages = currentMessages.length > 0;
     
-    // Reset error state
     setAnalysisError(null);
     
     if (currentSessionId && hasMessages) {
@@ -304,11 +320,9 @@ export default function Home() {
         await sessionsService.end(currentSessionId, summary, []);
         
         if (requestAnalysis) {
-          // Zeige Loading-State während Viability-Check
           setIsGeneratingAnalysis(true);
           setShowEndDialog(false);
           
-          // Prüfe ob genug Inhalt vorhanden
           const viability = await checkAnalysisViability();
           
           if (!viability.viable) {
@@ -329,7 +343,7 @@ export default function Home() {
           try {
             const analysisResult = await sessionsService.requestAnalysis(currentSessionId);
             
-            // Memory Update nach erfolgreicher Analyse
+            // Memory update after successful analysis
             try {
               await fetch("/api/memory/update", {
                 method: "POST",
@@ -345,7 +359,6 @@ export default function Home() {
               console.log("Memory updated after solo session");
             } catch (memoryError) {
               console.error("Memory update failed:", memoryError);
-              // Weitermachen - Memory-Fehler sollte UX nicht blockieren
             }
             
             setIsGeneratingAnalysis(false);
@@ -377,7 +390,7 @@ export default function Home() {
       setShowEndDialog(false);
       resetSession();
     }
-  }, [currentSessionId, profile, checkAnalysisViability, resetSession]);
+  }, [currentSessionId, profile, checkAnalysisViability, resetSession, user]);
 
   const handleCloseAnalysis = () => {
     setShowAnalysis(false);
@@ -386,16 +399,21 @@ export default function Home() {
     resetSession();
   };
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
+      console.log("Component unmounting, cleaning up...");
+      
+      // End ElevenLabs session
       if (conversationRef.current) {
-        conversationRef.current.endSession();
+        conversationRef.current.endSession().catch(() => {});
+        conversationRef.current = null;
       }
+      
+      // Clear timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
-      }
-      if (listeningTimeoutRef.current) {
-        clearTimeout(listeningTimeoutRef.current);
+        timerRef.current = null;
       }
     };
   }, []);
@@ -913,7 +931,6 @@ const styles = {
     marginTop: "12px",
     minHeight: "20px",
   },
-  // Analysis Loading Screen
   analysisLoadingContainer: {
     flex: 1,
     display: "flex",
