@@ -2,10 +2,10 @@
  * COUPLE SESSION PAGE - app/session/couple/page.js
  * Gemeinsame Session für beide Partner
  * 
- * v2.3: Fixed microphone cleanup + prevent auto-restart
- * - Explicitly stops all media tracks on session end
- * - Prevents auto-restart after manual end
- * - Better cleanup on unmount
+ * v2.4: Clean mic handling + Speaker Detection
+ * - Let ElevenLabs manage its own audio stream
+ * - Proper cleanup on all exit paths
+ * - Speaker detection based on who Amiya addresses
  */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -36,15 +36,9 @@ export default function CoupleSessionPage() {
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
   
-  // NEW: Track if session was manually ended (prevent auto-restart)
-  const [manuallyEnded, setManuallyEnded] = useState(false);
-  
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
-  
-  // NEW: Store media stream reference for cleanup
-  const mediaStreamRef = useRef(null);
   
   // Speaker Detection: Track who Amiya last addressed
   const lastAddressedRef = useRef(null);
@@ -146,53 +140,8 @@ export default function CoupleSessionPage() {
     return "Paar";
   }, [userName, partnerName]);
 
-  /**
-   * FIXED: Properly cleanup microphone and all media tracks
-   */
-  const cleanupSession = useCallback(async () => {
-    console.log("Cleaning up session...");
-    
-    // 1. End ElevenLabs conversation
-    if (conversationRef.current) {
-      try {
-        await conversationRef.current.endSession();
-        console.log("ElevenLabs session ended");
-      } catch (e) {
-        console.log("ElevenLabs session already ended:", e.message);
-      }
-      conversationRef.current = null;
-    }
-    
-    // 2. CRITICAL: Stop all media tracks (microphone)
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => {
-        track.stop();
-        console.log("Stopped media track:", track.kind);
-      });
-      mediaStreamRef.current = null;
-    }
-    
-    // 3. Clear timer
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    
-    // 4. Reset state
-    setVoiceState(STATE.IDLE);
-  }, []);
-
-  /**
-   * Start conversation
-   */
   const startSession = useCallback(async () => {
     if (!user || !profile) return;
-    
-    // FIXED: Don't start if manually ended
-    if (manuallyEnded) {
-      console.log("Session was manually ended, not restarting");
-      return;
-    }
     
     setIsStarted(true);
     setVoiceState(STATE.CONNECTING);
@@ -228,9 +177,8 @@ export default function CoupleSessionPage() {
 
       const { Conversation } = await import("@elevenlabs/client");
 
-      // FIXED: Store media stream reference for cleanup
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
+      // Just request permission - ElevenLabs manages its own stream
+      await navigator.mediaDevices.getUserMedia({ audio: true });
 
       console.log("Couple context length:", userContext.length);
 
@@ -307,37 +255,30 @@ export default function CoupleSessionPage() {
       alert("Konnte Sitzung nicht starten. Bitte Mikrofon-Zugriff erlauben.");
       setIsStarted(false);
       setVoiceState(STATE.IDLE);
-      
-      // Cleanup on error
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-        mediaStreamRef.current = null;
-      }
-      
       router.push("/wir");
     }
-  }, [user, profile, userName, partnerName, router, detectAddressedPerson, getSpeakerLabel, manuallyEnded]);
+  }, [user, profile, userName, partnerName, router, detectAddressedPerson, getSpeakerLabel]);
 
-  // Auto-start on mount (only if not manually ended)
+  // Auto-start on mount
   useEffect(() => {
-    if (!authLoading && user && profile && profile.couple_id && !isStarted && !manuallyEnded) {
+    if (!authLoading && user && profile && profile.couple_id && !isStarted) {
       startSession();
     }
-  }, [authLoading, user, profile, isStarted, startSession, manuallyEnded]);
+  }, [authLoading, user, profile, isStarted, startSession]);
 
-  /**
-   * FIXED: Handle end click - cleanup and mark as manually ended
-   */
+  // End ElevenLabs session (stops mic internally)
   const handleEndClick = useCallback(async () => {
-    // Mark as manually ended FIRST to prevent auto-restart
-    setManuallyEnded(true);
-    
-    // Cleanup session
-    await cleanupSession();
-    
-    // Show dialog
+    if (conversationRef.current) {
+      try {
+        await conversationRef.current.endSession();
+      } catch (e) {
+        console.log("Session already ended");
+      }
+      conversationRef.current = null;
+    }
+    setVoiceState(STATE.IDLE);
     setShowEndDialog(true);
-  }, [cleanupSession]);
+  }, []);
 
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
@@ -373,7 +314,6 @@ export default function CoupleSessionPage() {
     setCurrentSessionId(null);
     setIsGeneratingAnalysis(false);
     lastAddressedRef.current = null;
-    // Note: Don't reset manuallyEnded here - we want to prevent restart
     
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -475,30 +415,15 @@ export default function CoupleSessionPage() {
     }
   }, [currentSessionId, userName, partnerName, router, checkAnalysisViability, resetSession, user, profile]);
 
-  // FIXED: Cleanup on unmount
+  // Cleanup on unmount - ensures mic is released
   useEffect(() => {
     return () => {
-      console.log("Component unmounting, cleaning up...");
-      
-      // End ElevenLabs session
       if (conversationRef.current) {
         conversationRef.current.endSession().catch(() => {});
         conversationRef.current = null;
       }
-      
-      // Stop all media tracks
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => {
-          track.stop();
-          console.log("Unmount: Stopped media track:", track.kind);
-        });
-        mediaStreamRef.current = null;
-      }
-      
-      // Clear timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
-        timerRef.current = null;
       }
     };
   }, []);
