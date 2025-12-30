@@ -2,10 +2,10 @@
  * COUPLE SESSION PAGE - app/session/couple/page.js
  * Gemeinsame Session für beide Partner
  * 
- * v2.1: Speaker Detection
- * - Trackt welche Person zuletzt von Amiya angesprochen wurde
- * - Versucht aus Kontext zu erkennen wer spricht
- * - Bessere Summary-Struktur für Analyse
+ * v2.3: Fixed microphone cleanup + prevent auto-restart
+ * - Explicitly stops all media tracks on session end
+ * - Prevents auto-restart after manual end
+ * - Better cleanup on unmount
  */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -36,31 +36,33 @@ export default function CoupleSessionPage() {
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
   
+  // NEW: Track if session was manually ended (prevent auto-restart)
+  const [manuallyEnded, setManuallyEnded] = useState(false);
+  
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
   
+  // NEW: Store media stream reference for cleanup
+  const mediaStreamRef = useRef(null);
+  
   // Speaker Detection: Track who Amiya last addressed
-  const lastAddressedRef = useRef(null);  // "user" | "partner" | null
+  const lastAddressedRef = useRef(null);
 
-  // Max session time: 1 hour
-  const MAX_SESSION_TIME = 60 * 60; // seconds
+  const MAX_SESSION_TIME = 60 * 60;
 
-  // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/auth");
     }
   }, [user, authLoading, router]);
 
-  // Redirect if not connected to partner
   useEffect(() => {
     if (!authLoading && user && profile && !profile.couple_id) {
       router.push("/wir");
     }
   }, [user, profile, authLoading, router]);
 
-  // Session timer
   useEffect(() => {
     if (isStarted && !timerRef.current) {
       timerRef.current = setInterval(() => {
@@ -84,7 +86,6 @@ export default function CoupleSessionPage() {
 
   /**
    * Detect who is being addressed in Amiya's message
-   * Returns: "user" | "partner" | null
    */
   const detectAddressedPerson = useCallback((amiyaMessage) => {
     if (!amiyaMessage) return null;
@@ -93,8 +94,6 @@ export default function CoupleSessionPage() {
     const userNameLower = userName.toLowerCase();
     const partnerNameLower = partnerName.toLowerCase();
     
-    // Check if message ends with addressing someone (most reliable)
-    // Patterns like "..., Alen?" or "...Alen, was denkst du?"
     const addressPatterns = [
       new RegExp(`${userNameLower}[,?]?\\s*$`, 'i'),
       new RegExp(`${userNameLower},\\s+(was|wie|kannst|möchtest|würdest)`, 'i'),
@@ -107,21 +106,14 @@ export default function CoupleSessionPage() {
       new RegExp(`(und du|was denkst du|wie siehst du das),?\\s*${partnerNameLower}`, 'i'),
     ];
     
-    // Check user patterns
     for (const pattern of addressPatterns) {
-      if (pattern.test(messageLower)) {
-        return "user";
-      }
+      if (pattern.test(messageLower)) return "user";
     }
     
-    // Check partner patterns
     for (const pattern of partnerPatterns) {
-      if (pattern.test(messageLower)) {
-        return "partner";
-      }
+      if (pattern.test(messageLower)) return "partner";
     }
     
-    // Fallback: check if name appears at all (less reliable)
     const userMentioned = messageLower.includes(userNameLower);
     const partnerMentioned = messageLower.includes(partnerNameLower);
     
@@ -133,21 +125,13 @@ export default function CoupleSessionPage() {
 
   /**
    * Determine speaker label for a user message
-   * Uses context from Amiya's previous message
    */
   const getSpeakerLabel = useCallback((userMessage) => {
-    // If we know who was addressed, use that
-    if (lastAddressedRef.current === "user") {
-      return userName;
-    }
-    if (lastAddressedRef.current === "partner") {
-      return partnerName;
-    }
+    if (lastAddressedRef.current === "user") return userName;
+    if (lastAddressedRef.current === "partner") return partnerName;
     
-    // Try to detect from message content
     const messageLower = userMessage.toLowerCase();
     
-    // Self-identification patterns
     if (messageLower.includes("ich als " + userName.toLowerCase()) ||
         messageLower.includes("ich, " + userName.toLowerCase()) ||
         messageLower.startsWith(userName.toLowerCase() + " hier")) {
@@ -159,13 +143,56 @@ export default function CoupleSessionPage() {
       return partnerName;
     }
     
-    // Fallback: unknown speaker
     return "Paar";
   }, [userName, partnerName]);
 
-  // Start conversation
+  /**
+   * FIXED: Properly cleanup microphone and all media tracks
+   */
+  const cleanupSession = useCallback(async () => {
+    console.log("Cleaning up session...");
+    
+    // 1. End ElevenLabs conversation
+    if (conversationRef.current) {
+      try {
+        await conversationRef.current.endSession();
+        console.log("ElevenLabs session ended");
+      } catch (e) {
+        console.log("ElevenLabs session already ended:", e.message);
+      }
+      conversationRef.current = null;
+    }
+    
+    // 2. CRITICAL: Stop all media tracks (microphone)
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log("Stopped media track:", track.kind);
+      });
+      mediaStreamRef.current = null;
+    }
+    
+    // 3. Clear timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    // 4. Reset state
+    setVoiceState(STATE.IDLE);
+  }, []);
+
+  /**
+   * Start conversation
+   */
   const startSession = useCallback(async () => {
     if (!user || !profile) return;
+    
+    // FIXED: Don't start if manually ended
+    if (manuallyEnded) {
+      console.log("Session was manually ended, not restarting");
+      return;
+    }
     
     setIsStarted(true);
     setVoiceState(STATE.CONNECTING);
@@ -175,7 +202,6 @@ export default function CoupleSessionPage() {
     lastAddressedRef.current = null;
 
     try {
-      // Load context from Memory System
       let userContext = "";
       try {
         const contextResponse = await fetch("/api/memory/get", {
@@ -197,15 +223,14 @@ export default function CoupleSessionPage() {
         console.error("Failed to load memory:", contextError);
       }
 
-      // Create session in database as "couple" type
       const session = await sessionsService.create(user.id, "couple", profile.couple_id);
       setCurrentSessionId(session.id);
 
-      // Dynamically import ElevenLabs SDK
       const { Conversation } = await import("@elevenlabs/client");
 
-      // Request microphone permission
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      // FIXED: Store media stream reference for cleanup
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
 
       console.log("Couple context length:", userContext.length);
 
@@ -230,12 +255,10 @@ export default function CoupleSessionPage() {
             const isAmiya = message.source !== "user";
             const content = message.message;
             
-            // Avoid duplicates
             const lastMsg = messagesRef.current[messagesRef.current.length - 1];
             if (lastMsg && lastMsg.content === content) return;
             
             if (isAmiya) {
-              // Amiya's message - detect who she's addressing
               const addressed = detectAddressedPerson(content);
               if (addressed) {
                 lastAddressedRef.current = addressed;
@@ -248,7 +271,6 @@ export default function CoupleSessionPage() {
                 speaker: "Amiya"
               });
             } else {
-              // User message - determine speaker
               const speaker = getSpeakerLabel(content);
               console.log(`Speaker detected: ${speaker}`);
               
@@ -257,9 +279,6 @@ export default function CoupleSessionPage() {
                 content,
                 speaker: speaker
               });
-              
-              // Reset after user responds (next turn is unknown)
-              // Keep it for one message in case of follow-up
             }
             
             setMessageCount(messagesRef.current.length);
@@ -288,37 +307,42 @@ export default function CoupleSessionPage() {
       alert("Konnte Sitzung nicht starten. Bitte Mikrofon-Zugriff erlauben.");
       setIsStarted(false);
       setVoiceState(STATE.IDLE);
+      
+      // Cleanup on error
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+      }
+      
       router.push("/wir");
     }
-  }, [user, profile, userName, partnerName, router, detectAddressedPerson, getSpeakerLabel]);
+  }, [user, profile, userName, partnerName, router, detectAddressedPerson, getSpeakerLabel, manuallyEnded]);
 
-  // Auto-start on mount
+  // Auto-start on mount (only if not manually ended)
   useEffect(() => {
-    if (!authLoading && user && profile && profile.couple_id && !isStarted) {
+    if (!authLoading && user && profile && profile.couple_id && !isStarted && !manuallyEnded) {
       startSession();
     }
-  }, [authLoading, user, profile, isStarted, startSession]);
+  }, [authLoading, user, profile, isStarted, startSession, manuallyEnded]);
 
-  // Stop audio immediately when End button clicked
+  /**
+   * FIXED: Handle end click - cleanup and mark as manually ended
+   */
   const handleEndClick = useCallback(async () => {
-    if (conversationRef.current) {
-      try {
-        await conversationRef.current.endSession();
-      } catch (e) {
-        console.log("Session already ended");
-      }
-      conversationRef.current = null;
-    }
-    setVoiceState(STATE.IDLE);
+    // Mark as manually ended FIRST to prevent auto-restart
+    setManuallyEnded(true);
+    
+    // Cleanup session
+    await cleanupSession();
+    
+    // Show dialog
     setShowEndDialog(true);
-  }, []);
+  }, [cleanupSession]);
 
-  // Check if enough context for meaningful analysis
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
     if (messages.length === 0) return { viable: false, reason: "empty" };
     
-    // Create transcript for check
     const transcript = messages
       .map(m => `${m.speaker || (m.role === "user" ? "Paar" : "Amiya")}: ${m.content}`)
       .join("\n");
@@ -330,9 +354,7 @@ export default function CoupleSessionPage() {
         body: JSON.stringify({ transcript }),
       });
       
-      if (!response.ok) {
-        return { viable: true, reason: null };
-      }
+      if (!response.ok) return { viable: true, reason: null };
       
       const data = await response.json();
       return { viable: data.viable, reason: data.reason };
@@ -351,6 +373,7 @@ export default function CoupleSessionPage() {
     setCurrentSessionId(null);
     setIsGeneratingAnalysis(false);
     lastAddressedRef.current = null;
+    // Note: Don't reset manuallyEnded here - we want to prevent restart
     
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -367,12 +390,10 @@ export default function CoupleSessionPage() {
     
     if (currentSessionId && hasMessages) {
       try {
-        // Build summary with speaker labels
         let summary = "";
         summary += `[Couple Session: ${userName} & ${partnerName}]\n`;
         summary += `[Hinweis: Wenn "Paar" als Sprecher steht, war der genaue Sprecher nicht eindeutig erkennbar]\n\n`;
         
-        // Group messages by speaker for better readability
         summary += currentMessages
           .map(m => {
             const speaker = m.speaker || (m.role === "user" ? "Paar" : "Amiya");
@@ -386,7 +407,6 @@ export default function CoupleSessionPage() {
           setIsGeneratingAnalysis(true);
           setShowEndDialog(false);
           
-          // Check viability
           const viability = await checkAnalysisViability();
           
           if (!viability.viable) {
@@ -407,7 +427,6 @@ export default function CoupleSessionPage() {
           try {
             const analysisResult = await sessionsService.requestAnalysis(currentSessionId);
             
-            // Memory update after successful analysis
             try {
               await fetch("/api/memory/update", {
                 method: "POST",
@@ -456,19 +475,34 @@ export default function CoupleSessionPage() {
     }
   }, [currentSessionId, userName, partnerName, router, checkAnalysisViability, resetSession, user, profile]);
 
-  // Cleanup on unmount
+  // FIXED: Cleanup on unmount
   useEffect(() => {
     return () => {
+      console.log("Component unmounting, cleaning up...");
+      
+      // End ElevenLabs session
       if (conversationRef.current) {
-        conversationRef.current.endSession();
+        conversationRef.current.endSession().catch(() => {});
+        conversationRef.current = null;
       }
+      
+      // Stop all media tracks
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => {
+          track.stop();
+          console.log("Unmount: Stopped media track:", track.kind);
+        });
+        mediaStreamRef.current = null;
+      }
+      
+      // Clear timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     };
   }, []);
 
-  // Time warning at 50 minutes
   const timeWarning = sessionTime >= 50 * 60 && sessionTime < 50 * 60 + 5;
 
   if (authLoading || !profile) {
@@ -480,7 +514,6 @@ export default function CoupleSessionPage() {
     );
   }
 
-  // ============ ANALYSIS GENERATING SCREEN ============
   if (isGeneratingAnalysis) {
     return (
       <div style={styles.sessionContainer}>
@@ -503,7 +536,6 @@ export default function CoupleSessionPage() {
     );
   }
 
-  // ============ ERROR SCREEN ============
   if (analysisError) {
     return (
       <div style={styles.sessionContainer}>
@@ -819,7 +851,6 @@ const styles = {
     minHeight: "20px",
     textAlign: "center",
   },
-  // Analysis Loading Screen
   analysisLoadingContainer: {
     flex: 1,
     display: "flex",
