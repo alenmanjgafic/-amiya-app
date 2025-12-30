@@ -1,7 +1,11 @@
 /**
  * MAIN PAGE - app/page.js
  * Hauptseite mit Solo Voice-Session
- * OPTIMIERT: Sofortiges Audio-Stop + Analyse-Loading-State
+ * 
+ * v2.3: Fixed microphone cleanup + prevent auto-restart
+ * - Explicitly stops all media tracks on session end
+ * - Prevents auto-restart after manual end
+ * - Better cleanup on unmount
  */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -35,9 +39,15 @@ export default function Home() {
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
   
+  // NEW: Track if session was manually ended (prevent auto-restart issues)
+  const [manuallyEnded, setManuallyEnded] = useState(false);
+  
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
+  
+  // NEW: Store media stream reference for cleanup
+  const mediaStreamRef = useRef(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -54,7 +64,6 @@ export default function Home() {
   // Check for memory consent
   useEffect(() => {
     if (!authLoading && user && profile && profile.name && profile.partner_name) {
-      // Redirect if memory_consent is null/undefined OR if it's false but was never explicitly set
       const neverDecided = profile.memory_consent === null || 
                            profile.memory_consent === undefined ||
                            (profile.memory_consent === false && !profile.memory_consent_at);
@@ -78,9 +87,47 @@ export default function Home() {
   const displayName = profile?.name || "du";
   const partnerName = profile?.partner_name || "";
 
+  /**
+   * FIXED: Properly cleanup microphone and all media tracks
+   */
+  const cleanupSession = useCallback(async () => {
+    console.log("Cleaning up solo session...");
+    
+    // 1. End ElevenLabs conversation
+    if (conversationRef.current) {
+      try {
+        await conversationRef.current.endSession();
+        console.log("ElevenLabs session ended");
+      } catch (e) {
+        console.log("ElevenLabs session already ended:", e.message);
+      }
+      conversationRef.current = null;
+    }
+    
+    // 2. CRITICAL: Stop all media tracks (microphone)
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log("Stopped media track:", track.kind);
+      });
+      mediaStreamRef.current = null;
+    }
+    
+    // 3. Clear timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    // 4. Reset state
+    setVoiceState(STATE.IDLE);
+  }, []);
+
   const startSession = useCallback(async () => {
     if (!user) return;
     
+    // Reset manuallyEnded when starting a new session
+    setManuallyEnded(false);
     setStarted(true);
     setVoiceState(STATE.CONNECTING);
     messagesRef.current = [];
@@ -88,7 +135,7 @@ export default function Home() {
     setAnalysisError(null);
 
     try {
-      // Lade Kontext aus Memory System
+      // Load context from Memory System
       let userContext = "";
       try {
         const contextResponse = await fetch("/api/memory/get", {
@@ -111,24 +158,26 @@ export default function Home() {
         }
       } catch (contextError) {
         console.error("Failed to load memory:", contextError);
-        // Weitermachen ohne Kontext
       }
 
       const session = await sessionsService.create(user.id, "solo");
       setCurrentSessionId(session.id);
 
       const { Conversation } = await import("@elevenlabs/client");
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // FIXED: Store media stream reference for cleanup
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
 
       console.log("Context length:", userContext.length);
       console.log("Context preview:", userContext.substring(0, 300));
 
-      // Sanitize context for ElevenLabs - remove problematic characters and limit length
+      // Sanitize context for ElevenLabs
       let sanitizedContext = userContext
-        .replace(/\n/g, ' ')  // Replace newlines with spaces
-        .replace(/\s+/g, ' ') // Collapse multiple spaces
+        .replace(/\n/g, ' ')
+        .replace(/\s+/g, ' ')
         .trim()
-        .substring(0, 800);   // Limit to 800 chars
+        .substring(0, 800);
       
       if (userContext.length > 800) {
         sanitizedContext += "...";
@@ -182,10 +231,6 @@ export default function Home() {
           } else if (modeValue === "speaking") {
             setVoiceState(STATE.SPEAKING);
           }
-        },
-        onError: (error) => {
-          console.error("ElevenLabs error:", error);
-          setVoiceState(STATE.IDLE);
         }
       });
 
@@ -196,30 +241,34 @@ export default function Home() {
       alert("Konnte Sitzung nicht starten. Bitte Mikrofon-Zugriff erlauben.");
       setStarted(false);
       setVoiceState(STATE.IDLE);
+      
+      // Cleanup on error
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+      }
     }
   }, [user, profile]);
 
-  // OPTIMIERT: Sofort Audio stoppen wenn End-Button geklickt wird
+  /**
+   * FIXED: Handle end click - cleanup and mark as manually ended
+   */
   const handleEndClick = useCallback(async () => {
-    // Sofort aufhören zuzuhören
-    if (conversationRef.current) {
-      try {
-        await conversationRef.current.endSession();
-      } catch (e) {
-        console.log("Session already ended");
-      }
-      conversationRef.current = null;
-    }
-    setVoiceState(STATE.IDLE);
+    // Mark as manually ended
+    setManuallyEnded(true);
+    
+    // Cleanup session
+    await cleanupSession();
+    
+    // Show dialog
     setShowEndDialog(true);
-  }, []);
+  }, [cleanupSession]);
 
-  // Prüft via Claude ob genug Kontext für eine sinnvolle Analyse vorhanden ist
+  // Check if enough context for meaningful analysis
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
     if (messages.length === 0) return { viable: false, reason: "empty" };
     
-    // Erstelle Transcript für Check
     const transcript = messages
       .map(m => `${m.role === "user" ? "User" : "Amiya"}: ${m.content}`)
       .join("\n");
@@ -232,7 +281,6 @@ export default function Home() {
       });
       
       if (!response.ok) {
-        // Fallback: Wenn API fehlschlägt, erlaube Analyse
         return { viable: true, reason: null };
       }
       
@@ -240,12 +288,10 @@ export default function Home() {
       return { viable: data.viable, reason: data.reason };
     } catch (error) {
       console.error("Analysis viability check failed:", error);
-      // Fallback: Wenn API fehlschlägt, erlaube Analyse
       return { viable: true, reason: null };
     }
   }, []);
 
-  // resetSession muss VOR endSession definiert werden
   const resetSession = useCallback(() => {
     setStarted(false);
     setVoiceState(STATE.IDLE);
@@ -254,6 +300,7 @@ export default function Home() {
     setSessionTime(0);
     setCurrentSessionId(null);
     setIsGeneratingAnalysis(false);
+    setManuallyEnded(false);
     
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -266,7 +313,6 @@ export default function Home() {
     const currentMessages = messagesRef.current;
     const hasMessages = currentMessages.length > 0;
     
-    // Reset error state
     setAnalysisError(null);
     
     if (currentSessionId && hasMessages) {
@@ -282,11 +328,9 @@ export default function Home() {
         await sessionsService.end(currentSessionId, summary, []);
         
         if (requestAnalysis) {
-          // Zeige Loading-State während Viability-Check
           setIsGeneratingAnalysis(true);
           setShowEndDialog(false);
           
-          // Prüfe ob genug Inhalt vorhanden
           const viability = await checkAnalysisViability();
           
           if (!viability.viable) {
@@ -307,7 +351,7 @@ export default function Home() {
           try {
             const analysisResult = await sessionsService.requestAnalysis(currentSessionId);
             
-            // Memory Update nach erfolgreicher Analyse
+            // Memory update after successful analysis
             try {
               await fetch("/api/memory/update", {
                 method: "POST",
@@ -323,7 +367,6 @@ export default function Home() {
               console.log("Memory updated after solo session");
             } catch (memoryError) {
               console.error("Memory update failed:", memoryError);
-              // Weitermachen - Memory-Fehler sollte UX nicht blockieren
             }
             
             setIsGeneratingAnalysis(false);
@@ -355,7 +398,7 @@ export default function Home() {
       setShowEndDialog(false);
       resetSession();
     }
-  }, [currentSessionId, profile, checkAnalysisViability, resetSession]);
+  }, [currentSessionId, profile, checkAnalysisViability, resetSession, user]);
 
   const handleCloseAnalysis = () => {
     setShowAnalysis(false);
@@ -364,13 +407,30 @@ export default function Home() {
     resetSession();
   };
 
+  // FIXED: Cleanup on unmount
   useEffect(() => {
     return () => {
+      console.log("Component unmounting, cleaning up...");
+      
+      // End ElevenLabs session
       if (conversationRef.current) {
-        conversationRef.current.endSession();
+        conversationRef.current.endSession().catch(() => {});
+        conversationRef.current = null;
       }
+      
+      // Stop all media tracks
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => {
+          track.stop();
+          console.log("Unmount: Stopped media track:", track.kind);
+        });
+        mediaStreamRef.current = null;
+      }
+      
+      // Clear timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     };
   }, []);
@@ -888,7 +948,6 @@ const styles = {
     marginTop: "12px",
     minHeight: "20px",
   },
-  // Analysis Loading Screen
   analysisLoadingContainer: {
     flex: 1,
     display: "flex",
