@@ -119,7 +119,11 @@ export default function Home() {
       setCurrentSessionId(session.id);
 
       const { Conversation } = await import("@elevenlabs/client");
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Request permission and immediately stop the stream
+      // ElevenLabs will create its own stream internally
+      const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      permissionStream.getTracks().forEach(track => track.stop());
 
       console.log("Context length:", userContext.length);
       console.log("Context preview:", userContext.substring(0, 300));
