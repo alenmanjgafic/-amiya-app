@@ -117,8 +117,10 @@ export default function CoupleSessionPage() {
       // Dynamically import ElevenLabs SDK
       const { Conversation } = await import("@elevenlabs/client");
 
-      // Request microphone permission
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Request permission and immediately stop the stream
+      // ElevenLabs will create its own stream internally
+      const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      permissionStream.getTracks().forEach(track => track.stop());
 
       console.log("Couple context length:", userContext.length);
 
