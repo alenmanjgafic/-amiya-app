@@ -2,10 +2,9 @@
  * MAIN PAGE - app/page.js
  * Hauptseite mit Solo Voice-Session
  * 
- * v2.3: Fixed microphone cleanup + prevent auto-restart
- * - Explicitly stops all media tracks on session end
- * - Prevents auto-restart after manual end
- * - Better cleanup on unmount
+ * v2.4: Clean mic handling
+ * - Let ElevenLabs manage its own audio stream
+ * - Proper cleanup on all exit paths (end, unmount, error)
  */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -39,15 +38,9 @@ export default function Home() {
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
   
-  // NEW: Track if session was manually ended (prevent auto-restart issues)
-  const [manuallyEnded, setManuallyEnded] = useState(false);
-  
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
-  
-  // NEW: Store media stream reference for cleanup
-  const mediaStreamRef = useRef(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -87,47 +80,9 @@ export default function Home() {
   const displayName = profile?.name || "du";
   const partnerName = profile?.partner_name || "";
 
-  /**
-   * FIXED: Properly cleanup microphone and all media tracks
-   */
-  const cleanupSession = useCallback(async () => {
-    console.log("Cleaning up solo session...");
-    
-    // 1. End ElevenLabs conversation
-    if (conversationRef.current) {
-      try {
-        await conversationRef.current.endSession();
-        console.log("ElevenLabs session ended");
-      } catch (e) {
-        console.log("ElevenLabs session already ended:", e.message);
-      }
-      conversationRef.current = null;
-    }
-    
-    // 2. CRITICAL: Stop all media tracks (microphone)
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => {
-        track.stop();
-        console.log("Stopped media track:", track.kind);
-      });
-      mediaStreamRef.current = null;
-    }
-    
-    // 3. Clear timer
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    
-    // 4. Reset state
-    setVoiceState(STATE.IDLE);
-  }, []);
-
   const startSession = useCallback(async () => {
     if (!user) return;
     
-    // Reset manuallyEnded when starting a new session
-    setManuallyEnded(false);
     setStarted(true);
     setVoiceState(STATE.CONNECTING);
     messagesRef.current = [];
@@ -135,7 +90,7 @@ export default function Home() {
     setAnalysisError(null);
 
     try {
-      // Load context from Memory System
+      // Lade Kontext aus Memory System
       let userContext = "";
       try {
         const contextResponse = await fetch("/api/memory/get", {
@@ -165,12 +120,10 @@ export default function Home() {
 
       const { Conversation } = await import("@elevenlabs/client");
       
-      // FIXED: Store media stream reference for cleanup
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
+      // Just request permission - ElevenLabs will manage its own stream
+      await navigator.mediaDevices.getUserMedia({ audio: true });
 
       console.log("Context length:", userContext.length);
-      console.log("Context preview:", userContext.substring(0, 300));
 
       // Sanitize context for ElevenLabs
       let sanitizedContext = userContext
@@ -182,8 +135,6 @@ export default function Home() {
       if (userContext.length > 800) {
         sanitizedContext += "...";
       }
-      
-      console.log("Sanitized context:", sanitizedContext);
 
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
@@ -205,11 +156,7 @@ export default function Home() {
           console.error("ElevenLabs error:", error);
           setVoiceState(STATE.IDLE);
         },
-        onStatusChange: (status) => {
-          console.log("Status changed:", status);
-        },
         onMessage: (message) => {
-          console.log("Message received:", message);
           if (message.source && message.message) {
             const role = message.source === "user" ? "user" : "assistant";
             const content = message.message;
@@ -222,7 +169,6 @@ export default function Home() {
           }
         },
         onModeChange: (mode) => {
-          console.log("Mode changed:", mode);
           const modeValue = mode.mode || mode;
           if (modeValue === "listening") {
             setVoiceState(STATE.LISTENING);
@@ -231,7 +177,7 @@ export default function Home() {
           } else if (modeValue === "speaking") {
             setVoiceState(STATE.SPEAKING);
           }
-        }
+        },
       });
 
       conversationRef.current = conversation;
@@ -241,30 +187,23 @@ export default function Home() {
       alert("Konnte Sitzung nicht starten. Bitte Mikrofon-Zugriff erlauben.");
       setStarted(false);
       setVoiceState(STATE.IDLE);
-      
-      // Cleanup on error
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-        mediaStreamRef.current = null;
-      }
     }
   }, [user, profile]);
 
-  /**
-   * FIXED: Handle end click - cleanup and mark as manually ended
-   */
+  // End ElevenLabs session (stops mic internally)
   const handleEndClick = useCallback(async () => {
-    // Mark as manually ended
-    setManuallyEnded(true);
-    
-    // Cleanup session
-    await cleanupSession();
-    
-    // Show dialog
+    if (conversationRef.current) {
+      try {
+        await conversationRef.current.endSession();
+      } catch (e) {
+        console.log("Session already ended");
+      }
+      conversationRef.current = null;
+    }
+    setVoiceState(STATE.IDLE);
     setShowEndDialog(true);
-  }, [cleanupSession]);
+  }, []);
 
-  // Check if enough context for meaningful analysis
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
     if (messages.length === 0) return { viable: false, reason: "empty" };
@@ -300,7 +239,6 @@ export default function Home() {
     setSessionTime(0);
     setCurrentSessionId(null);
     setIsGeneratingAnalysis(false);
-    setManuallyEnded(false);
     
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -351,7 +289,6 @@ export default function Home() {
           try {
             const analysisResult = await sessionsService.requestAnalysis(currentSessionId);
             
-            // Memory update after successful analysis
             try {
               await fetch("/api/memory/update", {
                 method: "POST",
@@ -407,30 +344,15 @@ export default function Home() {
     resetSession();
   };
 
-  // FIXED: Cleanup on unmount
+  // Cleanup on unmount - ensures mic is released
   useEffect(() => {
     return () => {
-      console.log("Component unmounting, cleaning up...");
-      
-      // End ElevenLabs session
       if (conversationRef.current) {
         conversationRef.current.endSession().catch(() => {});
         conversationRef.current = null;
       }
-      
-      // Stop all media tracks
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => {
-          track.stop();
-          console.log("Unmount: Stopped media track:", track.kind);
-        });
-        mediaStreamRef.current = null;
-      }
-      
-      // Clear timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
-        timerRef.current = null;
       }
     };
   }, []);
@@ -542,10 +464,6 @@ export default function Home() {
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
-          }
-          @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
           }
         `}</style>
       </div>
