@@ -164,7 +164,8 @@ export default function Home() {
             const lastMsg = messagesRef.current[messagesRef.current.length - 1];
             if (!(lastMsg && lastMsg.role === role && lastMsg.content === content)) {
               messagesRef.current.push({ role, content });
-              setMessageCount(messagesRef.current.length);
+              // Don't update state during messages - only update count when session ends
+              // This prevents re-renders that can interrupt audio playback
             }
           }
         },
@@ -201,6 +202,8 @@ export default function Home() {
       conversationRef.current = null;
     }
     setVoiceState(STATE.IDLE);
+    // Update message count now that session is over
+    setMessageCount(messagesRef.current.length);
     setShowEndDialog(true);
   }, []);
 
