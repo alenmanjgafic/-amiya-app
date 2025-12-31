@@ -24,12 +24,10 @@ export async function GET(request) {
       return Response.json({ error: "coupleId required" }, { status: 400 });
     }
 
+    // Simple query without joins
     let query = supabase
       .from("agreement_suggestions")
-      .select(`
-        *,
-        session:sessions(id, type, created_at)
-      `)
+      .select("*")
       .eq("couple_id", coupleId)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
@@ -41,10 +39,11 @@ export async function GET(request) {
     const { data, error } = await query;
 
     if (error) {
+      console.error("Suggestions fetch error:", error);
       return Response.json({ error: error.message }, { status: 500 });
     }
 
-    return Response.json({ suggestions: data });
+    return Response.json({ suggestions: data || [] });
 
   } catch (error) {
     console.error("Suggestions get error:", error);
@@ -61,9 +60,9 @@ export async function POST(request) {
     const body = await request.json();
     const { coupleId, sessionId, title, underlyingNeed, responsible } = body;
 
-    if (!coupleId || !sessionId || !title) {
+    if (!coupleId || !title) {
       return Response.json(
-        { error: "coupleId, sessionId, and title required" }, 
+        { error: "coupleId and title required" }, 
         { status: 400 }
       );
     }
@@ -72,9 +71,9 @@ export async function POST(request) {
       .from("agreement_suggestions")
       .insert({
         couple_id: coupleId,
-        session_id: sessionId,
+        session_id: sessionId || null,
         title,
-        underlying_need: underlyingNeed,
+        underlying_need: underlyingNeed || null,
         responsible: responsible || "both"
       })
       .select()
@@ -152,23 +151,21 @@ export async function PATCH(request) {
     }
 
     if (action === "accept") {
+      // Get couple info to determine user_a and user_b
+      const { data: couple } = await supabase
+        .from("couples")
+        .select("user_a_id, user_b_id")
+        .eq("id", suggestion.couple_id)
+        .single();
+
       // Determine responsible_user_id from "responsible" string
       let responsibleUserId = null;
-      if (responsible === "user_a" || responsible === "marco") {
-        // Get user_a from couple
-        const { data: couple } = await supabase
-          .from("couples")
-          .select("user_a_id")
-          .eq("id", suggestion.couple_id)
-          .single();
-        responsibleUserId = couple?.user_a_id;
-      } else if (responsible === "user_b" || responsible === "lisa") {
-        const { data: couple } = await supabase
-          .from("couples")
-          .select("user_b_id")
-          .eq("id", suggestion.couple_id)
-          .single();
-        responsibleUserId = couple?.user_b_id;
+      const respValue = responsible || suggestion.responsible;
+      
+      if (respValue === "user_a" && couple) {
+        responsibleUserId = couple.user_a_id;
+      } else if (respValue === "user_b" && couple) {
+        responsibleUserId = couple.user_b_id;
       }
       // If "both" or undefined, responsibleUserId stays null
 
@@ -178,22 +175,12 @@ export async function PATCH(request) {
       nextCheckInAt.setDate(nextCheckInAt.getDate() + days);
 
       // Determine approval status
-      // If created from couple session and both confirm, auto-activate
-      // Otherwise pending
       const requiresMutualApproval = responsibleUserId === null;
       const approvedBy = [userId];
       
-      // Check if partner also needs to approve
       let status = "pending_approval";
-      if (!requiresMutualApproval) {
-        // Only one person responsible
-        if (responsibleUserId === userId) {
-          status = "active";
-        }
-      } else {
-        // Both responsible, need both to approve
-        // Since we're accepting, add this user's approval
-        // Partner will need to approve too
+      if (!requiresMutualApproval && responsibleUserId === userId) {
+        status = "active";
       }
 
       // Create agreement
@@ -221,13 +208,10 @@ export async function PATCH(request) {
         return Response.json({ error: createError.message }, { status: 500 });
       }
 
-      // Update suggestion
+      // Update suggestion status
       await supabase
         .from("agreement_suggestions")
-        .update({
-          status: "accepted",
-          created_agreement_id: agreement.id
-        })
+        .update({ status: "accepted" })
         .eq("id", suggestionId);
 
       return Response.json({ 
