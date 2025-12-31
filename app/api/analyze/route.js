@@ -61,14 +61,15 @@ export async function POST(request) {
       return Response.json({ error: "Session ID required" }, { status: 400 });
     }
 
-    // Get session from database
+    // Get session from database (simple query)
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
-      .select("*, couple:couples(id, user_a_id, user_b_id)")
+      .select("*")
       .eq("id", sessionId)
       .single();
 
     if (sessionError || !session) {
+      console.error("Session fetch error:", sessionError);
       return Response.json({ error: "Session not found" }, { status: 404 });
     }
 
@@ -115,19 +116,27 @@ export async function POST(request) {
     // If agreement suggested and this is a couple session, save suggestion
     let savedSuggestion = null;
     if (suggestedAgreement && session.type === "couple" && session.couple_id) {
-      const { data: suggestion } = await supabase
-        .from("agreement_suggestions")
-        .insert({
-          couple_id: session.couple_id,
-          session_id: sessionId,
-          title: suggestedAgreement.title,
-          underlying_need: suggestedAgreement.underlyingNeed,
-          responsible: suggestedAgreement.responsible
-        })
-        .select()
-        .single();
+      try {
+        const { data: suggestion, error: suggestionError } = await supabase
+          .from("agreement_suggestions")
+          .insert({
+            couple_id: session.couple_id,
+            session_id: sessionId,
+            title: suggestedAgreement.title,
+            underlying_need: suggestedAgreement.underlyingNeed,
+            responsible: suggestedAgreement.responsible
+          })
+          .select()
+          .single();
 
-      savedSuggestion = suggestion;
+        if (suggestionError) {
+          console.error("Failed to save suggestion:", suggestionError);
+        } else {
+          savedSuggestion = suggestion;
+        }
+      } catch (suggestionErr) {
+        console.error("Suggestion insert error:", suggestionErr);
+      }
     }
 
     return Response.json({ 
@@ -221,15 +230,15 @@ function parseAnalysisForAgreement(fullText, session) {
 function detectThemes(text) {
   const themeKeywords = {
     kommunikation: ["gespräch", "reden", "sagen", "hören", "zuhören", "verstehen", "kommunikation", "streiten", "diskussion"],
-    kinder: ["kind", "kinder", "sohn", "tochter", "eltern", "erziehung", "schule"],
+    kinder: ["kind", "kinder", "sohn", "tochter", "eltern", "erziehung", "schule", "fussball", "abholen"],
     finanzen: ["geld", "finanzen", "ausgaben", "sparen", "verdienen", "kosten", "budget"],
     arbeit: ["arbeit", "job", "beruf", "chef", "kollegen", "stress", "karriere", "büro"],
     intimität: ["nähe", "sex", "intim", "berührung", "zärtlich", "liebe", "romantik"],
-    alltag: ["haushalt", "aufgaben", "putzen", "kochen", "einkaufen", "organisieren"],
+    alltag: ["haushalt", "aufgaben", "putzen", "kochen", "einkaufen", "organisieren", "montag"],
     zeit: ["zeit", "gemeinsam", "allein", "hobbies", "freunde", "ausgehen"],
-    vertrauen: ["vertrauen", "ehrlich", "lüge", "geheimnis", "treue", "sicher"],
+    vertrauen: ["vertrauen", "ehrlich", "lüge", "geheimnis", "treue", "sicher", "versprechen"],
     zukunft: ["zukunft", "pläne", "ziele", "träume", "heirat", "zusammen"],
-    anerkennung: ["wertschätzung", "danke", "anerkennung", "respekt", "ignoriert"],
+    anerkennung: ["wertschätzung", "danke", "anerkennung", "respekt", "ignoriert", "unterstützung"],
   };
 
   const textLower = text.toLowerCase();
