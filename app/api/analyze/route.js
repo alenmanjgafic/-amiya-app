@@ -67,24 +67,28 @@ STRUKTUR (EXAKT EINHALTEN):
 **Nächste Schritte**
 (Was sollte als nächstes passieren? Worauf achten?)
 
-=== AGREEMENT DETECTION ===
+=== AGREEMENT DETECTION (WICHTIG!) ===
 
-Prüfe das Gespräch auf konkrete Zusagen wie:
+SUCHE im Gespräch nach konkreten Zusagen/Versprechen:
 - "Ich werde...", "Ich mache ab jetzt...", "Das übernehme ich"
-- "Ich hole die Kinder ab", "Ich koche das Abendessen"
-- "Okay, das mache ich so", "Einverstanden"
+- "Ich hole die Kinder ab", "Ich koche..."
+- "Okay, das mache ich so", "Einverstanden, ich übernehme das"
+- Wenn jemand "Ja" sagt auf die Frage ob etwas festgehalten werden soll
 
-WENN eine konkrete Zusage gefunden wird, füge NACH "Nächste Schritte" hinzu:
+WENN mindestens eine konkrete Zusage gefunden wird (was hier sehr wahrscheinlich ist):
+Du MUSST den folgenden Block am Ende hinzufügen:
 
 ---
 **Vereinbarung erkannt**
-- Was: [konkrete Vereinbarung in einem Satz]
-- Wer: [Name der Person]
-- Bedürfnis: [z.B. Entlastung, Zeit, Wertschätzung]
+- Was: [Die konkreteste Zusage als Satz, z.B. "Alen holt montags die Kinder ab"]
+- Wer: [Name der Person die es zugesagt hat]
+- Bedürfnis: [Das Bedürfnis dahinter, z.B. Entlastung, Fairness, Zeit]
 ---
 
-NUR EINE Vereinbarung (die konkreteste).
-Falls KEINE konkreten Zusagen gemacht wurden: Block weglassen.
+REGELN:
+- NUR EINE Vereinbarung (die konkreteste/wichtigste)
+- Der Block ist PFLICHT wenn es Zusagen gab
+- NUR weglassen wenn wirklich KEINE konkreten Zusagen gemacht wurden
 
 Gespräch:
 `;
