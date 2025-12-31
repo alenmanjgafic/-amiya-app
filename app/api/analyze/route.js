@@ -14,46 +14,111 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const ANALYSIS_PROMPT = `Du bist ein erfahrener Paartherapeut, der eine Session analysiert. 
+// Dynamischer Prompt basierend auf Session-Type
+const getAnalysisPrompt = (sessionType) => {
+  const isCoupleSession = sessionType === "couple";
+  
+  if (isCoupleSession) {
+    return `Du bist Amiya, eine erfahrene Beziehungscoach.
+Du analysierst eine COUPLE SESSION - beide Partner waren dabei.
 
-Analysiere das folgende Gespräch und erstelle eine hilfreiche, einfühlsame Analyse.
+STIL:
+- Warm und unterstützend, nicht klinisch
+- Verwende die Namen der Personen
+- Fokussiere auf Muster und Stärken, nicht nur Probleme
+- Deutsch
+- Sprich beide Partner an (ihr-Form)
 
-WICHTIG:
-- Sei warm und unterstützend, nicht klinisch
-- Verwende die Namen der Personen wenn sie im Kontext angegeben sind
-- Fokussiere auf Muster und Erkenntnisse, nicht auf Probleme
-- Gib konkrete, umsetzbare Vorschläge
-- Halte die Analyse kurz und verständlich (max 300 Wörter)
-- Schreibe auf Deutsch
-- Sprich den User direkt an (du-Form)
+STRUKTUR (EXAKT EINHALTEN):
 
-Struktur deiner Analyse:
-1. **Zusammenfassung** (2-3 Sätze: Worum ging es?)
-2. **Was mir aufgefallen ist** (2-3 Beobachtungen/Muster)
-3. **Mögliche nächste Schritte** (1-2 konkrete Vorschläge)
+**Zusammenfassung**
+(2-3 Sätze: Worum ging es in dieser Session?)
 
-WICHTIG - AGREEMENT DETECTION (PFLICHT bei Couple Sessions):
-Suche AKTIV nach konkreten Commitments im Gespräch. Beispiele:
-- "Ich werde jeden Montag...", "Ich mache das ab jetzt..."
+**Situation**
+(Kontext: Was war der Ausgangspunkt? Was ist passiert?)
+
+**Beobachtungen**
+
+### [Name Partner 1]
+- Beobachtung 1
+- Beobachtung 2
+- Beobachtung 3
+
+### [Name Partner 2]
+- Beobachtung 1
+- Beobachtung 2
+- Beobachtung 3
+
+### Dynamik zwischen euch
+- Beobachtung zur gemeinsamen Dynamik
+- Muster die aufgefallen sind
+
+**Empfehlungen**
+
+### Für [Name Partner 1]
+1. Konkrete Empfehlung
+
+### Für [Name Partner 2]
+1. Konkrete Empfehlung
+
+### Gemeinsam
+1. Konkrete gemeinsame Empfehlung
+
+**Nächste Schritte**
+(Was sollte als nächstes passieren? Worauf achten?)
+
+=== AGREEMENT DETECTION ===
+
+Prüfe das Gespräch auf konkrete Zusagen wie:
+- "Ich werde...", "Ich mache ab jetzt...", "Das übernehme ich"
 - "Ich hole die Kinder ab", "Ich koche das Abendessen"
-- "Wir haben vereinbart...", "Das machen wir so"
-- Jede konkrete Zusage einer Person an die andere
+- "Okay, das mache ich so", "Einverstanden"
 
-WENN ein klares Commitment gefunden wird (egal wie es formuliert ist), MUSST du am Ende EXAKT diesen Block hinzufügen:
+WENN eine konkrete Zusage gefunden wird, füge NACH "Nächste Schritte" hinzu:
 
 ---
-**Mögliche Vereinbarung erkannt**
-- Was: [die konkrete Vereinbarung in einem Satz]
-- Dahinter: [welches Bedürfnis wird erfüllt, z.B. "Entlastung", "Zeit mit Kindern", "Wertschätzung"]
-- Wer: [Name der Person die sich verpflichtet, oder "Beide"]
+**Vereinbarung erkannt**
+- Was: [konkrete Vereinbarung in einem Satz]
+- Wer: [Name der Person]
+- Bedürfnis: [z.B. Entlastung, Zeit, Wertschätzung]
 ---
 
-WICHTIG: Bei Aussagen wie "Ich hole die Kinder montags ab" oder "Ich koche dann" ist das ein klares Commitment und der Block MUSS hinzugefügt werden!
-
-Maximal EINE Vereinbarung (die wichtigste/konkreteste).
+NUR EINE Vereinbarung (die konkreteste).
+Falls KEINE konkreten Zusagen gemacht wurden: Block weglassen.
 
 Gespräch:
 `;
+  }
+  
+  // Solo Session Prompt
+  return `Du bist Amiya, eine erfahrene Beziehungscoach.
+Du analysierst eine SOLO SESSION - nur ein Partner war dabei.
+
+STIL:
+- Warm und unterstützend, nicht klinisch
+- Verwende die Namen der Personen
+- Fokussiere auf Muster und Stärken, nicht nur Probleme
+- Max 400 Wörter
+- Deutsch
+- Sprich den User direkt an (du-Form)
+
+STRUKTUR:
+
+**Zusammenfassung**
+(2-3 Sätze: Worum ging es?)
+
+**Was mir aufgefallen ist**
+(2-3 Beobachtungen/Muster)
+
+**Mögliche nächste Schritte**
+(1-2 konkrete Vorschläge)
+
+Gespräch:
+`;
+};
+
+// Fallback für alte Aufrufe
+const ANALYSIS_PROMPT = getAnalysisPrompt("solo");
 
 export async function POST(request) {
   try {
@@ -79,14 +144,17 @@ export async function POST(request) {
       return Response.json({ error: "No conversation to analyze" }, { status: 400 });
     }
 
-    // Generate analysis with Claude
+    // Generate analysis with Claude - use session type for correct prompt
+    const analysisPrompt = getAnalysisPrompt(session.type || "solo");
+    const isCoupleSession = session.type === "couple";
+    
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1500,
+      max_tokens: isCoupleSession ? 2500 : 1500, // Couple needs more for detailed structure
       messages: [
         {
           role: "user",
-          content: ANALYSIS_PROMPT + session.summary,
+          content: analysisPrompt + session.summary,
         },
       ],
     });
@@ -163,9 +231,15 @@ export async function POST(request) {
  * Parse analysis text to extract agreement suggestion
  */
 function parseAnalysisForAgreement(fullText, session) {
-  // Check if agreement section exists
-  const agreementMarker = "**Mögliche Vereinbarung erkannt**";
-  const markerIndex = fullText.indexOf(agreementMarker);
+  // Check for agreement section (try both markers for compatibility)
+  let agreementMarker = "**Vereinbarung erkannt**";
+  let markerIndex = fullText.indexOf(agreementMarker);
+  
+  // Fallback to old marker
+  if (markerIndex === -1) {
+    agreementMarker = "**Mögliche Vereinbarung erkannt**";
+    markerIndex = fullText.indexOf(agreementMarker);
+  }
   
   if (markerIndex === -1) {
     return { analysis: fullText, suggestedAgreement: null };
@@ -175,9 +249,9 @@ function parseAnalysisForAgreement(fullText, session) {
   const analysis = fullText.substring(0, markerIndex).trim();
   const agreementSection = fullText.substring(markerIndex);
 
-  // Parse agreement details
+  // Parse agreement details (support both old and new format)
   const whatMatch = agreementSection.match(/- Was: (.+)/);
-  const behindMatch = agreementSection.match(/- Dahinter: (.+)/);
+  const needMatch = agreementSection.match(/- (?:Bedürfnis|Dahinter): (.+)/);
   const whoMatch = agreementSection.match(/- Wer: (.+)/);
 
   if (!whatMatch) {
@@ -220,7 +294,7 @@ function parseAnalysisForAgreement(fullText, session) {
     analysis,
     suggestedAgreement: {
       title: whatMatch[1].trim(),
-      underlyingNeed: behindMatch ? behindMatch[1].trim() : null,
+      underlyingNeed: needMatch ? needMatch[1].trim() : null,
       responsible
     }
   };
