@@ -16,41 +16,64 @@ const supabase = createClient(
  */
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
+    // Simple query without complex joins
     const { data: agreement, error } = await supabase
       .from("agreements")
-      .select(`
-        *,
-        checkins:agreement_checkins(
-          id, status, created_at, success_count, total_count,
-          what_worked, what_was_hard, adjustment_suggested
-        ),
-        created_by:profiles!agreements_created_by_user_id_fkey(name),
-        responsible:profiles!agreements_responsible_user_id_fkey(name)
-      `)
+      .select("*")
       .eq("id", id)
       .single();
 
-    if (error) {
+    if (error || !agreement) {
+      console.error("Agreement fetch error:", error);
       return Response.json({ error: "Agreement not found" }, { status: 404 });
     }
+
+    // Get checkins separately
+    const { data: checkins } = await supabase
+      .from("agreement_checkins")
+      .select("id, status, created_at, what_worked, what_was_hard")
+      .eq("agreement_id", id)
+      .order("created_at", { ascending: false })
+      .limit(10);
 
     // Get couple info for names
     const { data: couple } = await supabase
       .from("couples")
-      .select(`
-        user_a:profiles!couples_user_a_id_fkey(id, name),
-        user_b:profiles!couples_user_b_id_fkey(id, name)
-      `)
+      .select("user_a_id, user_b_id")
       .eq("id", agreement.couple_id)
       .single();
 
+    // Get user names
+    let userA = null;
+    let userB = null;
+    
+    if (couple) {
+      const { data: profileA } = await supabase
+        .from("profiles")
+        .select("id, name")
+        .eq("id", couple.user_a_id)
+        .single();
+      
+      const { data: profileB } = await supabase
+        .from("profiles")
+        .select("id, name")
+        .eq("id", couple.user_b_id)
+        .single();
+      
+      userA = profileA;
+      userB = profileB;
+    }
+
     return Response.json({ 
-      agreement,
+      agreement: {
+        ...agreement,
+        checkins: checkins || []
+      },
       couple: {
-        userA: couple?.user_a,
-        userB: couple?.user_b
+        userA,
+        userB
       }
     });
 
@@ -66,7 +89,7 @@ export async function GET(request, { params }) {
  */
 export async function PATCH(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { action, userId, ...updateData } = body;
 
@@ -77,7 +100,7 @@ export async function PATCH(request, { params }) {
     // Get current agreement
     const { data: agreement, error: fetchError } = await supabase
       .from("agreements")
-      .select("*, couple:couples(user_a_id, user_b_id)")
+      .select("*")
       .eq("id", id)
       .single();
 
@@ -85,10 +108,19 @@ export async function PATCH(request, { params }) {
       return Response.json({ error: "Agreement not found" }, { status: 404 });
     }
 
+    // Get couple info
+    const { data: couple } = await supabase
+      .from("couples")
+      .select("user_a_id, user_b_id")
+      .eq("id", agreement.couple_id)
+      .single();
+
+    if (!couple) {
+      return Response.json({ error: "Couple not found" }, { status: 404 });
+    }
+
     // Verify user belongs to couple
-    const isInCouple = 
-      agreement.couple.user_a_id === userId || 
-      agreement.couple.user_b_id === userId;
+    const isInCouple = couple.user_a_id === userId || couple.user_b_id === userId;
 
     if (!isInCouple) {
       return Response.json({ error: "Unauthorized" }, { status: 403 });
@@ -99,14 +131,6 @@ export async function PATCH(request, { params }) {
 
     switch (action) {
       case "approve":
-        // Check if user can approve
-        if (agreement.responsible_user_id && agreement.responsible_user_id !== userId) {
-          return Response.json(
-            { error: "Only responsible person can approve" }, 
-            { status: 403 }
-          );
-        }
-
         // Add user to approved_by if not already
         const currentApproved = agreement.approved_by || [];
         if (!currentApproved.includes(userId)) {
@@ -114,9 +138,9 @@ export async function PATCH(request, { params }) {
           updates.approved_by = newApproved;
 
           // Check if all required approvals are in
-          const partnerId = agreement.couple.user_a_id === userId 
-            ? agreement.couple.user_b_id 
-            : agreement.couple.user_a_id;
+          const partnerId = couple.user_a_id === userId 
+            ? couple.user_b_id 
+            : couple.user_a_id;
 
           const allApproved = agreement.requires_mutual_approval
             ? newApproved.includes(userId) && newApproved.includes(partnerId)
@@ -140,7 +164,6 @@ export async function PATCH(request, { params }) {
       case "resume":
         updates.status = "active";
         updates.paused_reason = null;
-        // Reset next check-in to 2 weeks from now
         const resumeCheckIn = new Date();
         resumeCheckIn.setDate(resumeCheckIn.getDate() + (agreement.check_in_frequency_days || 14));
         updates.next_check_in_at = resumeCheckIn.toISOString();
@@ -158,7 +181,6 @@ export async function PATCH(request, { params }) {
         break;
 
       case "update":
-        // General update (title, description, etc.)
         const allowedFields = [
           "title", "description", "underlying_need", "type",
           "frequency", "check_in_frequency_days", "themes"
@@ -166,7 +188,6 @@ export async function PATCH(request, { params }) {
         
         for (const field of allowedFields) {
           if (updateData[field] !== undefined) {
-            // Convert camelCase to snake_case
             const snakeField = field.replace(/([A-Z])/g, "_$1").toLowerCase();
             updates[snakeField] = updateData[field];
           }
@@ -205,11 +226,10 @@ export async function PATCH(request, { params }) {
 
 /**
  * DELETE /api/agreements/[id]
- * Soft delete - sets status to archived
  */
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
 
