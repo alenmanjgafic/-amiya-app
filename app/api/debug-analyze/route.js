@@ -88,51 +88,59 @@ REGELN:
 Gespräch:
 `;
 
+// Test transcript for debugging
+const TEST_TRANSCRIPT = `[Couple Session: Alen & Romina]
+
+Amiya: Hallo Alen, wie geht es dir?
+Alen: Hallo, mir geht's gut.
+Amiya: Das freut mich zu hören, Alen. Schön, dass du wieder da bist. Was bringst du heute mit?
+Alen: Ich bin mit Romina hier und wir wollen, ja ich habe ja gesagt, dass ich jetzt die Kinder montags abhole.
+Amiya: Hey ihr zwei, schön euch wiederzusehen. Alen, das ist klasse, dass du das mit dem Abholen der Kinder am Montag direkt ansprichst. Romina, wie ist das für dich?
+Romina: Super, ich freue mich, dass er mir entgegenkommt. Ich würde mir auch Unterstützung wünschen beim Abendessen am Wochenende.
+Amiya: Das ist ein schöner Schritt, Romina. Alen, du hast gehört, dass Romina sich am Wochenende Unterstützung beim Abendessen wünscht. Wie klingt das für dich?
+Alen: Das passt für mich, das kann ich gerne machen. Ich koche auch gerne, daher machen wir das.
+Amiya: Das klingt nach einem richtig guten Plan. Soll ich das als eure Vereinbarung festhalten?
+Alen: Ja.
+Romina: Ja, gerne.
+Amiya: Schön. Ich halte fest: Alen holt montags die Kinder ab und übernimmt am Wochenende das Kochen.`;
+
 export async function POST(request) {
   try {
-    const { sessionId } = await request.json();
+    const { sessionId, useTestData } = await request.json();
 
-    if (!sessionId) {
-      return Response.json({ error: "Session ID required" }, { status: 400 });
+    let transcript = TEST_TRANSCRIPT;
+    let debugInfo = { mode: "TEST_DATA" };
+
+    // If sessionId provided, try to use real data
+    if (sessionId && !useTestData) {
+      const { data: session, error: sessionError } = await supabase
+        .from("sessions")
+        .select("*")
+        .eq("id", sessionId)
+        .single();
+
+      if (session && session.summary) {
+        transcript = session.summary;
+        debugInfo = {
+          mode: "REAL_SESSION",
+          sessionId: session.id,
+          sessionType: session.type,
+          summaryLength: session.summary.length
+        };
+      } else {
+        debugInfo = {
+          mode: "TEST_DATA (session has no summary)",
+          sessionId: sessionId,
+          reason: session ? "summary is null" : "session not found"
+        };
+      }
     }
 
-    // Get session from database
-    const { data: session, error: sessionError } = await supabase
-      .from("sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .single();
-
-    if (sessionError || !session) {
-      return Response.json({ 
-        error: "Session not found",
-        details: sessionError 
-      }, { status: 404 });
-    }
-
-    // DEBUG: Return raw data
-    const debugInfo = {
-      sessionId: session.id,
-      sessionType: session.type,
-      hasSummary: !!session.summary,
-      summaryLength: session.summary?.length || 0,
-      summaryPreview: session.summary?.substring(0, 500) || "NO SUMMARY",
-      hasAnalysis: !!session.analysis,
-      analysisPreview: session.analysis?.substring(0, 500) || "NO ANALYSIS YET"
-    };
-
-    // If no summary, can't analyze
-    if (!session.summary) {
-      return Response.json({ 
-        error: "No conversation to analyze - summary is empty",
-        debug: debugInfo
-      }, { status: 400 });
-    }
-
-    // Generate analysis with Claude
-    const fullPrompt = COUPLE_PROMPT + session.summary;
+    // Generate analysis with Claude using the CURRENT prompt
+    const fullPrompt = COUPLE_PROMPT + transcript;
     
     console.log("=== DEBUG: Sending to Claude ===");
+    console.log("Mode:", debugInfo.mode);
     console.log("Prompt length:", fullPrompt.length);
     
     const message = await anthropic.messages.create({
@@ -150,7 +158,6 @@ export async function POST(request) {
     
     console.log("=== DEBUG: Claude Response ===");
     console.log("Response length:", fullAnalysis.length);
-    console.log("Full response:", fullAnalysis);
 
     // Check for agreement block
     const hasAgreementBlock = fullAnalysis.includes("**Vereinbarung erkannt**");
@@ -164,12 +171,12 @@ export async function POST(request) {
       success: true,
       debug: {
         ...debugInfo,
-        promptUsed: "COUPLE_PROMPT (Agreement Detection v3)",
         promptLength: fullPrompt.length,
         responseLength: fullAnalysis.length,
         hasAgreementBlock,
         hasOldAgreementBlock,
-        nextStepsSection: afterNextSteps,
+        agreementBlockFound: hasAgreementBlock ? "✅ YES" : "❌ NO",
+        afterNextSteps: afterNextSteps,
         last500Chars: fullAnalysis.slice(-500)
       },
       fullAnalysis: fullAnalysis
