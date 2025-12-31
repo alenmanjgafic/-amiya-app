@@ -1,16 +1,25 @@
 /**
  * WIR PAGE - app/wir/page.js
- * Übersichtsseite für Paar-Features mit Couple Session
+ * Übersichtsseite für Paar-Features mit Agreements Integration
  */
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/AuthContext";
+import AgreementsList from "../../components/AgreementsList";
+import AgreementDetail from "../../components/AgreementDetail";
+import CreateAgreement from "../../components/CreateAgreement";
+import DisconnectDialog from "../../components/DisconnectDialog";
 
 export default function WirPage() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, fetchProfile } = useAuth();
   const router = useRouter();
   const [showPrepModal, setShowPrepModal] = useState(false);
+  const [selectedAgreementId, setSelectedAgreementId] = useState(null);
+  const [showCreateAgreement, setShowCreateAgreement] = useState(false);
+  const [showDisconnect, setShowDisconnect] = useState(false);
+  const [pendingDissolution, setPendingDissolution] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -23,6 +32,35 @@ export default function WirPage() {
       router.push("/onboarding");
     }
   }, [user, profile, loading, router]);
+
+  // Check for pending dissolution (partner initiated disconnect)
+  useEffect(() => {
+    if (user && !profile?.couple_id) {
+      checkPendingDissolution();
+    }
+  }, [user, profile?.couple_id]);
+
+  const checkPendingDissolution = async () => {
+    try {
+      const response = await fetch(`/api/couple/disconnect?userId=${user.id}`);
+      const data = await response.json();
+      if (data.pendingDissolution) {
+        setPendingDissolution(data);
+      }
+    } catch (error) {
+      console.error("Failed to check dissolution:", error);
+    }
+  };
+
+  const handleRefreshAgreements = () => {
+    setRefreshKey(k => k + 1);
+  };
+
+  const handleDisconnectComplete = async () => {
+    setShowDisconnect(false);
+    setPendingDissolution(null);
+    await fetchProfile(user.id);
+  };
 
   if (loading || !profile) {
     return (
@@ -54,6 +92,27 @@ export default function WirPage() {
       </div>
 
       <div style={styles.content}>
+        {/* Pending Dissolution Banner */}
+        {pendingDissolution && (
+          <div style={styles.dissolutionBanner}>
+            <span style={styles.dissolutionIcon}>⚠️</span>
+            <div style={styles.dissolutionContent}>
+              <p style={styles.dissolutionTitle}>
+                {pendingDissolution.initiatedBy} hat die Verbindung aufgelöst
+              </p>
+              <p style={styles.dissolutionText}>
+                Du kannst wählen, ob du anonymisierte Learnings behalten möchtest.
+              </p>
+            </div>
+            <button 
+              onClick={() => setShowDisconnect(true)}
+              style={styles.dissolutionButton}
+            >
+              Bestätigen
+            </button>
+          </div>
+        )}
+
         {/* Couple Session Card - Only if connected */}
         {isConnected && (
           <div style={styles.card}>
@@ -72,8 +131,19 @@ export default function WirPage() {
           </div>
         )}
 
+        {/* Agreements Section - Only if connected */}
+        {isConnected && (
+          <div style={styles.agreementsSection}>
+            <AgreementsList 
+              key={refreshKey}
+              onSelectAgreement={(id) => setSelectedAgreementId(id)}
+              onCreateNew={() => setShowCreateAgreement(true)}
+            />
+          </div>
+        )}
+
         {/* Connect Card - Only if not connected */}
-        {!isConnected && (
+        {!isConnected && !pendingDissolution && (
           <div style={styles.card}>
             <div style={styles.cardIcon}>💑</div>
             <h2 style={styles.cardTitle}>Mehr gemeinsam erleben</h2>
@@ -107,10 +177,24 @@ export default function WirPage() {
           </div>
         </div>
 
-        {/* Future features placeholder */}
-        <div style={styles.comingSoon}>
-          <p style={styles.comingSoonText}>Weitere Features folgen...</p>
-        </div>
+        {/* Settings Card - Only if connected */}
+        {isConnected && (
+          <div 
+            style={styles.cardSecondary} 
+            onClick={() => setShowDisconnect(true)}
+          >
+            <div style={styles.cardRow}>
+              <div style={styles.cardIconSmall}>⚙️</div>
+              <div>
+                <h3 style={styles.cardTitleSmall}>Verbindung verwalten</h3>
+                <p style={styles.cardDescriptionSmall}>
+                  Paar-Einstellungen und Trennung
+                </p>
+              </div>
+              <span style={styles.arrow}>→</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bottom Navigation */}
@@ -191,12 +275,38 @@ export default function WirPage() {
         </div>
       )}
 
-      <style jsx global>{`
+      {/* Agreement Detail Modal */}
+      {selectedAgreementId && (
+        <AgreementDetail
+          agreementId={selectedAgreementId}
+          onClose={() => setSelectedAgreementId(null)}
+          onUpdate={handleRefreshAgreements}
+        />
+      )}
+
+      {/* Create Agreement Modal */}
+      {showCreateAgreement && (
+        <CreateAgreement
+          onClose={() => setShowCreateAgreement(false)}
+          onCreated={handleRefreshAgreements}
+        />
+      )}
+
+      {/* Disconnect Dialog */}
+      {showDisconnect && (
+        <DisconnectDialog
+          pendingDissolution={pendingDissolution}
+          onClose={() => setShowDisconnect(false)}
+          onComplete={handleDisconnectComplete}
+        />
+      )}
+
+      <style jsx global>{\`
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-      `}</style>
+      \`}</style>
     </div>
   );
 }
@@ -240,6 +350,43 @@ const styles = {
   },
   content: {
     padding: "0 20px",
+  },
+  dissolutionBanner: {
+    background: "#fef3c7",
+    borderRadius: "16px",
+    padding: "16px",
+    marginBottom: "16px",
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "12px",
+  },
+  dissolutionIcon: {
+    fontSize: "24px",
+  },
+  dissolutionContent: {
+    flex: 1,
+  },
+  dissolutionTitle: {
+    margin: "0 0 4px 0",
+    fontWeight: "600",
+    color: "#92400e",
+    fontSize: "15px",
+  },
+  dissolutionText: {
+    margin: 0,
+    color: "#a16207",
+    fontSize: "13px",
+  },
+  dissolutionButton: {
+    padding: "8px 16px",
+    background: "#f59e0b",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "14px",
+    fontWeight: "500",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
   },
   card: {
     background: "white",
@@ -298,6 +445,13 @@ const styles = {
     cursor: "pointer",
     boxShadow: "0 4px 15px rgba(139, 92, 246, 0.3)",
   },
+  agreementsSection: {
+    background: "white",
+    borderRadius: "24px",
+    padding: "20px",
+    boxShadow: "0 4px 20px rgba(139, 92, 246, 0.1)",
+    marginBottom: "16px",
+  },
   cardSecondary: {
     background: "white",
     borderRadius: "16px",
@@ -329,15 +483,6 @@ const styles = {
     marginLeft: "auto",
     fontSize: "20px",
     color: "#9ca3af",
-  },
-  comingSoon: {
-    marginTop: "24px",
-    padding: "20px",
-    textAlign: "center",
-  },
-  comingSoonText: {
-    color: "#9ca3af",
-    fontSize: "14px",
   },
   bottomNav: {
     position: "fixed",
@@ -372,7 +517,6 @@ const styles = {
     color: "#8b5cf6",
     fontWeight: "600",
   },
-  // Modal styles
   modalOverlay: {
     position: "fixed",
     top: 0,

@@ -1,6 +1,6 @@
 /**
  * MEMORY GET API - /api/memory/get
- * Lädt Kontext für Session-Start
+ * Lädt Kontext für Session-Start mit erweitertem Agreement-Support
  */
 import { createClient } from "@supabase/supabase-js";
 
@@ -8,6 +8,9 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+// Increased from 800 to 4000 for better context
+const MAX_CONTEXT_LENGTH = 4000;
 
 export async function POST(request) {
   try {
@@ -26,7 +29,7 @@ export async function POST(request) {
 
     if (profileError) {
       console.error("Profile fetch error:", profileError);
-      return Response.json({ context: "", hasMemory: false }, { status: 200 });
+      return Response.json({ context: "", error: "Profile not found" }, { status: 200 });
     }
 
     // If no consent, return minimal context
@@ -40,28 +43,40 @@ export async function POST(request) {
     // 2. Get shared context from couple (if exists)
     let sharedContext = null;
     let agreements = [];
+    let couple = null;
 
     if (coupleId) {
-      const { data: couple } = await supabase
+      const { data: coupleData } = await supabase
         .from("couples")
-        .select("shared_context")
+        .select("shared_context, user_a_id, user_b_id")
         .eq("id", coupleId)
+        .eq("status", "active")
         .single();
 
-      if (couple) {
-        sharedContext = couple.shared_context;
+      if (coupleData) {
+        sharedContext = coupleData.shared_context;
+        couple = coupleData;
       }
 
-      // 3. Get active agreements
+      // 3. Get active agreements with recent check-in info
       const { data: agreementsData } = await supabase
         .from("agreements")
-        .select("title, status, next_check_in_at, themes")
+        .select(`
+          id, title, underlying_need, type, status,
+          responsible_user_id, next_check_in_at, success_streak,
+          check_in_frequency_days,
+          checkins:agreement_checkins(status, created_at)
+        `)
         .eq("couple_id", coupleId)
-        .eq("status", "active")
+        .in("status", ["active", "pending_approval"])
         .order("next_check_in_at", { ascending: true });
 
       if (agreementsData) {
-        agreements = agreementsData;
+        agreements = agreementsData.map(a => ({
+          ...a,
+          lastCheckInStatus: a.checkins?.[0]?.status || null,
+          checkins: undefined // Don't pass full checkins array
+        }));
       }
     }
 
@@ -69,9 +84,14 @@ export async function POST(request) {
     let context = "";
 
     if (sessionType === "solo") {
-      context = buildSoloContext(profile, sharedContext, agreements);
+      context = buildSoloContext(profile, sharedContext, agreements, couple, userId);
     } else if (sessionType === "couple") {
-      context = buildCoupleContext(profile, sharedContext, agreements);
+      context = buildCoupleContext(profile, sharedContext, agreements, couple);
+    }
+
+    // Ensure we don't exceed limit
+    if (context.length > MAX_CONTEXT_LENGTH) {
+      context = context.substring(0, MAX_CONTEXT_LENGTH - 3) + "...";
     }
 
     return Response.json({
@@ -80,7 +100,8 @@ export async function POST(request) {
       debug: {
         hasPersonalContext: !!profile.personal_context,
         hasSharedContext: !!sharedContext,
-        agreementCount: agreements.length
+        agreementCount: agreements.length,
+        contextLength: context.length
       }
     });
 
@@ -99,10 +120,14 @@ Partner: ${profile.partner_name || "Partner"}`;
 }
 
 /**
- * Solo session context - includes personal + shared
+ * Solo session context - includes personal + shared + enriched agreements
  */
-function buildSoloContext(profile, sharedContext, agreements) {
+function buildSoloContext(profile, sharedContext, agreements, couple, userId) {
   const parts = [];
+
+  // Basic info
+  parts.push(`NAME: ${profile.name || "User"}
+PARTNER: ${profile.partner_name || "Partner"}`);
 
   // Personal context (private)
   const personal = profile.personal_context;
@@ -121,20 +146,45 @@ ${recent.map(t => `- ${t.date}: ${t.topic}${t.open ? ` (offen: ${t.open})` : ""}
     }
   }
 
+  // Past learnings (from previous relationships, anonymized)
+  if (personal?.past_learnings?.length > 0) {
+    const achieved = personal.past_learnings.filter(l => l.achieved).slice(-2);
+    if (achieved.length > 0) {
+      parts.push(`FRÜHERE ERKENNTNISSE:
+${achieved.map(l => `- ${l.insight}`).join("\n")}`);
+    }
+  }
+
   // Shared context
   if (sharedContext) {
     parts.push(buildSharedSection(sharedContext, profile));
   }
 
-  // Agreements
+  // Agreements with enriched context for Solo
+  // Solo = reflective, not check-in focused
   if (agreements.length > 0) {
-    const dueAgreements = agreements.filter(a => 
-      a.next_check_in_at && new Date(a.next_check_in_at) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    );
-    if (dueAgreements.length > 0) {
-      parts.push(`OFFENE VEREINBARUNGEN (Check-in fällig):
-${dueAgreements.map(a => `- "${a.title}"`).join("\n")}`);
-    }
+    const agreementLines = agreements.map(a => {
+      const isMyResponsibility = a.responsible_user_id === userId;
+      const isShared = !a.responsible_user_id;
+      const isDue = a.next_check_in_at && new Date(a.next_check_in_at) <= new Date();
+      
+      let line = `- "${a.title}"`;
+      if (a.underlying_need) {
+        line += `\n  Dahinter: ${a.underlying_need}`;
+      }
+      if (isMyResponsibility) {
+        line += `\n  (Deine Verantwortung)`;
+      } else if (isShared) {
+        line += `\n  (Gemeinsam)`;
+      }
+      if (a.success_streak >= 3) {
+        line += ` ✓ ${a.success_streak}x erfolgreich`;
+      }
+      return line;
+    });
+
+    parts.push(`EURE VEREINBARUNGEN (nur erwähnen wenn thematisch relevant):
+${agreementLines.join("\n")}`);
   }
 
   // Follow-up
@@ -154,21 +204,28 @@ ${followups.map(f => `- ${f}`).join("\n")}`);
 }
 
 /**
- * Couple session context - only shared (no personal from either partner)
+ * Couple session context - shared + proactive agreement check-ins
  */
-function buildCoupleContext(profile, sharedContext, agreements) {
+function buildCoupleContext(profile, sharedContext, agreements, couple) {
   const parts = [];
 
-  if (!sharedContext) {
-    return `Erste gemeinsame Session mit ${profile.name} und ${profile.partner_name}.`;
+  // Basic info
+  parts.push(`COUPLE SESSION: ${profile.name} & ${profile.partner_name}`);
+
+  if (!sharedContext && agreements.length === 0) {
+    parts.push("Erste gemeinsame Session.");
+    return parts.join("\n\n");
   }
 
   // Shared context
-  parts.push(buildSharedSection(sharedContext, profile));
+  if (sharedContext) {
+    parts.push(buildSharedSection(sharedContext, profile));
+  }
 
   // Journey & Progress
-  const journey = sharedContext.journey;
-  if (journey) {
+  if (sharedContext?.journey) {
+    const journey = sharedContext.journey;
+    
     if (journey.progress?.length > 0) {
       parts.push(`EURE FORTSCHRITTE:
 ${journey.progress.slice(-3).map(p => `- ${p.topic}: ${p.status}${p.what_helped ? ` (${p.what_helped})` : ""}`).join("\n")}`);
@@ -178,40 +235,64 @@ ${journey.progress.slice(-3).map(p => `- ${p.topic}: ${p.status}${p.what_helped 
       parts.push(`WIEDERKEHRENDE THEMEN:
 ${journey.recurring.map(r => `- ${r.topic}${r.note ? ` (${r.note})` : ""}`).join("\n")}`);
     }
+  }
 
-    if (journey.recent_sessions?.length > 0) {
-      const recent = journey.recent_sessions[0];
-      parts.push(`LETZTE COUPLE SESSION (${recent.date}):
-- ${recent.topic}
-- Ergebnis: ${recent.outcome || "offen"}`);
+  // Agreements with CHECK-IN logic for Couple sessions
+  if (agreements.length > 0) {
+    const now = new Date();
+    const oneWeek = 7 * 24 * 60 * 60 * 1000;
+    
+    // Split into due and not due
+    const dueAgreements = agreements.filter(a => 
+      a.next_check_in_at && new Date(a.next_check_in_at) <= now
+    );
+    const upcomingAgreements = agreements.filter(a => 
+      !a.next_check_in_at || new Date(a.next_check_in_at) > now
+    );
+
+    // Due agreements - proactively ask (max 2)
+    if (dueAgreements.length > 0) {
+      const toAsk = dueAgreements.slice(0, 2);
+      parts.push(`CHECK-IN FÄLLIG (bitte ansprechen):
+${toAsk.map(a => {
+        let line = `- "${a.title}"`;
+        if (a.underlying_need) {
+          line += ` (Dahinter: ${a.underlying_need})`;
+        }
+        line += `\n  → Frag: "Wie läuft es mit...?"`;
+        return line;
+      }).join("\n")}`);
+    }
+
+    // Other active agreements
+    if (upcomingAgreements.length > 0) {
+      parts.push(`WEITERE VEREINBARUNGEN (bei Bedarf erwähnen):
+${upcomingAgreements.map(a => `- "${a.title}"${a.success_streak >= 3 ? ` ✓${a.success_streak}x` : ""}`).join("\n")}`);
+    }
+
+    // Pending approvals
+    const pending = agreements.filter(a => a.status === "pending_approval");
+    if (pending.length > 0) {
+      parts.push(`WARTEN AUF ZUSTIMMUNG:
+${pending.map(a => `- "${a.title}" - Beide müssen zustimmen`).join("\n")}`);
     }
   }
 
-  // Agreements
-  if (agreements.length > 0) {
-    parts.push(`AKTIVE VEREINBARUNGEN:
-${agreements.map(a => {
-      const isDue = a.next_check_in_at && new Date(a.next_check_in_at) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      return `- "${a.title}"${isDue ? " (Check-in fällig)" : ""}`;
-    }).join("\n")}`);
-  }
-
   // Coaching style
-  const coaching = sharedContext.coaching;
-  if (coaching?.works_well?.length > 0) {
+  if (sharedContext?.coaching?.works_well?.length > 0) {
     parts.push(`WAS BEI EUCH FUNKTIONIERT:
-${coaching.works_well.slice(-3).map(w => `- ${w}`).join("\n")}`);
+${sharedContext.coaching.works_well.slice(-3).map(w => `- ${w}`).join("\n")}`);
   }
 
   // Follow-up
-  if (sharedContext.next_session?.followup) {
+  if (sharedContext?.next_session?.followup) {
     parts.push(`NACHFRAGEN:
 - ${sharedContext.next_session.followup}`);
   }
 
   // Sensitive topics
-  if (sharedContext.next_session?.sensitive?.length > 0) {
-    parts.push(`SENSIBLE THEMEN:
+  if (sharedContext?.next_session?.sensitive?.length > 0) {
+    parts.push(`SENSIBLE THEMEN (vorsichtig ansprechen):
 ${sharedContext.next_session.sensitive.map(s => `- ${s}`).join("\n")}`);
   }
 

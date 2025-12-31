@@ -1,11 +1,7 @@
 /**
  * MAIN PAGE - app/page.js
  * Hauptseite mit Solo Voice-Session
- * 
- * v2.3: Fixed microphone cleanup + prevent auto-restart
- * - Explicitly stops all media tracks on session end
- * - Prevents auto-restart after manual end
- * - Better cleanup on unmount
+ * UPDATED: Kontext-Limit auf 4000 Zeichen erhöht für Agreements
  */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -38,9 +34,6 @@ export default function Home() {
   const [messageCount, setMessageCount] = useState(0);
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
-  
-  // NEW: Track if session was manually ended (prevent auto-restart issues)
-  const [manuallyEnded, setManuallyEnded] = useState(false);
   
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
@@ -84,44 +77,9 @@ export default function Home() {
   const displayName = profile?.name || "du";
   const partnerName = profile?.partner_name || "";
 
-  /**
-   * Cleanup session
-   */
-  const cleanupSession = useCallback(async () => {
-    console.log("Cleaning up solo session...");
-    
-    // End ElevenLabs conversation (this handles mic cleanup internally)
-    if (conversationRef.current) {
-      try {
-        await conversationRef.current.endSession();
-        console.log("ElevenLabs session ended");
-      } catch (e) {
-        console.log("ElevenLabs session already ended:", e.message);
-      }
-      conversationRef.current = null;
-    }
-    
-    // Clear timer
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    
-    // Reset state
-    setVoiceState(STATE.IDLE);
-  }, []);
-
   const startSession = useCallback(async () => {
-    // Validate user is fully loaded
-    if (!user || !user.id) {
-      console.error("Cannot start session: user not loaded", user);
-      return;
-    }
+    if (!user) return;
     
-    console.log("Starting session for user:", user.id);
-    
-    // Reset manuallyEnded when starting a new session
-    setManuallyEnded(false);
     setStarted(true);
     setVoiceState(STATE.CONNECTING);
     messagesRef.current = [];
@@ -129,10 +87,9 @@ export default function Home() {
     setAnalysisError(null);
 
     try {
-      // Load context from Memory System
+      // Lade Kontext aus Memory System
       let userContext = "";
       try {
-        console.log("Loading memory for user:", user.id, "couple:", profile?.couple_id);
         const contextResponse = await fetch("/api/memory/get", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -150,9 +107,6 @@ export default function Home() {
           if (contextData.debug) {
             console.log("Debug:", contextData.debug);
           }
-        } else {
-          const errorData = await contextResponse.json();
-          console.error("Memory API error:", contextResponse.status, errorData);
         }
       } catch (contextError) {
         console.error("Failed to load memory:", contextError);
@@ -162,25 +116,23 @@ export default function Home() {
       setCurrentSessionId(session.id);
 
       const { Conversation } = await import("@elevenlabs/client");
-      
-      // Request mic permission (ElevenLabs needs this)
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
       console.log("Context length:", userContext.length);
       console.log("Context preview:", userContext.substring(0, 300));
 
-      // Sanitize context for ElevenLabs
+      // UPDATED: Kontext-Limit auf 4000 Zeichen erhöht für Agreements
       let sanitizedContext = userContext
         .replace(/\n/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
-        .substring(0, 800);
+        .substring(0, 4000);
       
-      if (userContext.length > 800) {
+      if (userContext.length > 4000) {
         sanitizedContext += "...";
       }
       
-      console.log("Sanitized context:", sanitizedContext);
+      console.log("Sanitized context length:", sanitizedContext.length);
 
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
@@ -189,7 +141,6 @@ export default function Home() {
           user_name: profile?.name || "User",
           partner_name: profile?.partner_name || "Partner",
           user_context: sanitizedContext || "Keine früheren Gespräche vorhanden.",
-          session_mode: "solo",
         },
         onConnect: () => {
           console.log("Connected to ElevenLabs");
@@ -229,7 +180,7 @@ export default function Home() {
           } else if (modeValue === "speaking") {
             setVoiceState(STATE.SPEAKING);
           }
-        }
+        },
       });
 
       conversationRef.current = conversation;
@@ -242,21 +193,19 @@ export default function Home() {
     }
   }, [user, profile]);
 
-  /**
-   * FIXED: Handle end click - cleanup and mark as manually ended
-   */
   const handleEndClick = useCallback(async () => {
-    // Mark as manually ended
-    setManuallyEnded(true);
-    
-    // Cleanup session
-    await cleanupSession();
-    
-    // Show dialog
+    if (conversationRef.current) {
+      try {
+        await conversationRef.current.endSession();
+      } catch (e) {
+        console.log("Session already ended");
+      }
+      conversationRef.current = null;
+    }
+    setVoiceState(STATE.IDLE);
     setShowEndDialog(true);
-  }, [cleanupSession]);
+  }, []);
 
-  // Check if enough context for meaningful analysis
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
     if (messages.length === 0) return { viable: false, reason: "empty" };
@@ -292,7 +241,6 @@ export default function Home() {
     setSessionTime(0);
     setCurrentSessionId(null);
     setIsGeneratingAnalysis(false);
-    setManuallyEnded(false);
     
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -343,7 +291,6 @@ export default function Home() {
           try {
             const analysisResult = await sessionsService.requestAnalysis(currentSessionId);
             
-            // Memory update after successful analysis
             try {
               await fetch("/api/memory/update", {
                 method: "POST",
@@ -399,21 +346,13 @@ export default function Home() {
     resetSession();
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      console.log("Component unmounting, cleaning up...");
-      
-      // End ElevenLabs session
       if (conversationRef.current) {
-        conversationRef.current.endSession().catch(() => {});
-        conversationRef.current = null;
+        conversationRef.current.endSession();
       }
-      
-      // Clear timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
-        timerRef.current = null;
       }
     };
   }, []);
@@ -435,7 +374,7 @@ export default function Home() {
     );
   }
 
-  // ============ START SCREEN ============
+  // START SCREEN
   if (!started && !isGeneratingAnalysis) {
     return (
       <div style={styles.container}>
@@ -478,7 +417,6 @@ export default function Home() {
           <p style={styles.hint}>🎧 Beste Erfahrung mit Kopfhörern</p>
         </div>
 
-        {/* Bottom Navigation */}
         <div style={styles.bottomNav}>
           <button style={{...styles.navItem, ...styles.navItemActive}}>
             <span style={styles.navIcon}>🏠</span>
@@ -508,7 +446,7 @@ export default function Home() {
     );
   }
 
-  // ============ ANALYSIS GENERATING SCREEN ============
+  // ANALYSIS GENERATING SCREEN
   if (isGeneratingAnalysis) {
     return (
       <div style={styles.sessionContainer}>
@@ -526,16 +464,12 @@ export default function Home() {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
           }
-          @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-          }
         `}</style>
       </div>
     );
   }
 
-  // ============ SESSION SCREEN ============
+  // SESSION SCREEN
   return (
     <div style={styles.sessionContainer}>
       <div style={styles.header}>

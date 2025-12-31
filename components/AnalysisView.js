@@ -1,12 +1,31 @@
+/**
+ * ANALYSIS VIEW - components/AnalysisView.js
+ * Session-Analyse Anzeige mit Agreement Suggestion Support
+ */
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../lib/AuthContext";
 
 export default function AnalysisView({ sessionId, onClose }) {
+  const { user, profile } = useAuth();
   const [analysis, setAnalysis] = useState(null);
   const [themes, setThemes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Agreement suggestion state
+  const [suggestion, setSuggestion] = useState(null);
+  const [showAgreementEditor, setShowAgreementEditor] = useState(false);
+  const [editedAgreement, setEditedAgreement] = useState({
+    title: "",
+    underlyingNeed: "",
+    responsible: "both",
+    type: "behavior",
+    checkInDays: 14
+  });
+  const [savingAgreement, setSavingAgreement] = useState(false);
+  const [agreementSaved, setAgreementSaved] = useState(false);
 
   useEffect(() => {
     loadOrGenerateAnalysis();
@@ -20,7 +39,7 @@ export default function AnalysisView({ sessionId, onClose }) {
       // First, check if analysis already exists
       const { data: session, error: fetchError } = await supabase
         .from("sessions")
-        .select("analysis, themes")
+        .select("analysis, themes, type, couple_id")
         .eq("id", sessionId)
         .single();
 
@@ -31,13 +50,18 @@ export default function AnalysisView({ sessionId, onClose }) {
       // If analysis exists, show it
       if (session.analysis) {
         setAnalysis(session.analysis);
-        // Parse themes if it's a string
         if (session.themes) {
           const parsedThemes = typeof session.themes === 'string' 
             ? JSON.parse(session.themes) 
             : session.themes;
           setThemes(parsedThemes || []);
         }
+        
+        // Check for pending suggestions
+        if (session.couple_id) {
+          await loadPendingSuggestion(session.couple_id, sessionId);
+        }
+        
         setLoading(false);
         return;
       }
@@ -57,10 +81,101 @@ export default function AnalysisView({ sessionId, onClose }) {
 
       setAnalysis(data.analysis);
       setThemes(data.themes || []);
+      
+      // Check for suggested agreement
+      if (data.suggestedAgreement) {
+        setSuggestion(data.suggestedAgreement);
+        setEditedAgreement({
+          title: data.suggestedAgreement.title,
+          underlyingNeed: data.suggestedAgreement.underlyingNeed || "",
+          responsible: data.suggestedAgreement.responsible || "both",
+          type: "behavior",
+          checkInDays: 14
+        });
+      }
+      
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPendingSuggestion = async (coupleId, sessionId) => {
+    try {
+      const response = await fetch(
+        `/api/agreements/suggestions?coupleId=${coupleId}&sessionId=${sessionId}`
+      );
+      const data = await response.json();
+      
+      if (data.suggestions?.length > 0) {
+        const pending = data.suggestions.find(s => s.status === "pending");
+        if (pending) {
+          setSuggestion(pending);
+          setEditedAgreement({
+            title: pending.title,
+            underlyingNeed: pending.underlying_need || "",
+            responsible: pending.responsible || "both",
+            type: "behavior",
+            checkInDays: 14
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load suggestions:", err);
+    }
+  };
+
+  const handleSaveAgreement = async () => {
+    if (!suggestion || !user || !profile?.couple_id) return;
+    
+    setSavingAgreement(true);
+    try {
+      const response = await fetch("/api/agreements/suggestions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          suggestionId: suggestion.id,
+          action: "accept",
+          userId: user.id,
+          title: editedAgreement.title,
+          underlyingNeed: editedAgreement.underlyingNeed,
+          responsible: editedAgreement.responsible,
+          type: editedAgreement.type,
+          checkInFrequencyDays: editedAgreement.checkInDays
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setAgreementSaved(true);
+        setSuggestion(null);
+        setShowAgreementEditor(false);
+      }
+    } catch (err) {
+      console.error("Failed to save agreement:", err);
+    } finally {
+      setSavingAgreement(false);
+    }
+  };
+
+  const handleDismissSuggestion = async () => {
+    if (!suggestion) return;
+    
+    try {
+      await fetch("/api/agreements/suggestions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          suggestionId: suggestion.id,
+          action: "dismiss",
+          userId: user?.id
+        }),
+      });
+      setSuggestion(null);
+    } catch (err) {
+      console.error("Failed to dismiss suggestion:", err);
     }
   };
 
@@ -77,28 +192,23 @@ export default function AnalysisView({ sessionId, onClose }) {
     anerkennung: "⭐ Anerkennung",
   };
 
+  const responsibleLabels = {
+    both: "Beide",
+    user_a: profile?.name || "Du",
+    user_b: profile?.partner_name || "Partner"
+  };
+
   // Simple markdown-like rendering
   const renderAnalysis = (text) => {
     if (!text) return null;
     
     return text.split("\n").map((line, i) => {
-      // Headers with ##
       if (line.startsWith("## ")) {
-        return (
-          <h2 key={i} style={styles.mainTitle}>
-            {line.replace("## ", "")}
-          </h2>
-        );
+        return <h2 key={i} style={styles.mainTitle}>{line.replace("## ", "")}</h2>;
       }
-      // Bold sections **text**
       if (line.startsWith("**") && line.endsWith("**")) {
-        return (
-          <h3 key={i} style={styles.sectionTitle}>
-            {line.replace(/\*\*/g, "")}
-          </h3>
-        );
+        return <h3 key={i} style={styles.sectionTitle}>{line.replace(/\*\*/g, "")}</h3>;
       }
-      // Lines with bold at start
       if (line.startsWith("**")) {
         const parts = line.split("**");
         return (
@@ -107,7 +217,6 @@ export default function AnalysisView({ sessionId, onClose }) {
           </p>
         );
       }
-      // Regular paragraphs
       if (line.trim()) {
         return <p key={i} style={styles.paragraph}>{line}</p>;
       }
@@ -121,7 +230,7 @@ export default function AnalysisView({ sessionId, onClose }) {
         <div style={styles.card}>
           <div style={styles.loadingContainer}>
             <div style={styles.spinner} />
-            <p style={styles.loadingText}>Analyse wird geladen...</p>
+            <p style={styles.loadingText}>Analyse wird erstellt...</p>
             <p style={styles.loadingSubtext}>Einen Moment</p>
           </div>
         </div>
@@ -136,9 +245,7 @@ export default function AnalysisView({ sessionId, onClose }) {
           <div style={styles.errorContainer}>
             <span style={styles.errorIcon}>⚠️</span>
             <p style={styles.errorText}>{error}</p>
-            <button onClick={onClose} style={styles.button}>
-              Schliessen
-            </button>
+            <button onClick={onClose} style={styles.button}>Schliessen</button>
           </div>
         </div>
       </div>
@@ -167,8 +274,148 @@ export default function AnalysisView({ sessionId, onClose }) {
           {renderAnalysis(analysis)}
         </div>
 
+        {/* Agreement Suggestion */}
+        {suggestion && !agreementSaved && (
+          <div style={styles.suggestionBox}>
+            <div style={styles.suggestionHeader}>
+              <span style={styles.suggestionIcon}>💡</span>
+              <h4 style={styles.suggestionTitle}>Mögliche Vereinbarung erkannt</h4>
+            </div>
+            
+            {!showAgreementEditor ? (
+              <>
+                <p style={styles.suggestionText}>"{suggestion.title}"</p>
+                {suggestion.underlying_need && (
+                  <p style={styles.suggestionNeed}>
+                    Dahinter: {suggestion.underlying_need}
+                  </p>
+                )}
+                
+                <div style={styles.suggestionActions}>
+                  <button 
+                    onClick={() => setShowAgreementEditor(true)}
+                    style={styles.editButton}
+                  >
+                    Anpassen & Speichern
+                  </button>
+                  <button 
+                    onClick={handleSaveAgreement}
+                    style={styles.saveButton}
+                    disabled={savingAgreement}
+                  >
+                    {savingAgreement ? "..." : "So übernehmen"}
+                  </button>
+                  <button 
+                    onClick={handleDismissSuggestion}
+                    style={styles.dismissButton}
+                  >
+                    Nicht relevant
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div style={styles.editorForm}>
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>Vereinbarung</label>
+                  <input
+                    type="text"
+                    value={editedAgreement.title}
+                    onChange={(e) => setEditedAgreement({
+                      ...editedAgreement, 
+                      title: e.target.value
+                    })}
+                    style={styles.formInput}
+                  />
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>Warum wichtig? (optional)</label>
+                  <input
+                    type="text"
+                    value={editedAgreement.underlyingNeed}
+                    onChange={(e) => setEditedAgreement({
+                      ...editedAgreement, 
+                      underlyingNeed: e.target.value
+                    })}
+                    style={styles.formInput}
+                    placeholder="Das Bedürfnis dahinter..."
+                  />
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>Wer ist verantwortlich?</label>
+                  <div style={styles.radioGroup}>
+                    {["both", "user_a", "user_b"].map(value => (
+                      <label key={value} style={styles.radioLabel}>
+                        <input
+                          type="radio"
+                          name="responsible"
+                          value={value}
+                          checked={editedAgreement.responsible === value}
+                          onChange={(e) => setEditedAgreement({
+                            ...editedAgreement,
+                            responsible: e.target.value
+                          })}
+                          style={styles.radioInput}
+                        />
+                        {responsibleLabels[value]}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>Check-in in</label>
+                  <select
+                    value={editedAgreement.checkInDays}
+                    onChange={(e) => setEditedAgreement({
+                      ...editedAgreement,
+                      checkInDays: parseInt(e.target.value)
+                    })}
+                    style={styles.formSelect}
+                  >
+                    <option value={7}>1 Woche</option>
+                    <option value={14}>2 Wochen</option>
+                    <option value={21}>3 Wochen</option>
+                    <option value={30}>1 Monat</option>
+                  </select>
+                </div>
+
+                <div style={styles.editorActions}>
+                  <button 
+                    onClick={() => setShowAgreementEditor(false)}
+                    style={styles.cancelButton}
+                  >
+                    Abbrechen
+                  </button>
+                  <button 
+                    onClick={handleSaveAgreement}
+                    style={styles.confirmButton}
+                    disabled={savingAgreement || !editedAgreement.title.trim()}
+                  >
+                    {savingAgreement ? "Speichern..." : "Vereinbarung speichern"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Success message */}
+        {agreementSaved && (
+          <div style={styles.successBox}>
+            <span style={styles.successIcon}>✓</span>
+            <p style={styles.successText}>
+              Vereinbarung gespeichert! 
+              {editedAgreement.responsible === "both" 
+                ? " Dein Partner muss noch zustimmen."
+                : ""}
+            </p>
+          </div>
+        )}
+
         <button onClick={onClose} style={styles.doneButton}>
-          Verstanden
+          {agreementSaved ? "Fertig" : "Verstanden"}
         </button>
       </div>
 
@@ -263,6 +510,176 @@ const styles = {
     marginBottom: "12px",
     fontSize: "15px",
   },
+  
+  // Agreement Suggestion styles
+  suggestionBox: {
+    background: "linear-gradient(135deg, #fef3c7, #fde68a)",
+    borderRadius: "16px",
+    padding: "20px",
+    marginBottom: "20px",
+    border: "1px solid #fcd34d",
+  },
+  suggestionHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    marginBottom: "12px",
+  },
+  suggestionIcon: {
+    fontSize: "24px",
+  },
+  suggestionTitle: {
+    fontSize: "16px",
+    fontWeight: "600",
+    color: "#92400e",
+    margin: 0,
+  },
+  suggestionText: {
+    fontSize: "15px",
+    fontWeight: "500",
+    color: "#78350f",
+    margin: "0 0 8px 0",
+  },
+  suggestionNeed: {
+    fontSize: "14px",
+    color: "#a16207",
+    margin: "0 0 16px 0",
+    fontStyle: "italic",
+  },
+  suggestionActions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+  },
+  editButton: {
+    padding: "10px 16px",
+    background: "white",
+    color: "#92400e",
+    border: "2px solid #fbbf24",
+    borderRadius: "8px",
+    fontSize: "14px",
+    fontWeight: "500",
+    cursor: "pointer",
+  },
+  saveButton: {
+    padding: "10px 16px",
+    background: "#f59e0b",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+  },
+  dismissButton: {
+    padding: "10px 16px",
+    background: "transparent",
+    color: "#a16207",
+    border: "none",
+    fontSize: "14px",
+    cursor: "pointer",
+  },
+  
+  // Editor form styles
+  editorForm: {
+    marginTop: "16px",
+  },
+  formGroup: {
+    marginBottom: "16px",
+  },
+  formLabel: {
+    display: "block",
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#78350f",
+    marginBottom: "6px",
+  },
+  formInput: {
+    width: "100%",
+    padding: "12px",
+    borderRadius: "8px",
+    border: "2px solid #fcd34d",
+    fontSize: "15px",
+    background: "white",
+    outline: "none",
+  },
+  formSelect: {
+    width: "100%",
+    padding: "12px",
+    borderRadius: "8px",
+    border: "2px solid #fcd34d",
+    fontSize: "15px",
+    background: "white",
+    outline: "none",
+  },
+  radioGroup: {
+    display: "flex",
+    gap: "16px",
+  },
+  radioLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "14px",
+    color: "#78350f",
+    cursor: "pointer",
+  },
+  radioInput: {
+    accentColor: "#f59e0b",
+  },
+  editorActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "10px",
+    marginTop: "20px",
+  },
+  cancelButton: {
+    padding: "10px 20px",
+    background: "transparent",
+    color: "#a16207",
+    border: "none",
+    fontSize: "14px",
+    cursor: "pointer",
+  },
+  confirmButton: {
+    padding: "12px 24px",
+    background: "#f59e0b",
+    color: "white",
+    border: "none",
+    borderRadius: "10px",
+    fontSize: "15px",
+    fontWeight: "600",
+    cursor: "pointer",
+  },
+  
+  // Success box
+  successBox: {
+    background: "#d1fae5",
+    borderRadius: "12px",
+    padding: "16px",
+    marginBottom: "20px",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+  successIcon: {
+    width: "24px",
+    height: "24px",
+    borderRadius: "50%",
+    background: "#10b981",
+    color: "white",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "14px",
+    fontWeight: "bold",
+  },
+  successText: {
+    color: "#065f46",
+    fontSize: "14px",
+    margin: 0,
+  },
+  
   doneButton: {
     width: "100%",
     padding: "16px",
