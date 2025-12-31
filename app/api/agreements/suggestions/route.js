@@ -118,10 +118,10 @@ export async function PATCH(request) {
       );
     }
 
-    // Get suggestion
+    // Get suggestion with session info
     const { data: suggestion, error: fetchError } = await supabase
       .from("agreement_suggestions")
-      .select("*")
+      .select("*, sessions(themes)")
       .eq("id", suggestionId)
       .single();
 
@@ -132,7 +132,7 @@ export async function PATCH(request) {
     // Verify user belongs to couple
     const { data: profile } = await supabase
       .from("profiles")
-      .select("couple_id, partner_id")
+      .select("couple_id, partner_id, name")
       .eq("id", userId)
       .single();
 
@@ -169,8 +169,13 @@ export async function PATCH(request) {
       }
       // If "both" or undefined, responsibleUserId stays null
 
+      // Auto-detect type and frequency from title if not provided
+      const finalTitle = title || suggestion.title;
+      const { detectedType, detectedFrequency } = analyzeAgreementContent(finalTitle);
+      const agreementType = type || detectedType;
+      
       // Calculate next check-in
-      const days = checkInFrequencyDays || 14;
+      const days = checkInFrequencyDays || (agreementType === "experiment" ? 7 : 14);
       const nextCheckInAt = new Date();
       nextCheckInAt.setDate(nextCheckInAt.getDate() + days);
 
@@ -183,6 +188,9 @@ export async function PATCH(request) {
         status = "active";
       }
 
+      // Get themes from session
+      const sessionThemes = suggestion.sessions?.themes || [];
+
       // Create agreement
       const { data: agreement, error: createError } = await supabase
         .from("agreements")
@@ -190,15 +198,18 @@ export async function PATCH(request) {
           couple_id: suggestion.couple_id,
           created_by_user_id: userId,
           created_in_session_id: suggestion.session_id,
-          title: title || suggestion.title,
+          title: finalTitle,
           underlying_need: underlyingNeed || suggestion.underlying_need,
-          type: type || "behavior",
+          type: agreementType,
+          frequency: detectedFrequency,
           responsible_user_id: responsibleUserId,
           status,
           requires_mutual_approval: requiresMutualApproval,
           approved_by: approvedBy,
           check_in_frequency_days: days,
-          next_check_in_at: nextCheckInAt.toISOString()
+          next_check_in_at: nextCheckInAt.toISOString(),
+          themes: sessionThemes,
+          experiment_end_date: agreementType === "experiment" ? getExperimentEndDate() : null
         })
         .select()
         .single();
@@ -208,16 +219,35 @@ export async function PATCH(request) {
         return Response.json({ error: createError.message }, { status: 500 });
       }
 
-      // Update suggestion status
+      // Update suggestion status with link to created agreement
       await supabase
         .from("agreement_suggestions")
-        .update({ status: "accepted" })
+        .update({ 
+          status: "accepted",
+          created_agreement_id: agreement.id
+        })
         .eq("id", suggestionId);
+
+      // Get partner name for response
+      let partnerName = "Partner";
+      if (profile.partner_id) {
+        const { data: partner } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", profile.partner_id)
+          .single();
+        if (partner) {
+          partnerName = partner.name;
+        }
+      }
 
       return Response.json({ 
         success: true, 
         agreement,
-        needsPartnerApproval: status === "pending_approval" && requiresMutualApproval
+        needsPartnerApproval: status === "pending_approval" && requiresMutualApproval,
+        message: status === "pending_approval" 
+          ? `Vereinbarung erstellt! ${partnerName} muss noch zustimmen.`
+          : "Vereinbarung ist aktiv!"
       });
     }
 
@@ -227,4 +257,53 @@ export async function PATCH(request) {
     console.error("Suggestion patch error:", error);
     return Response.json({ error: error.message }, { status: 500 });
   }
+}
+
+/**
+ * Analysiert den Titel um Typ und Frequenz zu erkennen
+ */
+function analyzeAgreementContent(title) {
+  const titleLower = title.toLowerCase();
+  
+  // Type Detection
+  let detectedType = "behavior"; // Default
+  
+  if (titleLower.includes("reden") || titleLower.includes("sagen") || 
+      titleLower.includes("fragen") || titleLower.includes("zuhören") ||
+      titleLower.includes("aussprechen") || titleLower.includes("kommunik")) {
+    detectedType = "communication";
+  } else if (titleLower.includes("ritual") || titleLower.includes("jeden abend") ||
+             titleLower.includes("date night") || titleLower.includes("gemeinsam")) {
+    detectedType = "ritual";
+  } else if (titleLower.includes("versuch") || titleLower.includes("experiment") ||
+             titleLower.includes("ausprobieren") || titleLower.includes("testen")) {
+    detectedType = "experiment";
+  }
+
+  // Frequency Detection
+  let detectedFrequency = "situational"; // Default
+  
+  if (titleLower.includes("täglich") || titleLower.includes("jeden tag") ||
+      titleLower.includes("jeden abend") || titleLower.includes("jeden morgen")) {
+    detectedFrequency = "daily";
+  } else if (titleLower.includes("wöchentlich") || titleLower.includes("jede woche") ||
+             titleLower.includes("montag") || titleLower.includes("dienstag") ||
+             titleLower.includes("mittwoch") || titleLower.includes("donnerstag") ||
+             titleLower.includes("freitag") || titleLower.includes("samstag") ||
+             titleLower.includes("sonntag") || titleLower.includes("wochenende")) {
+    detectedFrequency = "weekly";
+  } else if (titleLower.includes("einmal") || titleLower.includes("einmalig")) {
+    detectedFrequency = "once";
+  }
+
+  return { detectedType, detectedFrequency };
+}
+
+/**
+ * Berechnet End-Datum für Experimente (4 Wochen)
+ */
+function getExperimentEndDate() {
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() + 28);
+  return endDate.toISOString().split('T')[0];
 }
