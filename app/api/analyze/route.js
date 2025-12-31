@@ -32,23 +32,25 @@ Struktur deiner Analyse:
 2. **Was mir aufgefallen ist** (2-3 Beobachtungen/Muster)
 3. **Mögliche nächste Schritte** (1-2 konkrete Vorschläge)
 
-AGREEMENT DETECTION:
-Prüfe ob im Gespräch konkrete Commitments gemacht wurden:
-- Aussagen wie "Ich verspreche...", "Ab jetzt werde ich...", "Wir haben vereinbart..."
-- Konkrete Verhaltensänderungen die einer dem anderen zusagt
-- Vereinbarungen die beide treffen
+WICHTIG - AGREEMENT DETECTION (PFLICHT bei Couple Sessions):
+Suche AKTIV nach konkreten Commitments im Gespräch. Beispiele:
+- "Ich werde jeden Montag...", "Ich mache das ab jetzt..."
+- "Ich hole die Kinder ab", "Ich koche das Abendessen"
+- "Wir haben vereinbart...", "Das machen wir so"
+- Jede konkrete Zusage einer Person an die andere
 
-Wenn du ein klares Commitment findest (nicht vage wie "ich versuche es"), füge am Ende hinzu:
+WENN ein klares Commitment gefunden wird (egal wie es formuliert ist), MUSST du am Ende EXAKT diesen Block hinzufügen:
 
 ---
 **Mögliche Vereinbarung erkannt**
-- Was: [konkrete, kurze Vereinbarung]
-- Dahinter: [das Bedürfnis das dadurch erfüllt wird]
+- Was: [die konkrete Vereinbarung in einem Satz]
+- Dahinter: [welches Bedürfnis wird erfüllt, z.B. "Entlastung", "Zeit mit Kindern", "Wertschätzung"]
 - Wer: [Name der Person die sich verpflichtet, oder "Beide"]
 ---
 
-Nur hinzufügen wenn wirklich ein klares Commitment erkannt wurde.
-Maximal EINE Vereinbarung vorschlagen (die wichtigste).
+WICHTIG: Bei Aussagen wie "Ich hole die Kinder montags ab" oder "Ich koche dann" ist das ein klares Commitment und der Block MUSS hinzugefügt werden!
+
+Maximal EINE Vereinbarung (die wichtigste/konkreteste).
 
 Gespräch:
 `;
