@@ -330,3 +330,9 @@ npm run dev
 3. **API:** Next.js Route Handlers (app/api/*/route.js)
 4. **DB:** Supabase Client (Browser) vs Service Role (API Routes)
 5. **Sprache:** Alle UI-Texte auf Deutsch
+
+---
+
+## Dokumentation
+
+- **ElevenLabs Agent System Prompt:** Siehe [docs/ELEVENLABS_AGENT.md](docs/ELEVENLABS_AGENT.md) für den vollständigen Voice Agent Prompt mit Amiyas Persönlichkeit, Gesprächsführung, Turn-Taking Regeln und Agreement Detection.
