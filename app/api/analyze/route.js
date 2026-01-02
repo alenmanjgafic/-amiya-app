@@ -136,6 +136,32 @@ export async function POST(request) {
       return Response.json({ error: "No conversation to analyze" }, { status: 400 });
     }
 
+    // For couple sessions, fetch the actual names from the database
+    let coupleNames = null;
+    if (session.type === "couple" && session.couple_id) {
+      const { data: couple } = await supabase
+        .from("couples")
+        .select("user_a_id, user_b_id")
+        .eq("id", session.couple_id)
+        .single();
+
+      if (couple) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, name")
+          .in("id", [couple.user_a_id, couple.user_b_id]);
+
+        if (profiles && profiles.length === 2) {
+          const userA = profiles.find(p => p.id === couple.user_a_id);
+          const userB = profiles.find(p => p.id === couple.user_b_id);
+          coupleNames = {
+            user_a_name: userA?.name || "",
+            user_b_name: userB?.name || ""
+          };
+        }
+      }
+    }
+
     // Generate analysis with Claude - use session type for correct prompt
     const analysisPrompt = getAnalysisPrompt(session.type || "solo");
     const isCoupleSession = session.type === "couple";
@@ -154,7 +180,7 @@ export async function POST(request) {
     const fullAnalysis = message.content[0].text;
 
     // Parse analysis for agreement suggestion
-    const { analysis, suggestedAgreement } = parseAnalysisForAgreement(fullAnalysis, session);
+    const { analysis, suggestedAgreement } = parseAnalysisForAgreement(fullAnalysis, session, coupleNames);
 
     // Detect themes from conversation
     const themes = detectThemes(session.summary);
@@ -221,8 +247,11 @@ export async function POST(request) {
 
 /**
  * Parse analysis text to extract agreement suggestion
+ * @param {string} fullText - The full analysis text from Claude
+ * @param {object} session - The session object
+ * @param {object|null} coupleNames - Object with user_a_name and user_b_name
  */
-function parseAnalysisForAgreement(fullText, session) {
+function parseAnalysisForAgreement(fullText, session, coupleNames = null) {
   // Check for agreement section - try multiple markers
   const markers = [
     "**Vereinbarung**",           // New format (part of structure)
@@ -264,40 +293,33 @@ function parseAnalysisForAgreement(fullText, session) {
     return { analysis: fullText, suggestedAgreement: null };
   }
 
-  // Determine responsible person
+  // Determine responsible person using the actual names from database
   let responsible = "both";
-  if (whoMatch) {
+  if (whoMatch && coupleNames) {
     const who = whoMatch[1].toLowerCase().trim();
+    const userAName = (coupleNames.user_a_name || "").toLowerCase();
+    const userBName = (coupleNames.user_b_name || "").toLowerCase();
 
-    // Try to match with names from session context or analysis
-    const contextMatch = fullText.match(/\[Kontext: User=([^,]+), Partner=([^\]]+)\]/);
-    const coupleMatch = fullText.match(/\[Couple Session: ([^&]+) & ([^\]]+)\]/);
+    // Check if the "Wer" field contains one name but not the other
+    const hasUserA = userAName && who.includes(userAName);
+    const hasUserB = userBName && who.includes(userBName);
 
-    let userName = "";
-    let partnerName = "";
-
-    if (contextMatch) {
-      userName = contextMatch[1].toLowerCase().trim();
-      partnerName = contextMatch[2].toLowerCase().trim();
-    } else if (coupleMatch) {
-      userName = coupleMatch[1].toLowerCase().trim();
-      partnerName = coupleMatch[2].toLowerCase().trim();
-    }
-
-    if (userName && who.includes(userName) && !who.includes(partnerName)) {
+    if (hasUserA && !hasUserB) {
       responsible = "user_a";
-    } else if (partnerName && who.includes(partnerName) && !who.includes(userName)) {
+    } else if (hasUserB && !hasUserA) {
       responsible = "user_b";
     } else if (who.includes("beide") || who.includes("wir") || who.includes("gemeinsam")) {
       responsible = "both";
     }
+    // If both names are present or neither is found, default to "both"
   }
 
   console.log("Agreement parsed:", {
     what: whatMatch[1].trim(),
     who: whoMatch ? whoMatch[1].trim() : "both",
     need: needMatch ? needMatch[1].trim() : null,
-    responsible
+    responsible,
+    coupleNames
   });
 
   return {

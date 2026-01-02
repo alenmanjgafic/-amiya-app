@@ -27,6 +27,9 @@ export default function AnalysisView({ sessionId, onClose }) {
   const [savingAgreement, setSavingAgreement] = useState(false);
   const [agreementSaved, setAgreementSaved] = useState(false);
 
+  // Couple data for correct user_a/user_b mapping
+  const [coupleData, setCoupleData] = useState(null);
+
   useEffect(() => {
     loadOrGenerateAnalysis();
   }, [sessionId]);
@@ -57,9 +60,10 @@ export default function AnalysisView({ sessionId, onClose }) {
           setThemes(parsedThemes || []);
         }
         
-        // Check for pending suggestions
+        // Check for pending suggestions and fetch couple data
         if (session.couple_id) {
           await loadPendingSuggestion(session.couple_id, sessionId);
+          await loadCoupleData(session.couple_id);
         }
         
         setLoading(false);
@@ -81,7 +85,7 @@ export default function AnalysisView({ sessionId, onClose }) {
 
       setAnalysis(data.analysis);
       setThemes(data.themes || []);
-      
+
       // Check for suggested agreement
       if (data.suggestedAgreement) {
         setSuggestion(data.suggestedAgreement);
@@ -92,8 +96,13 @@ export default function AnalysisView({ sessionId, onClose }) {
           type: "behavior",
           checkInDays: 14
         });
+
+        // Load couple data for correct name mapping
+        if (profile?.couple_id) {
+          await loadCoupleData(profile.couple_id);
+        }
       }
-      
+
     } catch (err) {
       setError(err.message);
     } finally {
@@ -107,7 +116,7 @@ export default function AnalysisView({ sessionId, onClose }) {
         `/api/agreements/suggestions?coupleId=${coupleId}&sessionId=${sessionId}`
       );
       const data = await response.json();
-      
+
       if (data.suggestions?.length > 0) {
         const pending = data.suggestions.find(s => s.status === "pending");
         if (pending) {
@@ -123,6 +132,22 @@ export default function AnalysisView({ sessionId, onClose }) {
       }
     } catch (err) {
       console.error("Failed to load suggestions:", err);
+    }
+  };
+
+  const loadCoupleData = async (coupleId) => {
+    try {
+      const { data: couple, error } = await supabase
+        .from("couples")
+        .select("user_a_id, user_b_id")
+        .eq("id", coupleId)
+        .single();
+
+      if (!error && couple) {
+        setCoupleData(couple);
+      }
+    } catch (err) {
+      console.error("Failed to load couple data:", err);
     }
   };
 
@@ -192,11 +217,25 @@ export default function AnalysisView({ sessionId, onClose }) {
     anerkennung: "⭐ Anerkennung",
   };
 
-  const responsibleLabels = {
-    both: "Beide",
-    user_a: profile?.name || "Du",
-    user_b: profile?.partner_name || "Partner"
+  // Dynamically map user_a/user_b to correct names based on couple data
+  const getResponsibleLabels = () => {
+    // If we have couple data, map correctly
+    if (coupleData && user) {
+      const isUserA = coupleData.user_a_id === user.id;
+      return {
+        both: "Beide",
+        user_a: isUserA ? (profile?.name || "Du") : (profile?.partner_name || "Partner"),
+        user_b: isUserA ? (profile?.partner_name || "Partner") : (profile?.name || "Du")
+      };
+    }
+    // Fallback if no couple data
+    return {
+      both: "Beide",
+      user_a: profile?.name || "Du",
+      user_b: profile?.partner_name || "Partner"
+    };
   };
+  const responsibleLabels = getResponsibleLabels();
 
   // Simple markdown-like rendering
   const renderAnalysis = (text) => {
