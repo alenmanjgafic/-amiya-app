@@ -43,9 +43,10 @@ export default function MemoryConsentPage() {
     try {
       await updateProfile({
         memory_consent: consent,
-        memory_consent_at: consent ? new Date().toISOString() : null,
+        memory_consent_at: new Date().toISOString(),
       });
-      router.push("/");
+      // Go to analysis preferences (step 3)
+      router.push("/onboarding/analysis");
     } catch (error) {
       console.error("Failed to save consent:", error);
       setSaving(false);
@@ -70,6 +71,15 @@ export default function MemoryConsentPage() {
         <div style={styles.header}>
           <div style={styles.logo}>🧠</div>
           <h1 style={styles.title}>Soll Amiya sich erinnern?</h1>
+        </div>
+
+        {/* Progress indicator - Step 2 of 3 */}
+        <div style={styles.progress}>
+          <div style={{...styles.progressDot, ...styles.progressDotCompleted}} />
+          <div style={{...styles.progressLine, ...styles.progressLineCompleted}} />
+          <div style={styles.progressDot} />
+          <div style={styles.progressLine} />
+          <div style={{...styles.progressDot, ...styles.progressDotInactive}} />
         </div>
 
         {/* Explanation */}
@@ -183,6 +193,32 @@ const styles = {
   header: {
     textAlign: "center",
     marginBottom: "24px",
+  },
+  progress: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: "32px",
+  },
+  progressDot: {
+    width: "12px",
+    height: "12px",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+  },
+  progressDotCompleted: {
+    background: "#8b5cf6",
+  },
+  progressDotInactive: {
+    background: "#e5e7eb",
+  },
+  progressLine: {
+    width: "30px",
+    height: "3px",
+    background: "#e5e7eb",
+  },
+  progressLineCompleted: {
+    background: "#8b5cf6",
   },
   logo: {
     width: "70px",

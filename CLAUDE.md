@@ -48,7 +48,9 @@
   /page.js               # Solo Session (Hauptseite)
   /auth/                 # Login/Signup
   /profile/              # Benutzereinstellungen
-  /onboarding/           # Ersteinrichtung + Memory Consent
+  /onboarding/           # Ersteinrichtung (3 Schritte)
+    /memory/             # Schritt 2: Memory Consent
+    /analysis/           # Schritt 3: Analyse-Einstellungen
   /history/              # Session-Verlauf
   /wir/                  # Paar-Features ("Wir"-Bereich)
     /connect/            # Paar-Verbindung via Code
@@ -103,7 +105,56 @@ Das Memory System speichert Kontext zwischen Sessions, aber **nur mit expliziter
 - Keine Kinder-Namen speichern (GDPR)
 - Solo-Aussagen über Partner bleiben privat
 
-### 3. "Gentle Challenger" Therapeutischer Ansatz
+### 3. Session-Analyse System
+
+Das Analyse-System prüft ob genug Inhalt für eine sinnvolle Analyse vorhanden ist.
+
+**Viability Check (`/api/check-analysis`):**
+- Transkript mind. 200 Zeichen
+- Mind. 2 User-Nachrichten
+- Mind. 50 Zeichen User-Content
+- Claude prüft ob substanzieller Inhalt vorhanden
+
+**Analyse-Einstellung (`auto_analyze` in profiles):**
+- `true` (Standard): Nach Session wird automatisch analysiert
+- `false`: User wird nach Session gefragt "Mit/Ohne Analyse?"
+
+**Flow bei Session-Ende:**
+```
+Session endet
+     │
+     ▼
+auto_analyze?
+     │
+  ┌──┴──┐
+  │     │
+ true  false
+  │     │
+  ▼     ▼
+Analyse  Dialog:
+direkt   Mit/Ohne?
+     │
+     ▼
+Viability Check
+     │
+  ┌──┴──┐
+  │     │
+ OK    Zu kurz
+  │     │
+  ▼     ▼
+Analyse  Modal:
+speichern "Session zu kurz"
+         + Tipps
+         + Session löschen
+```
+
+**"Zu kurz" Modal:**
+- Freundliche Erklärung warum keine Analyse möglich
+- Tipp für nächstes Mal
+- Hinweis dass Session nicht gespeichert wurde
+- Session wird automatisch aus DB gelöscht
+
+### 4. "Gentle Challenger" Therapeutischer Ansatz
 
 Amiya folgt dem **Gottman-Modell** für Beziehungstherapie:
 
@@ -132,6 +183,7 @@ partner_name    text              -- Partner Name
 email           text
 memory_consent  boolean           -- Zustimmung zum Memory System
 memory_consent_at timestamp
+auto_analyze    boolean (default true) -- Automatisch analysieren oder fragen
 personal_context jsonb            -- Privater Kontext (Solo Sessions)
 couple_id       uuid (FK)         -- Verknüpfung zum Couple
 partner_id      uuid (FK)         -- ID des Partners
@@ -283,10 +335,15 @@ created_at      timestamp
 - [x] Couple Sessions
 - [x] Memory System mit Consent
 - [x] Session-Analyse mit Agreement-Detection
+- [x] Session-Viability-Check (zu kurze Sessions werden abgelehnt)
+- [x] Auto-Analyze Preference (User kann wählen ob automatisch oder manuell)
+- [x] "Session zu kurz" Modal mit freundlicher Erklärung
 - [x] Agreement CRUD + Check-ins
 - [x] Paar-Verbindung via Invite-Codes
 - [x] Paar-Trennung mit Learnings-Option
 - [x] Session History
+- [x] Light/Dark Mode (Amiya Aurora Design System)
+- [x] Lucide Icons (statt Emojis)
 
 ### Bekannte Limitierungen
 
@@ -325,11 +382,32 @@ npm run dev
 
 ### Wichtige Konventionen
 
-1. **Styling:** Inline styles via `styles` Objekte am Ende jeder Komponente
-2. **State:** React useState + useEffect, kein Redux
-3. **API:** Next.js Route Handlers (app/api/*/route.js)
-4. **DB:** Supabase Client (Browser) vs Service Role (API Routes)
-5. **Sprache:** Alle UI-Texte auf Deutsch
+1. **Styling:** Inline styles mit Theme Tokens aus `ThemeContext` (Light/Dark Mode)
+2. **Icons:** Lucide React Icons (kein Emoji)
+3. **State:** React useState + useEffect, kein Redux
+4. **API:** Next.js Route Handlers (app/api/*/route.js)
+5. **DB:** Supabase Client (Browser) vs Service Role (API Routes)
+6. **Sprache:** Alle UI-Texte auf Deutsch
+
+### Theme System (Amiya Aurora)
+
+Design Tokens werden über `useTheme()` Hook bezogen:
+
+```javascript
+const { tokens, isDarkMode, toggleTheme } = useTheme();
+
+// Verwendung:
+style={{ background: tokens.colors.bg.deep }}
+style={{ color: tokens.colors.text.primary }}
+style={{ borderRadius: tokens.radii.lg }}
+```
+
+Key Token-Kategorien:
+- `tokens.colors.bg.*` - Hintergrundfarben (deep, surface, elevated, soft)
+- `tokens.colors.text.*` - Textfarben (primary, secondary, muted)
+- `tokens.colors.aurora.*` - Brand-Farben (lavender, rose, mint)
+- `tokens.radii.*` - Border-Radien (sm, md, lg, xl, pill)
+- `tokens.fonts.*` - Schriftarten (display, body)
 
 ---
 

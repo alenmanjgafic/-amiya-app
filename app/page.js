@@ -51,6 +51,7 @@ export default function Home() {
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
   const [pendingSuggestionsCount, setPendingSuggestionsCount] = useState(0);
+  const [showTooShortModal, setShowTooShortModal] = useState(false);
 
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
@@ -240,8 +241,16 @@ export default function Home() {
       conversationRef.current = null;
     }
     setVoiceState(STATE.IDLE);
-    setShowEndDialog(true);
-  }, []);
+
+    // Check if auto_analyze is enabled
+    if (profile?.auto_analyze !== false) {
+      // Auto-analyze: skip dialog and directly analyze
+      endSession(true);
+    } else {
+      // Manual mode: show dialog
+      setShowEndDialog(true);
+    }
+  }, [profile?.auto_analyze, endSession]);
 
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
@@ -320,16 +329,8 @@ export default function Home() {
             }
 
             setIsGeneratingAnalysis(false);
-            const errorMessages = {
-              "empty": "Keine Analyse möglich – es wurden keine Gespräche aufgezeichnet.",
-              "too_short": "Keine Analyse möglich – das Gespräch war zu kurz für eine aussagekräftige Auswertung.",
-              "no_context": "Keine Analyse möglich – es fehlt verwertbarer Kontext für eine sinnvolle Analyse.",
-              "unclear": "Keine Analyse möglich – der Gesprächsinhalt war nicht klar genug für eine Auswertung."
-            };
-            setAnalysisError(errorMessages[viability.reason] || "Keine Analyse möglich – nicht genügend Inhalt vorhanden.");
-            setTimeout(() => {
-              resetSession();
-            }, 3000);
+            // Show friendly "too short" modal
+            setShowTooShortModal(true);
             return;
           }
           
@@ -370,11 +371,9 @@ export default function Home() {
         console.error("Failed to save session:", error);
       }
     } else if (requestAnalysis && !hasMessages) {
-      setAnalysisError("Keine Analyse möglich – es wurden keine Gespräche aufgezeichnet.");
+      // No messages at all - show friendly modal
       setShowEndDialog(false);
-      setTimeout(() => {
-        resetSession();
-      }, 3000);
+      setShowTooShortModal(true);
       return;
     }
     
@@ -987,6 +986,108 @@ export default function Home() {
           sessionId={analysisSessionId}
           onClose={handleCloseAnalysis}
         />
+      )}
+
+      {/* Too Short Modal - Friendly message when session was too short */}
+      {showTooShortModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px",
+          zIndex: 1000,
+        }}>
+          <div style={{
+            background: tokens.colors.bg.elevated,
+            borderRadius: tokens.radii.xl,
+            padding: "32px",
+            maxWidth: "400px",
+            width: "100%",
+            textAlign: "center",
+          }}>
+            <div style={{
+              width: "64px",
+              height: "64px",
+              background: tokens.colors.bg.surface,
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 20px",
+            }}>
+              <MessageCircle size={32} color={tokens.colors.aurora.lavender} />
+            </div>
+            <h3 style={{
+              fontSize: "20px",
+              fontWeight: "bold",
+              color: tokens.colors.text.primary,
+              marginBottom: "12px",
+              fontFamily: tokens.fonts.display,
+            }}>Session zu kurz</h3>
+            <p style={{
+              color: tokens.colors.text.secondary,
+              marginBottom: "16px",
+              lineHeight: "1.6",
+              fontSize: "15px",
+            }}>
+              Für eine hilfreiche Analyse brauche ich etwas mehr Kontext von dir.
+            </p>
+            <div style={{
+              background: tokens.colors.bg.surface,
+              borderRadius: tokens.radii.md,
+              padding: "16px",
+              marginBottom: "24px",
+              textAlign: "left",
+            }}>
+              <p style={{
+                color: tokens.colors.text.muted,
+                fontSize: "13px",
+                margin: "0 0 8px 0",
+                fontWeight: "600",
+              }}>Tipp für nächstes Mal:</p>
+              <p style={{
+                color: tokens.colors.text.secondary,
+                fontSize: "14px",
+                margin: 0,
+                lineHeight: "1.5",
+              }}>
+                Erzähl mir einfach, was dich beschäftigt – auch wenn es nur ein Gefühl oder eine Situation ist.
+              </p>
+            </div>
+            <p style={{
+              color: tokens.colors.text.muted,
+              fontSize: "13px",
+              marginBottom: "20px",
+            }}>
+              Diese Session wurde nicht gespeichert.
+            </p>
+            <button
+              onClick={() => {
+                setShowTooShortModal(false);
+                resetSession();
+              }}
+              style={{
+                width: "100%",
+                padding: "14px",
+                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                color: "white",
+                border: "none",
+                borderRadius: tokens.radii.md,
+                fontSize: "15px",
+                fontWeight: "600",
+                cursor: "pointer",
+              }}
+            >
+              Verstanden
+            </button>
+          </div>
+        </div>
       )}
 
       <style jsx global>{`

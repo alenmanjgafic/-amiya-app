@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/AuthContext";
 import { useTheme } from "../../lib/ThemeContext";
-import { ArrowLeft, Sun, Moon, Check } from "lucide-react";
+import { ArrowLeft, Sun, Moon, Check, BarChart3 } from "lucide-react";
 
 export default function ProfilePage() {
   const { user, profile, loading, updateProfile } = useAuth();
@@ -16,6 +16,7 @@ export default function ProfilePage() {
 
   const [name, setName] = useState("");
   const [partnerName, setPartnerName] = useState("");
+  const [autoAnalyze, setAutoAnalyze] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -32,6 +33,7 @@ export default function ProfilePage() {
     if (profile) {
       setName(profile.name || "");
       setPartnerName(profile.partner_name || "");
+      setAutoAnalyze(profile.auto_analyze !== false); // Default to true
     }
   }, [profile]);
 
@@ -52,6 +54,18 @@ export default function ProfilePage() {
       setError(err.message || "Fehler beim Speichern");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const toggleAutoAnalyze = async () => {
+    const newValue = !autoAnalyze;
+    setAutoAnalyze(newValue);
+    try {
+      await updateProfile({ auto_analyze: newValue });
+    } catch (err) {
+      // Revert on error
+      setAutoAnalyze(!newValue);
+      console.error("Failed to update auto_analyze:", err);
     }
   };
 
@@ -338,6 +352,63 @@ export default function ProfilePage() {
             >
               {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
               {isDarkMode ? "Hell" : "Dunkel"}
+            </button>
+          </div>
+        </div>
+
+        {/* Analysis Preference Section */}
+        <div style={{
+          marginTop: "24px",
+          paddingTop: "24px",
+          borderTop: `1px solid ${tokens.colors.bg.soft}`,
+        }}>
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}>
+            <div>
+              <p style={{
+                fontSize: "14px",
+                fontWeight: "600",
+                color: tokens.colors.text.primary,
+                margin: "0 0 4px 0",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}>
+                <BarChart3 size={16} />
+                Session-Analysen
+              </p>
+              <p style={{
+                fontSize: "13px",
+                color: tokens.colors.text.muted,
+                margin: 0,
+              }}>
+                {autoAnalyze ? "Automatisch nach jeder Session" : "Jedes Mal fragen"}
+              </p>
+            </div>
+            <button
+              onClick={toggleAutoAnalyze}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                padding: "10px 16px",
+                background: autoAnalyze
+                  ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`
+                  : tokens.colors.bg.surface,
+                border: autoAnalyze ? "none" : `2px solid ${tokens.colors.bg.soft}`,
+                borderRadius: tokens.radii.pill,
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                color: autoAnalyze ? "#fff" : tokens.colors.text.secondary,
+                fontSize: "14px",
+                fontWeight: "500",
+              }}
+            >
+              {autoAnalyze ? "Auto" : "Manuell"}
             </button>
           </div>
         </div>

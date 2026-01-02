@@ -89,9 +89,11 @@ export default function OnboardingPage() {
           </p>
         </div>
 
-        {/* Progress indicator */}
+        {/* Progress indicator - Step 1 of 3 */}
         <div style={styles.progress}>
           <div style={styles.progressDot} />
+          <div style={styles.progressLine} />
+          <div style={{...styles.progressDot, ...styles.progressDotInactive}} />
           <div style={styles.progressLine} />
           <div style={{...styles.progressDot, ...styles.progressDotInactive}} />
         </div>
