@@ -66,6 +66,7 @@
 
 /lib                     # Shared Utilities
   AuthContext.js         # Auth State + Profile Management
+  ThemeContext.js        # Theme Provider (Light/Dark Mode)
   sessions.js            # Session CRUD Service
   supabase.js            # Supabase Client
 ```
@@ -405,8 +406,9 @@ style={{ borderRadius: tokens.radii.lg }}
 Key Token-Kategorien:
 - `tokens.colors.bg.*` - Hintergrundfarben (deep, surface, elevated, soft)
 - `tokens.colors.text.*` - Textfarben (primary, secondary, muted)
-- `tokens.colors.aurora.*` - Brand-Farben (lavender, rose, mint)
-- `tokens.radii.*` - Border-Radien (sm, md, lg, xl, pill)
+- `tokens.colors.aurora.*` - Brand-Farben (lavender, rose, mint, sky)
+- `tokens.radii.*` - Border-Radien (sm, md, lg, xl, xxl, pill)
+- `tokens.shadows.*` - Schatten (soft, medium, large, glow)
 - `tokens.fonts.*` - Schriftarten (display, body)
 
 ---
