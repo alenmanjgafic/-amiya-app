@@ -336,3 +336,5 @@ npm run dev
 ## Dokumentation
 
 - **ElevenLabs Agent System Prompt:** Siehe [docs/ELEVENLABS_AGENT.md](docs/ELEVENLABS_AGENT.md) für den vollständigen Voice Agent Prompt mit Amiyas Persönlichkeit, Gesprächsführung, Turn-Taking Regeln und Agreement Detection.
+
+- **Agreement System:** Siehe [docs/AGREEMENT_SYSTEM.md](docs/AGREEMENT_SYSTEM.md) für die vollständige Dokumentation des Vereinbarungssystems - von der Erkennung in der Analyse bis zur Bestätigung durch die verantwortliche Person.
