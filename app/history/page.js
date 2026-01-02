@@ -6,14 +6,25 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../lib/AuthContext";
+import { useTheme } from "../../lib/ThemeContext";
 import { supabase } from "../../lib/supabase";
 import AnalysisView from "../../components/AnalysisView";
+import {
+  Home,
+  Heart,
+  ClipboardList,
+  User,
+  Users,
+  LayoutList,
+  Plus
+} from "lucide-react";
 
 export default function HistoryPage() {
   const { user, profile, loading: authLoading } = useAuth();
+  const { tokens, isDarkMode } = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // "all", "solo", "couple"
@@ -68,7 +79,7 @@ export default function HistoryPage() {
 
       // Merge and sort by date
       const allSessions = [...soloSessions, ...coupleSessions]
-        .filter((session, index, self) => 
+        .filter((session, index, self) =>
           index === self.findIndex(s => s.id === session.id)
         )
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -87,9 +98,9 @@ export default function HistoryPage() {
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const timeStr = date.toLocaleTimeString("de-CH", { 
-      hour: "2-digit", 
-      minute: "2-digit" 
+    const timeStr = date.toLocaleTimeString("de-CH", {
+      hour: "2-digit",
+      minute: "2-digit"
     });
 
     if (date.toDateString() === now.toDateString()) {
@@ -136,61 +147,102 @@ export default function HistoryPage() {
 
   if (authLoading || loading) {
     return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.spinner} />
-        <p>Laden...</p>
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "16px",
+        background: tokens.colors.bg.deep,
+      }}>
+        <div style={{
+          width: "40px",
+          height: "40px",
+          border: `4px solid ${tokens.colors.bg.soft}`,
+          borderTopColor: tokens.colors.aurora.lavender,
+          borderRadius: "50%",
+          animation: "spin 1s linear infinite",
+        }} />
+        <p style={{ color: tokens.colors.text.secondary }}>Laden...</p>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
+    <div style={{
+      minHeight: "100vh",
+      background: tokens.colors.bg.deep,
+      paddingBottom: "100px",
+      transition: "background 0.3s ease",
+    }}>
       {/* Header */}
-      <div style={styles.header}>
-        <h1 style={styles.title}>Verlauf</h1>
+      <div style={{
+        padding: "24px 20px 16px",
+        textAlign: "center",
+      }}>
+        <h1 style={{
+          fontSize: "28px",
+          fontWeight: "bold",
+          color: tokens.colors.text.primary,
+          margin: 0,
+          fontFamily: tokens.fonts.display,
+        }}>Verlauf</h1>
       </div>
 
       {/* Filters */}
-      <div style={styles.filterContainer}>
-        <button
-          onClick={() => setFilter("all")}
-          style={{
-            ...styles.filterButton,
-            ...(filter === "all" ? styles.filterButtonActive : {})
-          }}
-        >
-          <span style={styles.filterIcon}>📋</span>
-          Alle
-        </button>
-        <button
-          onClick={() => setFilter("solo")}
-          style={{
-            ...styles.filterButton,
-            ...(filter === "solo" ? styles.filterButtonActive : {})
-          }}
-        >
-          <span style={styles.filterIcon}>👤</span>
-          Solo
-        </button>
-        <button
-          onClick={() => setFilter("couple")}
-          style={{
-            ...styles.filterButton,
-            ...(filter === "couple" ? styles.filterButtonActive : {})
-          }}
-        >
-          <span style={styles.filterIcon}>💑</span>
-          Couple
-        </button>
+      <div style={{
+        display: "flex",
+        gap: "8px",
+        padding: "0 20px 16px",
+        overflowX: "auto",
+      }}>
+        {[
+          { key: "all", Icon: LayoutList, label: "Alle" },
+          { key: "solo", Icon: User, label: "Solo" },
+          { key: "couple", Icon: Users, label: "Couple" },
+        ].map(({ key, Icon, label }) => (
+          <button
+            key={key}
+            onClick={() => setFilter(key)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "10px 16px",
+              background: filter === key
+                ? tokens.colors.text.primary
+                : tokens.colors.bg.elevated,
+              border: `2px solid ${filter === key ? tokens.colors.text.primary : tokens.colors.bg.soft}`,
+              borderRadius: tokens.radii.pill,
+              fontSize: "14px",
+              fontWeight: "500",
+              color: filter === key ? (isDarkMode ? "#1a1d23" : "white") : tokens.colors.text.secondary,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <Icon size={16} />
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Sessions List */}
-      <div style={styles.content}>
+      <div style={{ padding: "0 20px" }}>
         {filteredSessions.length === 0 ? (
-          <div style={styles.emptyState}>
-            <p style={styles.emptyText}>
-              {filter === "all" 
-                ? "Noch keine Sessions" 
+          <div style={{
+            textAlign: "center",
+            padding: "60px 20px",
+          }}>
+            <p style={{
+              color: tokens.colors.text.muted,
+              fontSize: "16px",
+              marginBottom: "20px",
+            }}>
+              {filter === "all"
+                ? "Noch keine Sessions"
                 : filter === "solo"
                   ? "Noch keine Solo Sessions"
                   : "Noch keine Couple Sessions"
@@ -198,7 +250,16 @@ export default function HistoryPage() {
             </p>
             <button
               onClick={() => router.push(filter === "couple" ? "/wir" : "/")}
-              style={styles.emptyButton}
+              style={{
+                padding: "14px 28px",
+                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                color: "white",
+                border: "none",
+                borderRadius: tokens.radii.md,
+                fontSize: "15px",
+                fontWeight: "600",
+                cursor: "pointer",
+              }}
             >
               {filter === "couple" ? "Couple Session starten" : "Session starten"}
             </button>
@@ -207,26 +268,72 @@ export default function HistoryPage() {
           filteredSessions.map(session => (
             <div
               key={session.id}
-              style={styles.sessionCard}
+              style={{
+                background: tokens.colors.bg.elevated,
+                borderRadius: tokens.radii.lg,
+                padding: "20px",
+                marginBottom: "12px",
+                boxShadow: tokens.shadows.soft,
+                cursor: "pointer",
+                transition: "transform 0.2s, box-shadow 0.2s",
+              }}
               onClick={() => setSelectedSession(session.id)}
             >
-              <div style={styles.sessionBadge}>
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "12px",
+              }}>
                 <span style={{
-                  ...styles.badgeText,
-                  background: session.type === "couple" ? "#fce7f3" : "#f3f4f6",
-                  color: session.type === "couple" ? "#be185d" : "#374151"
+                  fontSize: "11px",
+                  fontWeight: "600",
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  letterSpacing: "0.5px",
+                  background: session.type === "couple"
+                    ? (isDarkMode ? "rgba(249, 168, 212, 0.2)" : "#fce7f3")
+                    : tokens.colors.bg.surface,
+                  color: session.type === "couple"
+                    ? tokens.colors.aurora.rose
+                    : tokens.colors.text.secondary,
                 }}>
                   {session.type === "couple" ? "COUPLE SESSION" : "SOLO SESSION"}
                 </span>
-                <span style={styles.sessionDate}>{formatDate(session.created_at)}</span>
+                <span style={{
+                  fontSize: "12px",
+                  color: tokens.colors.text.muted,
+                }}>{formatDate(session.created_at)}</span>
               </div>
-              <h3 style={styles.sessionTitle}>{getSessionTitle(session)}</h3>
-              <p style={styles.sessionPreview}>{getSessionPreview(session)}</p>
-              
+              <h3 style={{
+                fontSize: "16px",
+                fontWeight: "600",
+                color: tokens.colors.aurora.rose,
+                margin: "0 0 8px 0",
+                lineHeight: "1.4",
+              }}>{getSessionTitle(session)}</h3>
+              <p style={{
+                fontSize: "14px",
+                color: tokens.colors.text.secondary,
+                margin: 0,
+                lineHeight: "1.5",
+              }}>{getSessionPreview(session)}</p>
+
               {session.themes && session.themes.length > 0 && (
-                <div style={styles.themesContainer}>
+                <div style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "6px",
+                  marginTop: "12px",
+                }}>
                   {session.themes.slice(0, 3).map((theme, i) => (
-                    <span key={i} style={styles.themeTag}>{theme}</span>
+                    <span key={i} style={{
+                      fontSize: "12px",
+                      background: tokens.colors.bg.surface,
+                      color: tokens.colors.text.secondary,
+                      padding: "4px 10px",
+                      borderRadius: "12px",
+                    }}>{theme}</span>
                   ))}
                 </div>
               )}
@@ -236,22 +343,72 @@ export default function HistoryPage() {
       </div>
 
       {/* Bottom Navigation */}
-      <div style={styles.bottomNav}>
-        <button onClick={() => router.push("/")} style={styles.navItem}>
-          <span style={styles.navIcon}>🏠</span>
-          <span style={styles.navLabel}>Home</span>
+      <div style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: tokens.colors.bg.elevated,
+        borderTop: `1px solid ${tokens.colors.bg.soft}`,
+        display: "flex",
+        justifyContent: "space-around",
+        padding: "12px 0 24px 0",
+      }}>
+        <button onClick={() => router.push("/")} style={{
+          background: "none",
+          border: "none",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "4px",
+          cursor: "pointer",
+          padding: "8px 16px",
+        }}>
+          <Home size={24} color={tokens.colors.text.muted} />
+          <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Home</span>
         </button>
-        <button onClick={() => router.push("/wir")} style={styles.navItem}>
-          <span style={styles.navIcon}>💑</span>
-          <span style={styles.navLabel}>Wir</span>
+        <button onClick={() => router.push("/wir")} style={{
+          background: "none",
+          border: "none",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "4px",
+          cursor: "pointer",
+          padding: "8px 16px",
+        }}>
+          <Heart size={24} color={tokens.colors.text.muted} />
+          <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Wir</span>
         </button>
-        <button style={{...styles.navItem, ...styles.navItemActive}}>
-          <span style={styles.navIcon}>📋</span>
-          <span style={{...styles.navLabel, ...styles.navLabelActive}}>Verlauf</span>
+        <button style={{
+          background: "none",
+          border: "none",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "4px",
+          cursor: "pointer",
+          padding: "8px 16px",
+        }}>
+          <ClipboardList size={24} color={tokens.colors.aurora.lavender} />
+          <span style={{
+            fontSize: "12px",
+            color: tokens.colors.aurora.lavender,
+            fontWeight: "600",
+          }}>Verlauf</span>
         </button>
-        <button onClick={() => router.push("/profile")} style={styles.navItem}>
-          <span style={styles.navIcon}>👤</span>
-          <span style={styles.navLabel}>Profil</span>
+        <button onClick={() => router.push("/profile")} style={{
+          background: "none",
+          border: "none",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "4px",
+          cursor: "pointer",
+          padding: "8px 16px",
+        }}>
+          <User size={24} color={tokens.colors.text.muted} />
+          <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Profil</span>
         </button>
       </div>
 
@@ -277,172 +434,4 @@ export default function HistoryPage() {
   );
 }
 
-const styles = {
-  loadingContainer: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "16px",
-    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
-  },
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: "4px solid #e5e7eb",
-    borderTopColor: "#8b5cf6",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  container: {
-    minHeight: "100vh",
-    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
-    paddingBottom: "100px",
-  },
-  header: {
-    padding: "24px 20px 16px",
-    textAlign: "center",
-  },
-  title: {
-    fontSize: "28px",
-    fontWeight: "bold",
-    color: "#1f2937",
-    margin: 0,
-  },
-  filterContainer: {
-    display: "flex",
-    gap: "8px",
-    padding: "0 20px 16px",
-    overflowX: "auto",
-  },
-  filterButton: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    padding: "10px 16px",
-    background: "white",
-    border: "2px solid #e5e7eb",
-    borderRadius: "20px",
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#6b7280",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-  },
-  filterButtonActive: {
-    background: "#1f2937",
-    borderColor: "#1f2937",
-    color: "white",
-  },
-  filterIcon: {
-    fontSize: "16px",
-  },
-  content: {
-    padding: "0 20px",
-  },
-  emptyState: {
-    textAlign: "center",
-    padding: "60px 20px",
-  },
-  emptyText: {
-    color: "#9ca3af",
-    fontSize: "16px",
-    marginBottom: "20px",
-  },
-  emptyButton: {
-    padding: "14px 28px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    color: "white",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "15px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-  sessionCard: {
-    background: "white",
-    borderRadius: "16px",
-    padding: "20px",
-    marginBottom: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-    cursor: "pointer",
-    transition: "transform 0.2s, box-shadow 0.2s",
-  },
-  sessionBadge: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "12px",
-  },
-  badgeText: {
-    fontSize: "11px",
-    fontWeight: "600",
-    padding: "4px 10px",
-    borderRadius: "6px",
-    letterSpacing: "0.5px",
-  },
-  sessionDate: {
-    fontSize: "12px",
-    color: "#9ca3af",
-  },
-  sessionTitle: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#be185d",
-    margin: "0 0 8px 0",
-    lineHeight: "1.4",
-  },
-  sessionPreview: {
-    fontSize: "14px",
-    color: "#6b7280",
-    margin: 0,
-    lineHeight: "1.5",
-  },
-  themesContainer: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "6px",
-    marginTop: "12px",
-  },
-  themeTag: {
-    fontSize: "12px",
-    background: "#f3f4f6",
-    color: "#6b7280",
-    padding: "4px 10px",
-    borderRadius: "12px",
-  },
-  bottomNav: {
-    position: "fixed",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    background: "white",
-    borderTop: "1px solid #e5e7eb",
-    display: "flex",
-    justifyContent: "space-around",
-    padding: "12px 0 24px 0",
-  },
-  navItem: {
-    background: "none",
-    border: "none",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "4px",
-    cursor: "pointer",
-    padding: "8px 16px",
-  },
-  navItemActive: {},
-  navIcon: {
-    fontSize: "24px",
-  },
-  navLabel: {
-    fontSize: "12px",
-    color: "#9ca3af",
-  },
-  navLabelActive: {
-    color: "#8b5cf6",
-    fontWeight: "600",
-  },
-};
+// All styles now use theme tokens inline

@@ -1,4 +1,4 @@
-import { AuthProvider } from '../lib/AuthContext';
+import Providers from '../components/Providers';
 import './globals.css';
 
 export const metadata = {
@@ -10,9 +10,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="de">
       <body>
-        <AuthProvider>
+        <Providers>
           {children}
-        </AuthProvider>
+        </Providers>
       </body>
     </html>
   );

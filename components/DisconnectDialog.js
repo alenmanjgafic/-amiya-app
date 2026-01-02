@@ -5,9 +5,11 @@
 "use client";
 import { useState } from "react";
 import { useAuth } from "../lib/AuthContext";
+import { useTheme } from "../lib/ThemeContext";
 
 export default function DisconnectDialog({ pendingDissolution, onClose, onComplete }) {
   const { user, profile } = useAuth();
+  const { tokens, isDarkMode } = useTheme();
   const [step, setStep] = useState(pendingDissolution ? "confirm" : "info");
   const [keepLearnings, setKeepLearnings] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -105,28 +107,88 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
   };
 
   return (
-    <div style={styles.overlay}>
-      <div style={styles.card}>
+    <div style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: "rgba(0,0,0,0.6)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "20px",
+      zIndex: 1000,
+    }}>
+      <div style={{
+        background: tokens.colors.bg.elevated,
+        borderRadius: tokens.radii.xl,
+        padding: "32px 24px",
+        maxWidth: "440px",
+        width: "100%",
+        maxHeight: "90vh",
+        overflowY: "auto",
+        position: "relative",
+        boxShadow: tokens.shadows.large,
+      }}>
         {/* Close Button */}
-        <button onClick={onClose} style={styles.closeButton}>✕</button>
+        <button onClick={onClose} style={{
+          position: "absolute",
+          top: "16px",
+          right: "16px",
+          background: "none",
+          border: "none",
+          fontSize: "24px",
+          color: tokens.colors.text.muted,
+          cursor: "pointer",
+        }}>✕</button>
 
         {/* STEP: Info (Initiator viewing options) */}
         {step === "info" && (
           <>
-            <div style={styles.iconContainer}>
-              <span style={styles.icon}>⚙️</span>
+            <div style={{ textAlign: "center", marginBottom: "16px" }}>
+              <span style={{ fontSize: "48px" }}>⚙️</span>
             </div>
-            
-            <h2 style={styles.title}>Verbindung verwalten</h2>
-            
-            <p style={styles.text}>
-              Du bist mit {partnerName} verbunden. Gemeinsame Sessions 
+
+            <h2 style={{
+              fontSize: "22px",
+              fontWeight: "bold",
+              color: tokens.colors.text.primary,
+              textAlign: "center",
+              margin: "0 0 12px 0",
+              fontFamily: tokens.fonts.display,
+            }}>Verbindung verwalten</h2>
+
+            <p style={{
+              fontSize: "15px",
+              color: tokens.colors.text.muted,
+              textAlign: "center",
+              lineHeight: "1.6",
+              margin: "0 0 20px 0",
+            }}>
+              Du bist mit {partnerName} verbunden. Gemeinsame Sessions
               und Vereinbarungen sind aktiv.
             </p>
 
-            <div style={styles.infoBox}>
-              <h4 style={styles.infoTitle}>Bei Trennung:</h4>
-              <ul style={styles.infoList}>
+            <div style={{
+              background: tokens.colors.bg.surface,
+              borderRadius: tokens.radii.md,
+              padding: "16px",
+              marginBottom: "24px",
+            }}>
+              <h4 style={{
+                fontSize: "14px",
+                fontWeight: "600",
+                color: tokens.colors.text.primary,
+                margin: "0 0 8px 0",
+              }}>Bei Trennung:</h4>
+              <ul style={{
+                margin: 0,
+                paddingLeft: "20px",
+                color: tokens.colors.text.muted,
+                fontSize: "14px",
+                lineHeight: "1.8",
+              }}>
                 <li>Gemeinsame Sessions bleiben im Verlauf</li>
                 <li>Vereinbarungen werden archiviert</li>
                 <li>Du kannst anonymisierte Learnings behalten</li>
@@ -136,12 +198,34 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
 
             <button
               onClick={() => setStep("learnings")}
-              style={styles.dangerButton}
+              style={{
+                width: "100%",
+                padding: "16px",
+                background: isDarkMode ? "rgba(248, 113, 113, 0.15)" : "#fee2e2",
+                color: tokens.colors.error,
+                border: "none",
+                borderRadius: tokens.radii.md,
+                fontSize: "16px",
+                fontWeight: "600",
+                cursor: "pointer",
+                marginBottom: "12px",
+                fontFamily: tokens.fonts.body,
+              }}
             >
               Verbindung auflösen
             </button>
 
-            <button onClick={onClose} style={styles.secondaryButton}>
+            <button onClick={onClose} style={{
+              width: "100%",
+              padding: "14px",
+              background: tokens.colors.bg.surface,
+              color: tokens.colors.text.primary,
+              border: "none",
+              borderRadius: tokens.radii.md,
+              fontSize: "15px",
+              cursor: "pointer",
+              fontFamily: tokens.fonts.body,
+            }}>
               Abbrechen
             </button>
           </>
@@ -150,29 +234,66 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
         {/* STEP: Learnings choice (Initiator) */}
         {step === "learnings" && !pendingDissolution && (
           <>
-            <div style={styles.iconContainer}>
-              <span style={styles.icon}>📝</span>
+            <div style={{ textAlign: "center", marginBottom: "16px" }}>
+              <span style={{ fontSize: "48px" }}>📝</span>
             </div>
-            
-            <h2 style={styles.title}>Learnings behalten?</h2>
-            
-            <p style={styles.text}>
-              Möchtest du anonymisierte Erkenntnisse aus euren 
+
+            <h2 style={{
+              fontSize: "22px",
+              fontWeight: "bold",
+              color: tokens.colors.text.primary,
+              textAlign: "center",
+              margin: "0 0 12px 0",
+              fontFamily: tokens.fonts.display,
+            }}>Learnings behalten?</h2>
+
+            <p style={{
+              fontSize: "15px",
+              color: tokens.colors.text.muted,
+              textAlign: "center",
+              lineHeight: "1.6",
+              margin: "0 0 20px 0",
+            }}>
+              Möchtest du anonymisierte Erkenntnisse aus euren
               Vereinbarungen für die Zukunft behalten?
             </p>
 
-            <div style={styles.optionsList}>
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+              marginBottom: "20px",
+            }}>
               <button
                 onClick={() => setKeepLearnings(true)}
                 style={{
-                  ...styles.optionCard,
-                  ...(keepLearnings ? styles.optionCardSelected : {})
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "12px",
+                  padding: "16px",
+                  background: keepLearnings
+                    ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
+                    : tokens.colors.bg.surface,
+                  border: `2px solid ${keepLearnings ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
+                  borderRadius: tokens.radii.md,
+                  cursor: "pointer",
+                  textAlign: "left",
                 }}
               >
-                <span style={styles.optionEmoji}>✅</span>
-                <div style={styles.optionContent}>
-                  <span style={styles.optionTitle}>Learnings behalten</span>
-                  <span style={styles.optionDesc}>
+                <span style={{ fontSize: "24px", marginTop: "2px" }}>✅</span>
+                <div style={{ flex: 1 }}>
+                  <span style={{
+                    display: "block",
+                    fontWeight: "600",
+                    color: tokens.colors.text.primary,
+                    fontSize: "15px",
+                    marginBottom: "4px",
+                  }}>Learnings behalten</span>
+                  <span style={{
+                    fontSize: "13px",
+                    color: tokens.colors.text.muted,
+                    lineHeight: "1.4",
+                  }}>
                     Anonymisiert, ohne Namen oder Details.
                     Kann in zukünftigen Beziehungen helfen.
                   </span>
@@ -182,40 +303,102 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
               <button
                 onClick={() => setKeepLearnings(false)}
                 style={{
-                  ...styles.optionCard,
-                  ...(!keepLearnings ? styles.optionCardSelected : {})
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "12px",
+                  padding: "16px",
+                  background: !keepLearnings
+                    ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
+                    : tokens.colors.bg.surface,
+                  border: `2px solid ${!keepLearnings ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
+                  borderRadius: tokens.radii.md,
+                  cursor: "pointer",
+                  textAlign: "left",
                 }}
               >
-                <span style={styles.optionEmoji}>🗑️</span>
-                <div style={styles.optionContent}>
-                  <span style={styles.optionTitle}>Alles löschen</span>
-                  <span style={styles.optionDesc}>
+                <span style={{ fontSize: "24px", marginTop: "2px" }}>🗑️</span>
+                <div style={{ flex: 1 }}>
+                  <span style={{
+                    display: "block",
+                    fontWeight: "600",
+                    color: tokens.colors.text.primary,
+                    fontSize: "15px",
+                    marginBottom: "4px",
+                  }}>Alles löschen</span>
+                  <span style={{
+                    fontSize: "13px",
+                    color: tokens.colors.text.muted,
+                    lineHeight: "1.4",
+                  }}>
                     Keine Daten aus dieser Verbindung behalten.
                   </span>
                 </div>
               </button>
             </div>
 
-            <div style={styles.noteBox}>
-              <p style={styles.noteText}>
-                <strong>Hinweis:</strong> {partnerName} wird ebenfalls gefragt 
+            <div style={{
+              background: isDarkMode ? "rgba(251, 191, 36, 0.15)" : "#fef3c7",
+              borderRadius: tokens.radii.md,
+              padding: "12px",
+              marginBottom: "20px",
+            }}>
+              <p style={{
+                margin: 0,
+                fontSize: "13px",
+                color: isDarkMode ? "#fbbf24" : "#92400e",
+                lineHeight: "1.5",
+              }}>
+                <strong>Hinweis:</strong> {partnerName} wird ebenfalls gefragt
                 und kann unabhängig von dir entscheiden.
               </p>
             </div>
 
-            {error && <p style={styles.error}>{error}</p>}
+            {error && (
+              <p style={{
+                color: tokens.colors.error,
+                fontSize: "14px",
+                background: isDarkMode ? "rgba(248, 113, 113, 0.15)" : "#fef2f2",
+                padding: "12px",
+                borderRadius: tokens.radii.sm,
+                marginBottom: "16px",
+                textAlign: "center",
+              }}>{error}</p>
+            )}
 
             <button
               onClick={handleInitiateDisconnect}
-              style={styles.dangerButton}
+              style={{
+                width: "100%",
+                padding: "16px",
+                background: isDarkMode ? "rgba(248, 113, 113, 0.15)" : "#fee2e2",
+                color: tokens.colors.error,
+                border: "none",
+                borderRadius: tokens.radii.md,
+                fontSize: "16px",
+                fontWeight: "600",
+                cursor: "pointer",
+                marginBottom: "12px",
+                fontFamily: tokens.fonts.body,
+                opacity: loading ? 0.7 : 1,
+              }}
               disabled={loading}
             >
               {loading ? "Wird verarbeitet..." : "Verbindung auflösen"}
             </button>
 
-            <button 
-              onClick={() => setStep("info")} 
-              style={styles.secondaryButton}
+            <button
+              onClick={() => setStep("info")}
+              style={{
+                width: "100%",
+                padding: "14px",
+                background: tokens.colors.bg.surface,
+                color: tokens.colors.text.primary,
+                border: "none",
+                borderRadius: tokens.radii.md,
+                fontSize: "15px",
+                cursor: "pointer",
+                fontFamily: tokens.fonts.body,
+              }}
               disabled={loading}
             >
               Zurück
@@ -226,46 +409,107 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
         {/* STEP: Confirm (Partner responding to dissolution) */}
         {step === "confirm" && pendingDissolution && (
           <>
-            <div style={styles.iconContainer}>
-              <span style={styles.icon}>💔</span>
+            <div style={{ textAlign: "center", marginBottom: "16px" }}>
+              <span style={{ fontSize: "48px" }}>💔</span>
             </div>
-            
-            <h2 style={styles.title}>Verbindung aufgelöst</h2>
-            
-            <p style={styles.text}>
+
+            <h2 style={{
+              fontSize: "22px",
+              fontWeight: "bold",
+              color: tokens.colors.text.primary,
+              textAlign: "center",
+              margin: "0 0 12px 0",
+              fontFamily: tokens.fonts.display,
+            }}>Verbindung aufgelöst</h2>
+
+            <p style={{
+              fontSize: "15px",
+              color: tokens.colors.text.muted,
+              textAlign: "center",
+              lineHeight: "1.6",
+              margin: "0 0 20px 0",
+            }}>
               {pendingDissolution.initiatedBy} hat die Verbindung beendet.
             </p>
 
             {pendingDissolution.agreementCount > 0 && (
-              <div style={styles.agreementPreview}>
-                <p style={styles.previewTitle}>
+              <div style={{
+                background: tokens.colors.bg.surface,
+                borderRadius: tokens.radii.md,
+                padding: "16px",
+                marginBottom: "20px",
+              }}>
+                <p style={{
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  color: tokens.colors.text.primary,
+                  margin: "0 0 8px 0",
+                }}>
                   {pendingDissolution.agreementCount} gemeinsame Vereinbarungen:
                 </p>
                 {pendingDissolution.agreements?.slice(0, 3).map((a, i) => (
-                  <p key={i} style={styles.previewItem}>• {a.title}</p>
+                  <p key={i} style={{
+                    fontSize: "14px",
+                    color: tokens.colors.text.muted,
+                    margin: "0 0 4px 0",
+                  }}>• {a.title}</p>
                 ))}
                 {pendingDissolution.agreementCount > 3 && (
-                  <p style={styles.previewMore}>
+                  <p style={{
+                    fontSize: "13px",
+                    color: tokens.colors.text.muted,
+                    margin: "8px 0 0 0",
+                    fontStyle: "italic",
+                  }}>
                     + {pendingDissolution.agreementCount - 3} weitere
                   </p>
                 )}
               </div>
             )}
 
-            <h3 style={styles.subtitle}>Möchtest du Learnings behalten?</h3>
+            <h3 style={{
+              fontSize: "16px",
+              fontWeight: "600",
+              color: tokens.colors.text.primary,
+              margin: "20px 0 12px 0",
+            }}>Möchtest du Learnings behalten?</h3>
 
-            <div style={styles.optionsList}>
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+              marginBottom: "20px",
+            }}>
               <button
                 onClick={() => setKeepLearnings(true)}
                 style={{
-                  ...styles.optionCard,
-                  ...(keepLearnings ? styles.optionCardSelected : {})
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "12px",
+                  padding: "16px",
+                  background: keepLearnings
+                    ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
+                    : tokens.colors.bg.surface,
+                  border: `2px solid ${keepLearnings ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
+                  borderRadius: tokens.radii.md,
+                  cursor: "pointer",
+                  textAlign: "left",
                 }}
               >
-                <span style={styles.optionEmoji}>✅</span>
-                <div style={styles.optionContent}>
-                  <span style={styles.optionTitle}>Learnings behalten</span>
-                  <span style={styles.optionDesc}>
+                <span style={{ fontSize: "24px", marginTop: "2px" }}>✅</span>
+                <div style={{ flex: 1 }}>
+                  <span style={{
+                    display: "block",
+                    fontWeight: "600",
+                    color: tokens.colors.text.primary,
+                    fontSize: "15px",
+                    marginBottom: "4px",
+                  }}>Learnings behalten</span>
+                  <span style={{
+                    fontSize: "13px",
+                    color: tokens.colors.text.muted,
+                    lineHeight: "1.4",
+                  }}>
                     Anonymisiert, ohne Namen oder Details
                   </span>
                 </div>
@@ -274,25 +518,67 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
               <button
                 onClick={() => setKeepLearnings(false)}
                 style={{
-                  ...styles.optionCard,
-                  ...(!keepLearnings ? styles.optionCardSelected : {})
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "12px",
+                  padding: "16px",
+                  background: !keepLearnings
+                    ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
+                    : tokens.colors.bg.surface,
+                  border: `2px solid ${!keepLearnings ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
+                  borderRadius: tokens.radii.md,
+                  cursor: "pointer",
+                  textAlign: "left",
                 }}
               >
-                <span style={styles.optionEmoji}>🗑️</span>
-                <div style={styles.optionContent}>
-                  <span style={styles.optionTitle}>Alles löschen</span>
-                  <span style={styles.optionDesc}>
+                <span style={{ fontSize: "24px", marginTop: "2px" }}>🗑️</span>
+                <div style={{ flex: 1 }}>
+                  <span style={{
+                    display: "block",
+                    fontWeight: "600",
+                    color: tokens.colors.text.primary,
+                    fontSize: "15px",
+                    marginBottom: "4px",
+                  }}>Alles löschen</span>
+                  <span style={{
+                    fontSize: "13px",
+                    color: tokens.colors.text.muted,
+                    lineHeight: "1.4",
+                  }}>
                     Keine Daten behalten
                   </span>
                 </div>
               </button>
             </div>
 
-            {error && <p style={styles.error}>{error}</p>}
+            {error && (
+              <p style={{
+                color: tokens.colors.error,
+                fontSize: "14px",
+                background: isDarkMode ? "rgba(248, 113, 113, 0.15)" : "#fef2f2",
+                padding: "12px",
+                borderRadius: tokens.radii.sm,
+                marginBottom: "16px",
+                textAlign: "center",
+              }}>{error}</p>
+            )}
 
             <button
               onClick={handleConfirmDisconnect}
-              style={styles.primaryButton}
+              style={{
+                width: "100%",
+                padding: "16px",
+                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                color: "white",
+                border: "none",
+                borderRadius: tokens.radii.md,
+                fontSize: "16px",
+                fontWeight: "600",
+                cursor: "pointer",
+                marginBottom: "12px",
+                fontFamily: tokens.fonts.body,
+                opacity: loading ? 0.7 : 1,
+              }}
               disabled={loading}
             >
               {loading ? "Wird verarbeitet..." : "Bestätigen"}
@@ -300,7 +586,17 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
 
             <button
               onClick={handleCancelDisconnect}
-              style={styles.linkButton}
+              style={{
+                width: "100%",
+                padding: "12px",
+                background: "none",
+                color: tokens.colors.aurora.lavender,
+                border: "none",
+                fontSize: "14px",
+                cursor: "pointer",
+                textDecoration: "underline",
+                fontFamily: tokens.fonts.body,
+              }}
               disabled={loading}
             >
               Trennung abbrechen & wieder verbinden
@@ -311,213 +607,3 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
     </div>
   );
 }
-
-const styles = {
-  overlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(0,0,0,0.6)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "20px",
-    zIndex: 1000,
-  },
-  card: {
-    background: "white",
-    borderRadius: "24px",
-    padding: "32px 24px",
-    maxWidth: "440px",
-    width: "100%",
-    maxHeight: "90vh",
-    overflowY: "auto",
-    position: "relative",
-  },
-  closeButton: {
-    position: "absolute",
-    top: "16px",
-    right: "16px",
-    background: "none",
-    border: "none",
-    fontSize: "24px",
-    color: "#9ca3af",
-    cursor: "pointer",
-  },
-  iconContainer: {
-    textAlign: "center",
-    marginBottom: "16px",
-  },
-  icon: {
-    fontSize: "48px",
-  },
-  title: {
-    fontSize: "22px",
-    fontWeight: "bold",
-    color: "#1f2937",
-    textAlign: "center",
-    margin: "0 0 12px 0",
-  },
-  subtitle: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#374151",
-    margin: "20px 0 12px 0",
-  },
-  text: {
-    fontSize: "15px",
-    color: "#6b7280",
-    textAlign: "center",
-    lineHeight: "1.6",
-    margin: "0 0 20px 0",
-  },
-  infoBox: {
-    background: "#f9fafb",
-    borderRadius: "12px",
-    padding: "16px",
-    marginBottom: "24px",
-  },
-  infoTitle: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#374151",
-    margin: "0 0 8px 0",
-  },
-  infoList: {
-    margin: 0,
-    paddingLeft: "20px",
-    color: "#6b7280",
-    fontSize: "14px",
-    lineHeight: "1.8",
-  },
-  optionsList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    marginBottom: "20px",
-  },
-  optionCard: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "12px",
-    padding: "16px",
-    background: "#f9fafb",
-    border: "2px solid #e5e7eb",
-    borderRadius: "12px",
-    cursor: "pointer",
-    textAlign: "left",
-  },
-  optionCardSelected: {
-    borderColor: "#8b5cf6",
-    background: "#f5f3ff",
-  },
-  optionEmoji: {
-    fontSize: "24px",
-    marginTop: "2px",
-  },
-  optionContent: {
-    flex: 1,
-  },
-  optionTitle: {
-    display: "block",
-    fontWeight: "600",
-    color: "#1f2937",
-    fontSize: "15px",
-    marginBottom: "4px",
-  },
-  optionDesc: {
-    fontSize: "13px",
-    color: "#6b7280",
-    lineHeight: "1.4",
-  },
-  noteBox: {
-    background: "#fef3c7",
-    borderRadius: "10px",
-    padding: "12px",
-    marginBottom: "20px",
-  },
-  noteText: {
-    margin: 0,
-    fontSize: "13px",
-    color: "#92400e",
-    lineHeight: "1.5",
-  },
-  agreementPreview: {
-    background: "#f9fafb",
-    borderRadius: "12px",
-    padding: "16px",
-    marginBottom: "20px",
-  },
-  previewTitle: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#374151",
-    margin: "0 0 8px 0",
-  },
-  previewItem: {
-    fontSize: "14px",
-    color: "#6b7280",
-    margin: "0 0 4px 0",
-  },
-  previewMore: {
-    fontSize: "13px",
-    color: "#9ca3af",
-    margin: "8px 0 0 0",
-    fontStyle: "italic",
-  },
-  error: {
-    color: "#dc2626",
-    fontSize: "14px",
-    background: "#fef2f2",
-    padding: "12px",
-    borderRadius: "8px",
-    marginBottom: "16px",
-    textAlign: "center",
-  },
-  primaryButton: {
-    width: "100%",
-    padding: "16px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    color: "white",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "16px",
-    fontWeight: "600",
-    cursor: "pointer",
-    marginBottom: "12px",
-  },
-  dangerButton: {
-    width: "100%",
-    padding: "16px",
-    background: "#fee2e2",
-    color: "#dc2626",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "16px",
-    fontWeight: "600",
-    cursor: "pointer",
-    marginBottom: "12px",
-  },
-  secondaryButton: {
-    width: "100%",
-    padding: "14px",
-    background: "#f3f4f6",
-    color: "#374151",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "15px",
-    cursor: "pointer",
-  },
-  linkButton: {
-    width: "100%",
-    padding: "12px",
-    background: "none",
-    color: "#8b5cf6",
-    border: "none",
-    fontSize: "14px",
-    cursor: "pointer",
-    textDecoration: "underline",
-  },
-};

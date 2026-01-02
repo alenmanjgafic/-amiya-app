@@ -1,0 +1,17 @@
+/**
+ * PROVIDERS - components/Providers.js
+ * Client-side wrapper for all context providers
+ */
+"use client";
+import { AuthProvider } from "../lib/AuthContext";
+import { ThemeProvider } from "../lib/ThemeContext";
+
+export default function Providers({ children }) {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        {children}
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}

@@ -7,8 +7,23 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../lib/AuthContext";
+import { useTheme } from "../lib/ThemeContext";
 import { sessionsService } from "../lib/sessions";
 import AnalysisView from "../components/AnalysisView";
+import {
+  Home,
+  Heart,
+  ClipboardList,
+  User,
+  Mic,
+  Headphones,
+  AlertTriangle,
+  Loader2,
+  Ear,
+  MessageCircle,
+  Volume2,
+  LogOut
+} from "lucide-react";
 
 const AGENT_ID = "agent_8601kdk8kndtedgbn0ea13zff5aa";
 
@@ -22,8 +37,9 @@ const STATE = {
 
 export default function Home() {
   const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { tokens, isDarkMode } = useTheme();
   const router = useRouter();
-  
+
   const [started, setStarted] = useState(false);
   const [voiceState, setVoiceState] = useState(STATE.IDLE);
   const [sessionTime, setSessionTime] = useState(0);
@@ -380,17 +396,47 @@ export default function Home() {
 
   if (authLoading) {
     return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.spinner} />
-        <p>Laden...</p>
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "16px",
+        background: tokens.colors.bg.deep,
+      }}>
+        <div style={{
+          width: "40px",
+          height: "40px",
+          border: `4px solid ${tokens.colors.bg.soft}`,
+          borderTopColor: tokens.colors.aurora.lavender,
+          borderRadius: "50%",
+          animation: "spin 1s linear infinite",
+        }} />
+        <p style={{ color: tokens.colors.text.secondary }}>Laden...</p>
       </div>
     );
   }
 
   if (!user || !profile?.name || !profile?.partner_name) {
     return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.spinner} />
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "16px",
+        background: tokens.colors.bg.deep,
+      }}>
+        <div style={{
+          width: "40px",
+          height: "40px",
+          border: `4px solid ${tokens.colors.bg.soft}`,
+          borderTopColor: tokens.colors.aurora.lavender,
+          borderRadius: "50%",
+          animation: "spin 1s linear infinite",
+        }} />
       </div>
     );
   }
@@ -398,74 +444,248 @@ export default function Home() {
   // START SCREEN
   if (!started && !isGeneratingAnalysis) {
     return (
-      <div style={styles.container}>
-        <div style={styles.startScreen}>
-          <div style={styles.userBar}>
-            <button 
-              onClick={() => router.push("/profile")} 
-              style={styles.profileButton}
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+        paddingBottom: "100px",
+        background: tokens.colors.bg.deep,
+        transition: "background 0.3s ease",
+      }}>
+        <div style={{ maxWidth: "400px", textAlign: "center", width: "100%" }}>
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "32px",
+            padding: "8px",
+            background: tokens.colors.bg.elevated,
+            borderRadius: tokens.radii.md,
+            boxShadow: tokens.shadows.soft,
+          }}>
+            <button
+              onClick={() => router.push("/profile")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: "6px 10px",
+                borderRadius: tokens.radii.sm,
+                fontSize: "15px",
+                color: tokens.colors.text.primary,
+              }}
             >
-              <span style={styles.profileAvatar}>
+              <span style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "50%",
+                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "14px",
+                fontWeight: "600",
+              }}>
                 {displayName.charAt(0).toUpperCase()}
               </span>
               <span>{displayName}</span>
             </button>
-            <button onClick={signOut} style={styles.signOutButton}>
+            <button onClick={signOut} style={{
+              background: "none",
+              border: "none",
+              color: tokens.colors.text.muted,
+              cursor: "pointer",
+              fontSize: "14px",
+              padding: "8px 12px",
+            }}>
               Abmelden
             </button>
           </div>
 
-          <div style={styles.logo}>💜</div>
-          <h1 style={styles.title}>Amiya</h1>
-          <p style={styles.subtitle}>Solo Session</p>
-          
-          <p style={styles.description}>
-            Hey {displayName}. Erzähl mir was dich beschäftigt –<br/>
+          <div style={{
+            width: "100px",
+            height: "100px",
+            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+            borderRadius: tokens.radii.xxl,
+            margin: "0 auto 24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: isDarkMode
+              ? tokens.shadows.glow(tokens.colors.aurora.lavender)
+              : "0 10px 40px rgba(139,92,246,0.3)",
+          }}><Heart size={50} color="white" fill="white" /></div>
+          <h1 style={{
+            fontSize: "36px",
+            fontWeight: "bold",
+            color: tokens.colors.text.primary,
+            marginBottom: "8px",
+            fontFamily: tokens.fonts.display,
+          }}>Amiya</h1>
+          <p style={{
+            color: tokens.colors.text.secondary,
+            fontSize: "16px",
+            marginBottom: "16px",
+          }}>Solo Session</p>
+
+          <p style={{
+            color: tokens.colors.text.secondary,
+            marginBottom: "32px",
+            lineHeight: "1.8",
+          }}>
+            Hey {displayName}. Erzähl mir was dich beschäftigt –<br />
             über dich und {partnerName}.
           </p>
-          
+
           {analysisError && (
-            <div style={styles.errorBanner}>
-              <span style={styles.errorIcon}>⚠️</span>
-              <p style={styles.errorText}>{analysisError}</p>
+            <div style={{
+              background: isDarkMode ? "rgba(248, 113, 113, 0.1)" : "#fef2f2",
+              border: `1px solid ${tokens.colors.error}`,
+              borderRadius: tokens.radii.md,
+              padding: "16px",
+              marginBottom: "24px",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "12px",
+              textAlign: "left",
+            }}>
+              <AlertTriangle size={20} color={tokens.colors.error} style={{ flexShrink: 0 }} />
+              <p style={{
+                color: tokens.colors.error,
+                fontSize: "14px",
+                margin: 0,
+                lineHeight: "1.5",
+              }}>{analysisError}</p>
             </div>
           )}
-          
-          <button onClick={startSession} style={styles.startButton}>
+
+          <button onClick={startSession} style={{
+            padding: "18px 40px",
+            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+            color: "white",
+            fontWeight: "600",
+            fontSize: "18px",
+            border: "none",
+            borderRadius: tokens.radii.lg,
+            cursor: "pointer",
+            boxShadow: isDarkMode
+              ? tokens.shadows.glow(tokens.colors.aurora.lavender)
+              : "0 4px 20px rgba(139,92,246,0.3)",
+            fontFamily: tokens.fonts.body,
+          }}>
             Session starten
           </button>
-          
-          <p style={styles.hint}>🎧 Beste Erfahrung mit Kopfhörern</p>
+
+          <p style={{
+            marginTop: "24px",
+            fontSize: "13px",
+            color: tokens.colors.text.muted,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px",
+          }}><Headphones size={16} /> Beste Erfahrung mit Kopfhörern</p>
         </div>
 
-        <div style={styles.bottomNav}>
-          <button style={{...styles.navItem, ...styles.navItemActive}}>
-            <span style={styles.navIcon}>🏠</span>
-            <span style={{...styles.navLabel, ...styles.navLabelActive}}>Home</span>
+        <div style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: tokens.colors.bg.elevated,
+          borderTop: `1px solid ${tokens.colors.bg.soft}`,
+          display: "flex",
+          justifyContent: "space-around",
+          padding: "12px 0 24px 0",
+        }}>
+          <button style={{
+            background: "none",
+            border: "none",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "4px",
+            cursor: "pointer",
+            padding: "8px 16px",
+          }}>
+            <Home size={24} color={tokens.colors.aurora.lavender} />
+            <span style={{
+              fontSize: "12px",
+              color: tokens.colors.aurora.lavender,
+              fontWeight: "600",
+            }}>Home</span>
           </button>
-          <button onClick={() => router.push("/wir")} style={styles.navItem}>
-            <div style={styles.navIconWrapper}>
-              <span style={styles.navIcon}>💑</span>
+          <button onClick={() => router.push("/wir")} style={{
+            background: "none",
+            border: "none",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "4px",
+            cursor: "pointer",
+            padding: "8px 16px",
+          }}>
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <Heart size={24} color={tokens.colors.text.muted} />
               {pendingSuggestionsCount > 0 && (
-                <span style={styles.navBadge}>{pendingSuggestionsCount}</span>
+                <span style={{
+                  position: "absolute",
+                  top: "-6px",
+                  right: "-10px",
+                  background: tokens.colors.error,
+                  color: "white",
+                  fontSize: "11px",
+                  fontWeight: "bold",
+                  minWidth: "18px",
+                  height: "18px",
+                  borderRadius: "9px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0 4px",
+                }}>{pendingSuggestionsCount}</span>
               )}
             </div>
-            <span style={styles.navLabel}>Wir</span>
+            <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Wir</span>
           </button>
-          <button onClick={() => router.push("/history")} style={styles.navItem}>
-            <span style={styles.navIcon}>📋</span>
-            <span style={styles.navLabel}>Verlauf</span>
+          <button onClick={() => router.push("/history")} style={{
+            background: "none",
+            border: "none",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "4px",
+            cursor: "pointer",
+            padding: "8px 16px",
+          }}>
+            <ClipboardList size={24} color={tokens.colors.text.muted} />
+            <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Verlauf</span>
           </button>
-          <button onClick={() => router.push("/profile")} style={styles.navItem}>
-            <span style={styles.navIcon}>👤</span>
-            <span style={styles.navLabel}>Profil</span>
+          <button onClick={() => router.push("/profile")} style={{
+            background: "none",
+            border: "none",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "4px",
+            cursor: "pointer",
+            padding: "8px 16px",
+          }}>
+            <User size={24} color={tokens.colors.text.muted} />
+            <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Profil</span>
           </button>
         </div>
 
         {showAnalysis && analysisSessionId && (
-          <AnalysisView 
-            sessionId={analysisSessionId} 
-            onClose={handleCloseAnalysis} 
+          <AnalysisView
+            sessionId={analysisSessionId}
+            onClose={handleCloseAnalysis}
           />
         )}
       </div>
@@ -475,12 +695,43 @@ export default function Home() {
   // ANALYSIS GENERATING SCREEN
   if (isGeneratingAnalysis) {
     return (
-      <div style={styles.sessionContainer}>
-        <div style={styles.analysisLoadingContainer}>
-          <div style={styles.analysisSpinner} />
-          <h2 style={styles.analysisLoadingTitle}>Analyse wird erstellt...</h2>
-          <p style={styles.analysisLoadingText}>
-            Amiya wertet euer Gespräch aus.<br/>
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        background: tokens.colors.bg.deep,
+      }}>
+        <div style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "40px 20px",
+        }}>
+          <div style={{
+            width: "60px",
+            height: "60px",
+            border: `5px solid ${tokens.colors.bg.soft}`,
+            borderTopColor: tokens.colors.aurora.lavender,
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            marginBottom: "24px",
+          }} />
+          <h2 style={{
+            fontSize: "22px",
+            fontWeight: "bold",
+            color: tokens.colors.text.primary,
+            marginBottom: "12px",
+            fontFamily: tokens.fonts.display,
+          }}>Analyse wird erstellt...</h2>
+          <p style={{
+            color: tokens.colors.text.secondary,
+            fontSize: "15px",
+            textAlign: "center",
+            lineHeight: "1.6",
+          }}>
+            Amiya wertet euer Gespräch aus.<br />
             Das dauert einen Moment.
           </p>
         </div>
@@ -497,34 +748,143 @@ export default function Home() {
 
   // SESSION SCREEN
   return (
-    <div style={styles.sessionContainer}>
-      <div style={styles.header}>
-        <div style={styles.headerLeft}>
-          <div style={{...styles.headerIcon, background: getStateColor(voiceState)}}>
-            {getStateEmoji(voiceState)}
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      background: tokens.colors.bg.deep,
+    }}>
+      <div style={{
+        background: isDarkMode ? "rgba(37, 41, 49, 0.9)" : "rgba(255,255,255,0.9)",
+        backdropFilter: "blur(10px)",
+        borderBottom: `1px solid ${tokens.colors.bg.soft}`,
+        padding: "12px 20px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div style={{
+            width: "44px",
+            height: "44px",
+            borderRadius: tokens.radii.md,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 0.3s",
+            background: getStateColor(voiceState),
+          }}>
+            {voiceState === STATE.CONNECTING && <Loader2 size={22} color="white" style={{ animation: "spin 1s linear infinite" }} />}
+            {voiceState === STATE.LISTENING && <Ear size={22} color="white" />}
+            {voiceState === STATE.THINKING && <MessageCircle size={22} color="white" />}
+            {voiceState === STATE.SPEAKING && <Volume2 size={22} color="white" />}
+            {voiceState === STATE.IDLE && <Heart size={22} color="white" />}
           </div>
           <div>
-            <div style={styles.headerTitle}>Solo Session</div>
-            <div style={styles.headerSubtitle}>{formatTime(sessionTime)}</div>
+            <div style={{
+              fontWeight: "600",
+              color: tokens.colors.text.primary,
+              fontSize: "17px",
+            }}>Solo Session</div>
+            <div style={{
+              fontSize: "13px",
+              color: tokens.colors.text.secondary,
+            }}>{formatTime(sessionTime)}</div>
           </div>
         </div>
-        <button onClick={handleEndClick} style={styles.endButton}>Beenden</button>
+        <button onClick={handleEndClick} style={{
+          padding: "8px 16px",
+          background: isDarkMode ? "rgba(248, 113, 113, 0.2)" : "#fee2e2",
+          color: tokens.colors.error,
+          border: "none",
+          borderRadius: tokens.radii.sm,
+          cursor: "pointer",
+          fontWeight: "500",
+        }}>Beenden</button>
       </div>
 
-      <div style={styles.voiceOnlyContainer}>
-        <div style={{...styles.statusRing, ...getStatusRingStyle(voiceState)}}>
-          <div style={styles.statusInner}>
-            {voiceState === STATE.CONNECTING && <div style={styles.spinnerSmall} />}
-            {voiceState === STATE.LISTENING && <div style={styles.listeningPulse} />}
-            {voiceState === STATE.THINKING && <div style={styles.thinkingPulse} />}
-            {voiceState === STATE.SPEAKING && <div style={styles.speakingPulse} />}
-            {voiceState === STATE.IDLE && <span style={styles.micIcon}>🎤</span>}
+      <div style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "40px 20px",
+      }}>
+        <div style={{
+          width: "180px",
+          height: "180px",
+          borderRadius: "50%",
+          border: `6px solid ${tokens.colors.bg.soft}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "all 0.3s",
+          ...getStatusRingStyle(voiceState),
+        }}>
+          <div style={{
+            width: "150px",
+            height: "150px",
+            borderRadius: "50%",
+            background: tokens.colors.bg.elevated,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}>
+            {voiceState === STATE.CONNECTING && (
+              <div style={{
+                width: "40px",
+                height: "40px",
+                border: `4px solid ${tokens.colors.bg.soft}`,
+                borderTopColor: tokens.colors.text.muted,
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }} />
+            )}
+            {voiceState === STATE.LISTENING && (
+              <div style={{
+                width: "80px",
+                height: "80px",
+                borderRadius: "50%",
+                background: `linear-gradient(135deg, ${tokens.colors.success}, #16a34a)`,
+                animation: "pulse 2s ease-in-out infinite",
+              }} />
+            )}
+            {voiceState === STATE.THINKING && (
+              <div style={{
+                width: "80px",
+                height: "80px",
+                borderRadius: "50%",
+                background: `linear-gradient(135deg, ${tokens.colors.warning}, #d97706)`,
+                animation: "breathe 1.5s ease-in-out infinite",
+              }} />
+            )}
+            {voiceState === STATE.SPEAKING && (
+              <div style={{
+                width: "80px",
+                height: "80px",
+                borderRadius: "50%",
+                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                animation: "pulse 1s ease-in-out infinite",
+              }} />
+            )}
+            {voiceState === STATE.IDLE && <Mic size={60} color={tokens.colors.text.muted} />}
           </div>
         </div>
 
-        <p style={styles.statusText}>{getStatusText(voiceState)}</p>
-        
-        <p style={styles.tipText}>
+        <p style={{
+          color: tokens.colors.text.primary,
+          fontSize: "20px",
+          fontWeight: "600",
+          marginTop: "32px",
+        }}>{getStatusText(voiceState)}</p>
+
+        <p style={{
+          color: tokens.colors.text.muted,
+          fontSize: "14px",
+          marginTop: "12px",
+          minHeight: "20px",
+        }}>
           {voiceState === STATE.LISTENING && "Sprich einfach..."}
           {voiceState === STATE.SPEAKING && "Unterbrechen? Einfach sprechen."}
           {voiceState === STATE.THINKING && "Einen Moment..."}
@@ -532,28 +892,78 @@ export default function Home() {
       </div>
 
       {showEndDialog && (
-        <div style={styles.dialogOverlay}>
-          <div style={styles.dialog}>
-            <h3 style={styles.dialogTitle}>Session beenden?</h3>
-            <p style={styles.dialogText}>
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px",
+          zIndex: 1000,
+        }}>
+          <div style={{
+            background: tokens.colors.bg.elevated,
+            borderRadius: tokens.radii.xl,
+            padding: "32px",
+            maxWidth: "400px",
+            width: "100%",
+            textAlign: "center",
+          }}>
+            <h3 style={{
+              fontSize: "20px",
+              fontWeight: "bold",
+              color: tokens.colors.text.primary,
+              marginBottom: "12px",
+              fontFamily: tokens.fonts.display,
+            }}>Session beenden?</h3>
+            <p style={{
+              color: tokens.colors.text.secondary,
+              marginBottom: "24px",
+              lineHeight: "1.5",
+            }}>
               {messageCount > 0
                 ? "Möchtest du eine Analyse dieser Session?"
                 : "Keine Gespräche aufgezeichnet."
               }
             </p>
-            <div style={styles.dialogButtons}>
-              <button 
-                onClick={() => endSession(false)} 
-                style={styles.dialogButtonSecondary}
+            <div style={{
+              display: "flex",
+              gap: "12px",
+              marginBottom: "16px",
+            }}>
+              <button
+                onClick={() => endSession(false)}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  background: tokens.colors.bg.surface,
+                  color: tokens.colors.text.primary,
+                  border: "none",
+                  borderRadius: tokens.radii.md,
+                  fontSize: "15px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                }}
               >
                 Ohne Analyse
               </button>
-              <button 
-                onClick={() => endSession(true)} 
+              <button
+                onClick={() => endSession(true)}
                 style={{
-                  ...styles.dialogButtonPrimary,
+                  flex: 1,
+                  padding: "14px",
+                  background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                  color: "white",
+                  border: "none",
+                  borderRadius: tokens.radii.md,
+                  fontSize: "15px",
+                  fontWeight: "600",
+                  cursor: messageCount > 0 ? "pointer" : "not-allowed",
                   opacity: messageCount > 0 ? 1 : 0.5,
-                  cursor: messageCount > 0 ? "pointer" : "not-allowed"
                 }}
                 disabled={messageCount === 0}
               >
@@ -565,9 +975,9 @@ export default function Home() {
       )}
 
       {showAnalysis && analysisSessionId && (
-        <AnalysisView 
-          sessionId={analysisSessionId} 
-          onClose={handleCloseAnalysis} 
+        <AnalysisView
+          sessionId={analysisSessionId}
+          onClose={handleCloseAnalysis}
         />
       )}
 
@@ -600,16 +1010,7 @@ function getStateColor(state) {
   return colors[state] || colors[STATE.IDLE];
 }
 
-function getStateEmoji(state) {
-  const emojis = {
-    [STATE.CONNECTING]: "⏳",
-    [STATE.LISTENING]: "👂",
-    [STATE.THINKING]: "💭",
-    [STATE.SPEAKING]: "🗣️",
-    [STATE.IDLE]: "💜"
-  };
-  return emojis[state] || "💜";
-}
+// getStateEmoji removed - using inline Lucide icons instead
 
 function getStatusText(state) {
   const texts = {
@@ -633,403 +1034,4 @@ function getStatusRingStyle(state) {
   return ringStyles[state] || ringStyles[STATE.IDLE];
 }
 
-const styles = {
-  loadingContainer: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "16px",
-    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
-  },
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: "4px solid #e5e7eb",
-    borderTopColor: "#8b5cf6",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  spinnerSmall: {
-    width: "40px",
-    height: "40px",
-    border: "4px solid #e5e7eb",
-    borderTopColor: "#6b7280",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  container: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "20px",
-    paddingBottom: "100px",
-    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
-  },
-  startScreen: { 
-    maxWidth: "400px", 
-    textAlign: "center",
-    width: "100%",
-  },
-  userBar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "32px",
-    padding: "8px",
-    background: "white",
-    borderRadius: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-  },
-  profileButton: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: "6px 10px",
-    borderRadius: "8px",
-    fontSize: "15px",
-    color: "#374151",
-  },
-  profileAvatar: {
-    width: "32px",
-    height: "32px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    color: "white",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "14px",
-    fontWeight: "600",
-  },
-  signOutButton: {
-    background: "none",
-    border: "none",
-    color: "#9ca3af",
-    cursor: "pointer",
-    fontSize: "14px",
-    padding: "8px 12px",
-  },
-  logo: {
-    width: "100px",
-    height: "100px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    borderRadius: "28px",
-    margin: "0 auto 24px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "50px",
-    boxShadow: "0 10px 40px rgba(139,92,246,0.3)",
-  },
-  title: { 
-    fontSize: "36px", 
-    fontWeight: "bold", 
-    color: "#1f2937", 
-    marginBottom: "8px" 
-  },
-  subtitle: { 
-    color: "#6b7280", 
-    fontSize: "16px", 
-    marginBottom: "16px" 
-  },
-  description: { 
-    color: "#4b5563", 
-    marginBottom: "32px", 
-    lineHeight: "1.8" 
-  },
-  errorBanner: {
-    background: "#fef2f2",
-    border: "1px solid #fecaca",
-    borderRadius: "12px",
-    padding: "16px",
-    marginBottom: "24px",
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "12px",
-    textAlign: "left",
-  },
-  errorIcon: {
-    fontSize: "20px",
-    flexShrink: 0,
-  },
-  errorText: {
-    color: "#dc2626",
-    fontSize: "14px",
-    margin: 0,
-    lineHeight: "1.5",
-  },
-  startButton: {
-    padding: "18px 40px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    color: "white",
-    fontWeight: "600",
-    fontSize: "18px",
-    border: "none",
-    borderRadius: "16px",
-    cursor: "pointer",
-    boxShadow: "0 4px 20px rgba(139,92,246,0.3)",
-  },
-  hint: { 
-    marginTop: "24px", 
-    fontSize: "13px", 
-    color: "#9ca3af" 
-  },
-  sessionContainer: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
-  },
-  header: {
-    background: "rgba(255,255,255,0.9)",
-    backdropFilter: "blur(10px)",
-    borderBottom: "1px solid #e9d5ff",
-    padding: "12px 20px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  headerLeft: { 
-    display: "flex", 
-    alignItems: "center", 
-    gap: "12px" 
-  },
-  headerIcon: {
-    width: "44px",
-    height: "44px",
-    borderRadius: "12px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "22px",
-    transition: "all 0.3s",
-  },
-  headerTitle: { 
-    fontWeight: "600", 
-    color: "#1f2937", 
-    fontSize: "17px" 
-  },
-  headerSubtitle: { 
-    fontSize: "13px", 
-    color: "#6b7280" 
-  },
-  endButton: {
-    padding: "8px 16px",
-    background: "#fee2e2",
-    color: "#dc2626",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: "500",
-  },
-  voiceOnlyContainer: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "40px 20px",
-  },
-  statusRing: {
-    width: "180px",
-    height: "180px",
-    borderRadius: "50%",
-    border: "6px solid #6b7280",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "all 0.3s",
-  },
-  statusInner: {
-    width: "150px",
-    height: "150px",
-    borderRadius: "50%",
-    background: "rgba(255,255,255,0.9)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  listeningPulse: {
-    width: "80px",
-    height: "80px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #22c55e, #16a34a)",
-    animation: "pulse 2s ease-in-out infinite",
-  },
-  thinkingPulse: {
-    width: "80px",
-    height: "80px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #f59e0b, #d97706)",
-    animation: "breathe 1.5s ease-in-out infinite",
-  },
-  speakingPulse: {
-    width: "80px",
-    height: "80px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    animation: "pulse 1s ease-in-out infinite",
-  },
-  micIcon: {
-    fontSize: "60px",
-  },
-  statusText: { 
-    color: "#374151", 
-    fontSize: "20px", 
-    fontWeight: "600",
-    marginTop: "32px" 
-  },
-  tipText: {
-    color: "#9ca3af",
-    fontSize: "14px",
-    marginTop: "12px",
-    minHeight: "20px",
-  },
-  analysisLoadingContainer: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "40px 20px",
-  },
-  analysisSpinner: {
-    width: "60px",
-    height: "60px",
-    border: "5px solid #e5e7eb",
-    borderTopColor: "#8b5cf6",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-    marginBottom: "24px",
-  },
-  analysisLoadingTitle: {
-    fontSize: "22px",
-    fontWeight: "bold",
-    color: "#1f2937",
-    marginBottom: "12px",
-  },
-  analysisLoadingText: {
-    color: "#6b7280",
-    fontSize: "15px",
-    textAlign: "center",
-    lineHeight: "1.6",
-  },
-  dialogOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(0,0,0,0.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "20px",
-    zIndex: 1000,
-  },
-  dialog: {
-    background: "white",
-    borderRadius: "24px",
-    padding: "32px",
-    maxWidth: "400px",
-    width: "100%",
-    textAlign: "center",
-  },
-  dialogTitle: {
-    fontSize: "20px",
-    fontWeight: "bold",
-    color: "#1f2937",
-    marginBottom: "12px",
-  },
-  dialogText: {
-    color: "#6b7280",
-    marginBottom: "24px",
-    lineHeight: "1.5",
-  },
-  dialogButtons: {
-    display: "flex",
-    gap: "12px",
-    marginBottom: "16px",
-  },
-  dialogButtonSecondary: {
-    flex: 1,
-    padding: "14px",
-    background: "#f3f4f6",
-    color: "#374151",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "15px",
-    fontWeight: "500",
-    cursor: "pointer",
-  },
-  dialogButtonPrimary: {
-    flex: 1,
-    padding: "14px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    color: "white",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "15px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-  bottomNav: {
-    position: "fixed",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    background: "white",
-    borderTop: "1px solid #e5e7eb",
-    display: "flex",
-    justifyContent: "space-around",
-    padding: "12px 0 24px 0",
-  },
-  navItem: {
-    background: "none",
-    border: "none",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "4px",
-    cursor: "pointer",
-    padding: "8px 16px",
-  },
-  navItemActive: {},
-  navIcon: {
-    fontSize: "24px",
-  },
-  navIconWrapper: {
-    position: "relative",
-    display: "inline-block",
-  },
-  navBadge: {
-    position: "absolute",
-    top: "-6px",
-    right: "-10px",
-    background: "#ef4444",
-    color: "white",
-    fontSize: "11px",
-    fontWeight: "bold",
-    minWidth: "18px",
-    height: "18px",
-    borderRadius: "9px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "0 4px",
-  },
-  navLabel: {
-    fontSize: "12px",
-    color: "#9ca3af",
-  },
-  navLabelActive: {
-    color: "#8b5cf6",
-    fontWeight: "600",
-  },
-};
+// All styles now use theme tokens inline

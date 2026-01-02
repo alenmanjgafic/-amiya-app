@@ -5,13 +5,15 @@
 "use client";
 import { useState } from "react";
 import { useAuth } from "../lib/AuthContext";
+import { useTheme } from "../lib/ThemeContext";
 
 export default function CreateAgreement({ onClose, onCreated }) {
   const { user, profile } = useAuth();
+  const { tokens, isDarkMode } = useTheme();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  
+
   const [formData, setFormData] = useState({
     title: "",
     underlyingNeed: "",
@@ -81,57 +83,164 @@ export default function CreateAgreement({ onClose, onCreated }) {
   ];
 
   return (
-    <div style={styles.overlay}>
-      <div style={styles.card}>
+    <div style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: "rgba(0,0,0,0.5)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "20px",
+      zIndex: 1000,
+      overflowY: "auto",
+    }}>
+      <div style={{
+        background: tokens.colors.bg.elevated,
+        borderRadius: tokens.radii.xl,
+        maxWidth: "500px",
+        width: "100%",
+        maxHeight: "90vh",
+        overflowY: "auto",
+        boxShadow: tokens.shadows.large,
+      }}>
         {/* Header */}
-        <div style={styles.header}>
-          <button onClick={onClose} style={styles.closeButton}>← Zurück</button>
-          <span style={styles.stepIndicator}>Schritt {step} von 3</span>
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "16px 20px",
+        }}>
+          <button onClick={onClose} style={{
+            background: "none",
+            border: "none",
+            fontSize: "16px",
+            color: tokens.colors.text.muted,
+            cursor: "pointer",
+            fontFamily: tokens.fonts.body,
+          }}>← Zurück</button>
+          <span style={{
+            fontSize: "13px",
+            color: tokens.colors.text.muted,
+          }}>Schritt {step} von 3</span>
         </div>
 
         {/* Progress */}
-        <div style={styles.progressBar}>
-          <div style={{...styles.progressFill, width: `${(step / 3) * 100}%`}} />
+        <div style={{
+          height: "4px",
+          background: tokens.colors.bg.soft,
+        }}>
+          <div style={{
+            height: "100%",
+            background: `linear-gradient(90deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+            width: `${(step / 3) * 100}%`,
+            transition: "width 0.3s ease",
+          }} />
         </div>
 
-        <div style={styles.content}>
+        <div style={{ padding: "24px 20px 32px" }}>
           {/* Step 1: What */}
           {step === 1 && (
             <>
-              <h2 style={styles.title}>Was vereinbart ihr?</h2>
-              <p style={styles.subtitle}>
+              <h2 style={{
+                fontSize: "22px",
+                fontWeight: "bold",
+                color: tokens.colors.text.primary,
+                margin: "0 0 8px 0",
+                fontFamily: tokens.fonts.display,
+              }}>Was vereinbart ihr?</h2>
+              <p style={{
+                color: tokens.colors.text.muted,
+                fontSize: "15px",
+                margin: "0 0 24px 0",
+              }}>
                 Beschreibe die Vereinbarung konkret und positiv.
               </p>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Vereinbarung</label>
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{
+                  display: "block",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: tokens.colors.text.primary,
+                  marginBottom: "8px",
+                }}>Vereinbarung</label>
                 <textarea
                   value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
-                  style={styles.textarea}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  style={{
+                    width: "100%",
+                    padding: "14px",
+                    borderRadius: tokens.radii.md,
+                    border: `2px solid ${tokens.colors.bg.soft}`,
+                    fontSize: "16px",
+                    minHeight: "100px",
+                    resize: "vertical",
+                    outline: "none",
+                    transition: "border-color 0.2s",
+                    background: tokens.colors.bg.surface,
+                    color: tokens.colors.text.primary,
+                    fontFamily: tokens.fonts.body,
+                    boxSizing: "border-box",
+                  }}
                   placeholder="z.B. Ich rufe an wenn ich mehr als 30 Minuten später komme"
                   autoFocus
                 />
               </div>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Warum ist das wichtig? (optional)</label>
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{
+                  display: "block",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: tokens.colors.text.primary,
+                  marginBottom: "8px",
+                }}>Warum ist das wichtig? (optional)</label>
                 <textarea
                   value={formData.underlyingNeed}
-                  onChange={(e) => setFormData({...formData, underlyingNeed: e.target.value})}
-                  style={{...styles.textarea, minHeight: "80px"}}
+                  onChange={(e) => setFormData({ ...formData, underlyingNeed: e.target.value })}
+                  style={{
+                    width: "100%",
+                    padding: "14px",
+                    borderRadius: tokens.radii.md,
+                    border: `2px solid ${tokens.colors.bg.soft}`,
+                    fontSize: "16px",
+                    minHeight: "80px",
+                    resize: "vertical",
+                    outline: "none",
+                    transition: "border-color 0.2s",
+                    background: tokens.colors.bg.surface,
+                    color: tokens.colors.text.primary,
+                    fontFamily: tokens.fonts.body,
+                    boxSizing: "border-box",
+                  }}
                   placeholder="z.B. Damit du dich sicher fühlst und dir keine Sorgen machst"
                 />
-                <p style={styles.hint}>
-                  💡 Das Bedürfnis dahinter hilft, die Vereinbarung bedeutsam zu machen
+                <p style={{
+                  fontSize: "13px",
+                  color: tokens.colors.text.muted,
+                  marginTop: "8px",
+                }}>
+                  Das Bedürfnis dahinter hilft, die Vereinbarung bedeutsam zu machen
                 </p>
               </div>
 
               <button
                 onClick={() => formData.title.trim() && setStep(2)}
                 style={{
-                  ...styles.nextButton,
-                  opacity: formData.title.trim() ? 1 : 0.5
+                  width: "100%",
+                  padding: "16px",
+                  background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                  color: "white",
+                  border: "none",
+                  borderRadius: tokens.radii.md,
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  fontFamily: tokens.fonts.body,
+                  opacity: formData.title.trim() ? 1 : 0.5,
                 }}
                 disabled={!formData.title.trim()}
               >
@@ -143,54 +252,139 @@ export default function CreateAgreement({ onClose, onCreated }) {
           {/* Step 2: Type & Who */}
           {step === 2 && (
             <>
-              <h2 style={styles.title}>Um was geht es?</h2>
-              
-              <div style={styles.optionsGrid}>
+              <h2 style={{
+                fontSize: "22px",
+                fontWeight: "bold",
+                color: tokens.colors.text.primary,
+                margin: "0 0 16px 0",
+                fontFamily: tokens.fonts.display,
+              }}>Um was geht es?</h2>
+
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "12px",
+                marginBottom: "16px",
+              }}>
                 {typeOptions.map(option => (
                   <button
                     key={option.value}
-                    onClick={() => setFormData({...formData, type: option.value})}
+                    onClick={() => setFormData({ ...formData, type: option.value })}
                     style={{
-                      ...styles.optionCard,
-                      ...(formData.type === option.value ? styles.optionCardSelected : {})
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      padding: "16px",
+                      background: formData.type === option.value
+                        ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
+                        : tokens.colors.bg.surface,
+                      border: `2px solid ${formData.type === option.value ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
+                      borderRadius: tokens.radii.md,
+                      cursor: "pointer",
+                      textAlign: "center",
                     }}
                   >
-                    <span style={styles.optionEmoji}>{option.emoji}</span>
-                    <span style={styles.optionLabel}>{option.label}</span>
-                    <span style={styles.optionDesc}>{option.desc}</span>
+                    <span style={{ fontSize: "24px" }}>{option.emoji}</span>
+                    <span style={{
+                      display: "block",
+                      fontWeight: "600",
+                      color: tokens.colors.text.primary,
+                      fontSize: "15px",
+                      marginTop: "8px",
+                    }}>{option.label}</span>
+                    <span style={{
+                      fontSize: "12px",
+                      color: tokens.colors.text.muted,
+                      marginTop: "4px",
+                    }}>{option.desc}</span>
                   </button>
                 ))}
               </div>
 
-              <h3 style={styles.sectionTitle}>Wer ist verantwortlich?</h3>
-              
-              <div style={styles.optionsList}>
+              <h3 style={{
+                fontSize: "16px",
+                fontWeight: "600",
+                color: tokens.colors.text.primary,
+                margin: "24px 0 12px 0",
+              }}>Wer ist verantwortlich?</h3>
+
+              <div style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+              }}>
                 {responsibleOptions.map(option => (
                   <button
                     key={option.value}
-                    onClick={() => setFormData({...formData, responsible: option.value})}
+                    onClick={() => setFormData({ ...formData, responsible: option.value })}
                     style={{
-                      ...styles.optionRow,
-                      ...(formData.responsible === option.value ? styles.optionRowSelected : {})
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      padding: "14px",
+                      background: formData.responsible === option.value
+                        ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
+                        : tokens.colors.bg.surface,
+                      border: `2px solid ${formData.responsible === option.value ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
+                      borderRadius: tokens.radii.md,
+                      cursor: "pointer",
+                      textAlign: "left",
                     }}
                   >
-                    <span style={styles.optionEmoji}>{option.emoji}</span>
-                    <div style={styles.optionContent}>
-                      <span style={styles.optionLabel}>{option.label}</span>
-                      <span style={styles.optionDesc}>{option.desc}</span>
+                    <span style={{ fontSize: "24px" }}>{option.emoji}</span>
+                    <div style={{ flex: 1 }}>
+                      <span style={{
+                        display: "block",
+                        fontWeight: "600",
+                        color: tokens.colors.text.primary,
+                        fontSize: "15px",
+                      }}>{option.label}</span>
+                      <span style={{
+                        fontSize: "12px",
+                        color: tokens.colors.text.muted,
+                      }}>{option.desc}</span>
                     </div>
                     {formData.responsible === option.value && (
-                      <span style={styles.checkMark}>✓</span>
+                      <span style={{
+                        color: tokens.colors.aurora.lavender,
+                        fontWeight: "bold",
+                        fontSize: "18px",
+                      }}>✓</span>
                     )}
                   </button>
                 ))}
               </div>
 
-              <div style={styles.navButtons}>
-                <button onClick={() => setStep(1)} style={styles.backBtn}>
+              <div style={{
+                display: "flex",
+                gap: "12px",
+                marginTop: "24px",
+              }}>
+                <button onClick={() => setStep(1)} style={{
+                  flex: 1,
+                  padding: "16px",
+                  background: tokens.colors.bg.surface,
+                  color: tokens.colors.text.primary,
+                  border: "none",
+                  borderRadius: tokens.radii.md,
+                  fontSize: "16px",
+                  cursor: "pointer",
+                  fontFamily: tokens.fonts.body,
+                }}>
                   Zurück
                 </button>
-                <button onClick={() => setStep(3)} style={styles.nextButton}>
+                <button onClick={() => setStep(3)} style={{
+                  flex: 2,
+                  padding: "16px",
+                  background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                  color: "white",
+                  border: "none",
+                  borderRadius: tokens.radii.md,
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  fontFamily: tokens.fonts.body,
+                }}>
                   Weiter
                 </button>
               </div>
@@ -200,12 +394,27 @@ export default function CreateAgreement({ onClose, onCreated }) {
           {/* Step 3: Check-in */}
           {step === 3 && (
             <>
-              <h2 style={styles.title}>Wann wollt ihr darüber sprechen?</h2>
-              <p style={styles.subtitle}>
+              <h2 style={{
+                fontSize: "22px",
+                fontWeight: "bold",
+                color: tokens.colors.text.primary,
+                margin: "0 0 8px 0",
+                fontFamily: tokens.fonts.display,
+              }}>Wann wollt ihr darüber sprechen?</h2>
+              <p style={{
+                color: tokens.colors.text.muted,
+                fontSize: "15px",
+                margin: "0 0 24px 0",
+              }}>
                 Regelmässige Check-ins helfen, dranzubleiben.
               </p>
 
-              <div style={styles.checkInOptions}>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "12px",
+                marginBottom: "24px",
+              }}>
                 {[
                   { value: 7, label: "1 Woche" },
                   { value: 14, label: "2 Wochen" },
@@ -214,10 +423,19 @@ export default function CreateAgreement({ onClose, onCreated }) {
                 ].map(option => (
                   <button
                     key={option.value}
-                    onClick={() => setFormData({...formData, checkInDays: option.value})}
+                    onClick={() => setFormData({ ...formData, checkInDays: option.value })}
                     style={{
-                      ...styles.checkInOption,
-                      ...(formData.checkInDays === option.value ? styles.checkInOptionSelected : {})
+                      padding: "16px",
+                      background: formData.checkInDays === option.value
+                        ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
+                        : tokens.colors.bg.surface,
+                      border: `2px solid ${formData.checkInDays === option.value ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
+                      borderRadius: tokens.radii.md,
+                      cursor: "pointer",
+                      fontSize: "15px",
+                      fontWeight: "500",
+                      color: formData.checkInDays === option.value ? tokens.colors.aurora.lavender : tokens.colors.text.primary,
+                      fontFamily: tokens.fonts.body,
                     }}
                   >
                     {option.label}
@@ -226,36 +444,100 @@ export default function CreateAgreement({ onClose, onCreated }) {
               </div>
 
               {/* Summary */}
-              <div style={styles.summary}>
-                <h4 style={styles.summaryTitle}>Zusammenfassung</h4>
-                <p style={styles.summaryItem}>
+              <div style={{
+                background: tokens.colors.bg.surface,
+                borderRadius: tokens.radii.md,
+                padding: "16px",
+                marginBottom: "24px",
+              }}>
+                <h4 style={{
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  color: tokens.colors.text.muted,
+                  margin: "0 0 12px 0",
+                }}>Zusammenfassung</h4>
+                <p style={{
+                  fontSize: "14px",
+                  color: tokens.colors.text.primary,
+                  margin: "0 0 8px 0",
+                  lineHeight: "1.5",
+                }}>
                   <strong>Vereinbarung:</strong> {formData.title}
                 </p>
                 {formData.underlyingNeed && (
-                  <p style={styles.summaryItem}>
+                  <p style={{
+                    fontSize: "14px",
+                    color: tokens.colors.text.primary,
+                    margin: "0 0 8px 0",
+                    lineHeight: "1.5",
+                  }}>
                     <strong>Dahinter:</strong> {formData.underlyingNeed}
                   </p>
                 )}
-                <p style={styles.summaryItem}>
+                <p style={{
+                  fontSize: "14px",
+                  color: tokens.colors.text.primary,
+                  margin: "0 0 8px 0",
+                  lineHeight: "1.5",
+                }}>
                   <strong>Verantwortlich:</strong>{" "}
                   {formData.responsible === "both" ? "Beide" :
-                   formData.responsible === "me" ? profile?.name :
-                   profile?.partner_name}
+                    formData.responsible === "me" ? profile?.name :
+                      profile?.partner_name}
                 </p>
-                <p style={styles.summaryItem}>
+                <p style={{
+                  fontSize: "14px",
+                  color: tokens.colors.text.primary,
+                  margin: 0,
+                  lineHeight: "1.5",
+                }}>
                   <strong>Check-in:</strong> In {formData.checkInDays} Tagen
                 </p>
               </div>
 
-              {error && <p style={styles.error}>{error}</p>}
+              {error && (
+                <p style={{
+                  color: tokens.colors.error,
+                  fontSize: "14px",
+                  background: isDarkMode ? "rgba(248, 113, 113, 0.15)" : "#fef2f2",
+                  padding: "12px",
+                  borderRadius: tokens.radii.sm,
+                  marginBottom: "16px",
+                }}>{error}</p>
+              )}
 
-              <div style={styles.navButtons}>
-                <button onClick={() => setStep(2)} style={styles.backBtn}>
+              <div style={{
+                display: "flex",
+                gap: "12px",
+              }}>
+                <button onClick={() => setStep(2)} style={{
+                  flex: 1,
+                  padding: "16px",
+                  background: tokens.colors.bg.surface,
+                  color: tokens.colors.text.primary,
+                  border: "none",
+                  borderRadius: tokens.radii.md,
+                  fontSize: "16px",
+                  cursor: "pointer",
+                  fontFamily: tokens.fonts.body,
+                }}>
                   Zurück
                 </button>
-                <button 
-                  onClick={handleSubmit} 
-                  style={styles.submitButton}
+                <button
+                  onClick={handleSubmit}
+                  style={{
+                    flex: 2,
+                    padding: "16px",
+                    background: `linear-gradient(135deg, ${tokens.colors.success}, #059669)`,
+                    color: "white",
+                    border: "none",
+                    borderRadius: tokens.radii.md,
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    fontFamily: tokens.fonts.body,
+                    opacity: saving ? 0.7 : 1,
+                  }}
                   disabled={saving}
                 >
                   {saving ? "Speichern..." : "Vereinbarung erstellen"}
@@ -263,7 +545,12 @@ export default function CreateAgreement({ onClose, onCreated }) {
               </div>
 
               {formData.responsible !== "me" && (
-                <p style={styles.approvalNote}>
+                <p style={{
+                  fontSize: "13px",
+                  color: tokens.colors.text.muted,
+                  textAlign: "center",
+                  marginTop: "16px",
+                }}>
                   ℹ️ {formData.responsible === "both" ? "Ihr müsst beide" : profile?.partner_name + " muss"} zustimmen,
                   damit die Vereinbarung aktiv wird.
                 </p>
@@ -275,251 +562,3 @@ export default function CreateAgreement({ onClose, onCreated }) {
     </div>
   );
 }
-
-const styles = {
-  overlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(0,0,0,0.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "20px",
-    zIndex: 1000,
-    overflowY: "auto",
-  },
-  card: {
-    background: "white",
-    borderRadius: "24px",
-    maxWidth: "500px",
-    width: "100%",
-    maxHeight: "90vh",
-    overflowY: "auto",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "16px 20px",
-  },
-  closeButton: {
-    background: "none",
-    border: "none",
-    fontSize: "16px",
-    color: "#6b7280",
-    cursor: "pointer",
-  },
-  stepIndicator: {
-    fontSize: "13px",
-    color: "#9ca3af",
-  },
-  progressBar: {
-    height: "4px",
-    background: "#e5e7eb",
-  },
-  progressFill: {
-    height: "100%",
-    background: "linear-gradient(90deg, #8b5cf6, #a855f7)",
-    transition: "width 0.3s ease",
-  },
-  content: {
-    padding: "24px 20px 32px",
-  },
-  title: {
-    fontSize: "22px",
-    fontWeight: "bold",
-    color: "#1f2937",
-    margin: "0 0 8px 0",
-  },
-  subtitle: {
-    color: "#6b7280",
-    fontSize: "15px",
-    margin: "0 0 24px 0",
-  },
-  sectionTitle: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#1f2937",
-    margin: "24px 0 12px 0",
-  },
-  formGroup: {
-    marginBottom: "20px",
-  },
-  label: {
-    display: "block",
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#374151",
-    marginBottom: "8px",
-  },
-  textarea: {
-    width: "100%",
-    padding: "14px",
-    borderRadius: "12px",
-    border: "2px solid #e5e7eb",
-    fontSize: "16px",
-    minHeight: "100px",
-    resize: "vertical",
-    outline: "none",
-    transition: "border-color 0.2s",
-  },
-  hint: {
-    fontSize: "13px",
-    color: "#9ca3af",
-    marginTop: "8px",
-  },
-  optionsGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "12px",
-    marginBottom: "16px",
-  },
-  optionCard: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    padding: "16px",
-    background: "#f9fafb",
-    border: "2px solid #e5e7eb",
-    borderRadius: "12px",
-    cursor: "pointer",
-    textAlign: "center",
-  },
-  optionCardSelected: {
-    borderColor: "#8b5cf6",
-    background: "#f5f3ff",
-  },
-  optionsList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-  },
-  optionRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    padding: "14px",
-    background: "#f9fafb",
-    border: "2px solid #e5e7eb",
-    borderRadius: "12px",
-    cursor: "pointer",
-    textAlign: "left",
-  },
-  optionRowSelected: {
-    borderColor: "#8b5cf6",
-    background: "#f5f3ff",
-  },
-  optionContent: {
-    flex: 1,
-  },
-  optionEmoji: {
-    fontSize: "24px",
-  },
-  optionLabel: {
-    display: "block",
-    fontWeight: "600",
-    color: "#1f2937",
-    fontSize: "15px",
-  },
-  optionDesc: {
-    fontSize: "12px",
-    color: "#6b7280",
-  },
-  checkMark: {
-    color: "#8b5cf6",
-    fontWeight: "bold",
-    fontSize: "18px",
-  },
-  checkInOptions: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "12px",
-    marginBottom: "24px",
-  },
-  checkInOption: {
-    padding: "16px",
-    background: "#f9fafb",
-    border: "2px solid #e5e7eb",
-    borderRadius: "12px",
-    cursor: "pointer",
-    fontSize: "15px",
-    fontWeight: "500",
-    color: "#374151",
-  },
-  checkInOptionSelected: {
-    borderColor: "#8b5cf6",
-    background: "#f5f3ff",
-    color: "#7c3aed",
-  },
-  summary: {
-    background: "#f9fafb",
-    borderRadius: "12px",
-    padding: "16px",
-    marginBottom: "24px",
-  },
-  summaryTitle: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#6b7280",
-    margin: "0 0 12px 0",
-  },
-  summaryItem: {
-    fontSize: "14px",
-    color: "#374151",
-    margin: "0 0 8px 0",
-    lineHeight: "1.5",
-  },
-  error: {
-    color: "#dc2626",
-    fontSize: "14px",
-    background: "#fef2f2",
-    padding: "12px",
-    borderRadius: "8px",
-    marginBottom: "16px",
-  },
-  navButtons: {
-    display: "flex",
-    gap: "12px",
-  },
-  backBtn: {
-    flex: 1,
-    padding: "16px",
-    background: "#f3f4f6",
-    color: "#374151",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "16px",
-    cursor: "pointer",
-  },
-  nextButton: {
-    flex: 2,
-    padding: "16px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    color: "white",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "16px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-  submitButton: {
-    flex: 2,
-    padding: "16px",
-    background: "linear-gradient(135deg, #10b981, #059669)",
-    color: "white",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "16px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-  approvalNote: {
-    fontSize: "13px",
-    color: "#6b7280",
-    textAlign: "center",
-    marginTop: "16px",
-  },
-};
