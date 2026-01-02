@@ -8,28 +8,28 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const CHECK_PROMPT = `Du bist ein Qualitätsprüfer für Therapie-Session-Transkripte. 
+const CHECK_PROMPT = `Du bist ein STRENGER Qualitätsprüfer für Therapie-Session-Transkripte.
 
-Analysiere das folgende Gespräch und entscheide, ob genügend substanzieller Inhalt vorhanden ist, um eine sinnvolle therapeutische Analyse zu erstellen.
+Analysiere das folgende Gespräch und entscheide, ob WIRKLICH genügend substanzieller Inhalt vorhanden ist.
 
-KRITERIEN FÜR EINE VIABLE ANALYSE:
-- Mindestens ein konkretes Thema, Problem oder Gefühl wurde besprochen
-- Der User hat etwas Persönliches oder Relevantes über sich oder die Beziehung geteilt
-- Es gibt genug Kontext um Muster, Dynamiken oder Empfehlungen abzuleiten
+SEI STRENG! Eine Analyse ist NUR sinnvoll wenn:
+- Der User mindestens 2-3 konkrete Sätze über ein Thema gesprochen hat
+- Ein echtes Problem, Gefühl oder Anliegen genannt wurde
+- Genug Details für konkrete Empfehlungen vorhanden sind
 
-NICHT VIABLE wenn:
-- Nur Begrüssungen oder Small Talk
-- Unverständliche oder zusammenhangslose Aussagen
-- Nur sehr kurze Ja/Nein Antworten ohne Kontext
-- Technische Probleme dominierten das Gespräch
-- Kein erkennbares Thema oder Anliegen
+NICHT VIABLE (viable: false) wenn:
+- Nur Begrüssungen, "Hallo", "Hi", "Ja", "Nein" etc.
+- Nur 1-2 kurze Sätze vom User
+- Kein konkretes Thema erkennbar
+- User hat fast nichts gesagt oder nur kurze Antworten
+- Gespräch war offensichtlich nur ein Test oder Ausprobieren
+- Amiya hat mehr geredet als der User (User war passiv)
 
-Antworte NUR mit einem JSON-Objekt in diesem Format:
+WICHTIG: Im Zweifel sage viable: false!
+Es ist besser KEINE Analyse zu machen als eine über nichts.
+
+Antworte NUR mit JSON:
 {"viable": true/false, "reason": "empty|too_short|no_context|unclear|null"}
-
-- viable: true wenn genug Inhalt für eine gute Analyse da ist
-- viable: false wenn nicht genug Inhalt
-- reason: nur bei viable=false angeben, sonst null
 
 Gespräch:
 `;
@@ -42,8 +42,22 @@ export async function POST(request) {
       return Response.json({ viable: false, reason: "empty" });
     }
 
-    // Sehr kurze Transkripte direkt ablehnen (unter 50 Zeichen)
-    if (transcript.length < 50) {
+    // Sehr kurze Transkripte direkt ablehnen (unter 200 Zeichen = ca. 2-3 kurze Sätze)
+    if (transcript.length < 200) {
+      return Response.json({ viable: false, reason: "too_short" });
+    }
+
+    // Prüfe ob User überhaupt etwas Substanzielles gesagt hat
+    const userMessages = transcript.split('\n').filter(line => line.startsWith('User:'));
+
+    // Mindestens 2 User-Nachrichten (mehr als nur "Hallo")
+    if (userMessages.length < 2) {
+      return Response.json({ viable: false, reason: "too_short" });
+    }
+
+    const userContent = userMessages.map(m => m.replace('User:', '').trim()).join(' ');
+    // User muss mindestens 50 Zeichen gesagt haben
+    if (userContent.length < 50) {
       return Response.json({ viable: false, reason: "too_short" });
     }
 
