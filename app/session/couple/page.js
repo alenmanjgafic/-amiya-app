@@ -261,6 +261,14 @@ export default function CoupleSessionPage() {
           const viability = await checkAnalysisViability();
           
           if (!viability.viable) {
+            // Session löschen wenn nicht genug Inhalt
+            try {
+              await sessionsService.delete(sessionIdToAnalyze);
+              console.log("Couple session deleted - not enough content");
+            } catch (deleteError) {
+              console.error("Failed to delete couple session:", deleteError);
+            }
+
             setIsGeneratingAnalysis(false);
             const errorMessages = {
               "empty": "Keine Analyse möglich – es wurden keine Gespräche aufgezeichnet.",

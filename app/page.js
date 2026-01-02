@@ -311,6 +311,14 @@ export default function Home() {
           const viability = await checkAnalysisViability();
           
           if (!viability.viable) {
+            // Session löschen wenn nicht genug Inhalt
+            try {
+              await sessionsService.delete(sessionIdToAnalyze);
+              console.log("Session deleted - not enough content");
+            } catch (deleteError) {
+              console.error("Failed to delete session:", deleteError);
+            }
+
             setIsGeneratingAnalysis(false);
             const errorMessages = {
               "empty": "Keine Analyse möglich – es wurden keine Gespräche aufgezeichnet.",
