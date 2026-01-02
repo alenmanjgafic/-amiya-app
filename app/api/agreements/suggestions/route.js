@@ -222,9 +222,9 @@ export async function PATCH(request) {
       // Update suggestion status with link to created agreement
       await supabase
         .from("agreement_suggestions")
-        .update({ 
+        .update({
           status: "accepted",
-          created_agreement_id: agreement.id
+          accepted_as_agreement_id: agreement.id
         })
         .eq("id", suggestionId);
 
