@@ -231,46 +231,25 @@ export default function Home() {
     }
   }, [user, profile]);
 
-  const handleEndClick = useCallback(async () => {
-    if (conversationRef.current) {
-      try {
-        await conversationRef.current.endSession();
-      } catch (e) {
-        console.log("Session already ended");
-      }
-      conversationRef.current = null;
-    }
-    setVoiceState(STATE.IDLE);
-
-    // Check if auto_analyze is enabled
-    if (profile?.auto_analyze !== false) {
-      // Auto-analyze: skip dialog and directly analyze
-      endSession(true);
-    } else {
-      // Manual mode: show dialog
-      setShowEndDialog(true);
-    }
-  }, [profile?.auto_analyze, endSession]);
-
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
     if (messages.length === 0) return { viable: false, reason: "empty" };
-    
+
     const transcript = messages
       .map(m => `${m.role === "user" ? "User" : "Amiya"}: ${m.content}`)
       .join("\n");
-    
+
     try {
       const response = await fetch("/api/check-analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ transcript }),
       });
-      
+
       if (!response.ok) {
         return { viable: true, reason: null };
       }
-      
+
       const data = await response.json();
       return { viable: data.viable, reason: data.reason };
     } catch (error) {
@@ -287,7 +266,7 @@ export default function Home() {
     setSessionTime(0);
     setCurrentSessionId(null);
     setIsGeneratingAnalysis(false);
-    
+
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
@@ -382,6 +361,27 @@ export default function Home() {
       resetSession();
     }
   }, [currentSessionId, profile, checkAnalysisViability, resetSession, user]);
+
+  const handleEndClick = useCallback(async () => {
+    if (conversationRef.current) {
+      try {
+        await conversationRef.current.endSession();
+      } catch (e) {
+        console.log("Session already ended");
+      }
+      conversationRef.current = null;
+    }
+    setVoiceState(STATE.IDLE);
+
+    // Check if auto_analyze is enabled
+    if (profile?.auto_analyze !== false) {
+      // Auto-analyze: skip dialog and directly analyze
+      endSession(true);
+    } else {
+      // Manual mode: show dialog
+      setShowEndDialog(true);
+    }
+  }, [profile?.auto_analyze, endSession]);
 
   const handleCloseAnalysis = () => {
     setShowAnalysis(false);
