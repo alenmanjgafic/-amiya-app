@@ -237,6 +237,42 @@ export default function AnalysisView({ sessionId, onClose }) {
   };
   const responsibleLabels = getResponsibleLabels();
 
+  // Determine if current user can accept the agreement
+  const canUserAccept = () => {
+    if (!suggestion || !user || !coupleData) return false;
+
+    const responsible = suggestion.responsible || editedAgreement.responsible;
+    const isUserA = coupleData.user_a_id === user.id;
+
+    // "both" - everyone can accept (needs mutual approval)
+    if (responsible === "both") return true;
+
+    // user_a responsible - only user_a can accept
+    if (responsible === "user_a" && isUserA) return true;
+
+    // user_b responsible - only user_b can accept
+    if (responsible === "user_b" && !isUserA) return true;
+
+    return false;
+  };
+
+  // Get the name of the person who needs to accept
+  const getResponsiblePersonName = () => {
+    if (!suggestion || !coupleData || !user) return "Partner";
+
+    const responsible = suggestion.responsible || editedAgreement.responsible;
+    const isUserA = coupleData.user_a_id === user.id;
+
+    if (responsible === "both") return null; // Both can accept
+    if (responsible === "user_a") {
+      return isUserA ? null : (profile?.partner_name || "Partner");
+    }
+    if (responsible === "user_b") {
+      return isUserA ? (profile?.partner_name || "Partner") : null;
+    }
+    return null;
+  };
+
   // Simple markdown-like rendering
   const renderAnalysis = (text) => {
     if (!text) return null;
@@ -320,7 +356,7 @@ export default function AnalysisView({ sessionId, onClose }) {
               <span style={styles.suggestionIcon}>💡</span>
               <h4 style={styles.suggestionTitle}>Mögliche Vereinbarung erkannt</h4>
             </div>
-            
+
             {!showAgreementEditor ? (
               <>
                 <p style={styles.suggestionText}>"{suggestion.title}"</p>
@@ -329,28 +365,51 @@ export default function AnalysisView({ sessionId, onClose }) {
                     Dahinter: {suggestion.underlying_need}
                   </p>
                 )}
-                
-                <div style={styles.suggestionActions}>
-                  <button 
-                    onClick={() => setShowAgreementEditor(true)}
-                    style={styles.editButton}
-                  >
-                    Anpassen & Speichern
-                  </button>
-                  <button 
-                    onClick={handleSaveAgreement}
-                    style={styles.saveButton}
-                    disabled={savingAgreement}
-                  >
-                    {savingAgreement ? "..." : "So übernehmen"}
-                  </button>
-                  <button 
-                    onClick={handleDismissSuggestion}
-                    style={styles.dismissButton}
-                  >
-                    Nicht relevant
-                  </button>
-                </div>
+
+                {/* Show who is responsible */}
+                {suggestion.responsible && suggestion.responsible !== "both" && (
+                  <p style={styles.responsibleInfo}>
+                    Verantwortlich: <strong>{responsibleLabels[suggestion.responsible]}</strong>
+                  </p>
+                )}
+
+                {canUserAccept() ? (
+                  // User can accept - show action buttons
+                  <div style={styles.suggestionActions}>
+                    <button
+                      onClick={() => setShowAgreementEditor(true)}
+                      style={styles.editButton}
+                    >
+                      Anpassen & Speichern
+                    </button>
+                    <button
+                      onClick={handleSaveAgreement}
+                      style={styles.saveButton}
+                      disabled={savingAgreement}
+                    >
+                      {savingAgreement ? "..." : "So übernehmen"}
+                    </button>
+                    <button
+                      onClick={handleDismissSuggestion}
+                      style={styles.dismissButton}
+                    >
+                      Nicht relevant
+                    </button>
+                  </div>
+                ) : (
+                  // User cannot accept - show waiting message
+                  <div style={styles.waitingBox}>
+                    <p style={styles.waitingText}>
+                      ⏳ Warte auf {getResponsiblePersonName()}s Bestätigung
+                    </p>
+                    <button
+                      onClick={handleDismissSuggestion}
+                      style={styles.dismissButtonSmall}
+                    >
+                      Das stimmt nicht - ablehnen
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <div style={styles.editorForm}>
@@ -616,6 +675,36 @@ const styles = {
     color: "#a16207",
     border: "none",
     fontSize: "14px",
+    cursor: "pointer",
+  },
+  responsibleInfo: {
+    fontSize: "13px",
+    color: "#92400e",
+    margin: "0 0 12px 0",
+    padding: "8px 12px",
+    background: "rgba(255,255,255,0.5)",
+    borderRadius: "8px",
+    display: "inline-block",
+  },
+  waitingBox: {
+    background: "rgba(255,255,255,0.6)",
+    borderRadius: "12px",
+    padding: "16px",
+    textAlign: "center",
+  },
+  waitingText: {
+    fontSize: "15px",
+    color: "#92400e",
+    margin: "0 0 12px 0",
+    fontWeight: "500",
+  },
+  dismissButtonSmall: {
+    padding: "8px 16px",
+    background: "transparent",
+    color: "#a16207",
+    border: "1px solid #fbbf24",
+    borderRadius: "8px",
+    fontSize: "13px",
     cursor: "pointer",
   },
   
