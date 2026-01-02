@@ -187,7 +187,7 @@ export default function WirPage() {
                   </p>
                 )}
                 <button
-                  onClick={() => router.push(`/history?sessionId=${suggestion.session_id}`)}
+                  onClick={() => router.push(`/history?session=${suggestion.session_id}`)}
                   style={styles.suggestionButton}
                 >
                   Ansehen & Bestätigen
