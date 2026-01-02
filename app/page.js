@@ -11,7 +11,7 @@ import { useTheme } from "../lib/ThemeContext";
 import { sessionsService } from "../lib/sessions";
 import AnalysisView from "../components/AnalysisView";
 import {
-  Home,
+  Home as HomeIcon,
   Heart,
   ClipboardList,
   User,
@@ -614,7 +614,7 @@ export default function Home() {
             cursor: "pointer",
             padding: "8px 16px",
           }}>
-            <Home size={24} color={tokens.colors.aurora.lavender} />
+            <HomeIcon size={24} color={tokens.colors.aurora.lavender} />
             <span style={{
               fontSize: "12px",
               color: tokens.colors.aurora.lavender,

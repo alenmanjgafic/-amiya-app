@@ -12,7 +12,7 @@ import AgreementDetail from "../../components/AgreementDetail";
 import CreateAgreement from "../../components/CreateAgreement";
 import DisconnectDialog from "../../components/DisconnectDialog";
 import {
-  Home,
+  Home as HomeIcon,
   Heart,
   ClipboardList,
   User,
@@ -526,7 +526,7 @@ export default function WirPage() {
           cursor: "pointer",
           padding: "8px 16px",
         }}>
-          <Home size={24} color={tokens.colors.text.muted} />
+          <HomeIcon size={24} color={tokens.colors.text.muted} />
           <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Home</span>
         </button>
         <button style={{

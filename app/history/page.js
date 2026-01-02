@@ -10,7 +10,7 @@ import { useTheme } from "../../lib/ThemeContext";
 import { supabase } from "../../lib/supabase";
 import AnalysisView from "../../components/AnalysisView";
 import {
-  Home,
+  Home as HomeIcon,
   Heart,
   ClipboardList,
   User,
@@ -364,7 +364,7 @@ export default function HistoryPage() {
           cursor: "pointer",
           padding: "8px 16px",
         }}>
-          <Home size={24} color={tokens.colors.text.muted} />
+          <HomeIcon size={24} color={tokens.colors.text.muted} />
           <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Home</span>
         </button>
         <button onClick={() => router.push("/wir")} style={{
