@@ -29,7 +29,7 @@ STIL:
 - Deutsch
 - Sprich beide Partner an (ihr-Form)
 
-STRUKTUR (EXAKT EINHALTEN):
+STRUKTUR (EXAKT EINHALTEN - ALLE ABSCHNITTE SIND PFLICHT):
 
 **Zusammenfassung**
 (2-3 Sätze: Worum ging es in dieser Session?)
@@ -67,28 +67,16 @@ STRUKTUR (EXAKT EINHALTEN):
 **Nächste Schritte**
 (Was sollte als nächstes passieren? Worauf achten?)
 
-=== AGREEMENT DETECTION (WICHTIG!) ===
+**Vereinbarung**
+Prüfe ob im Gespräch konkrete Zusagen gemacht wurden ("Ich werde...", "Ich mache ab jetzt...", "Das übernehme ich", "Ich hole die Kinder ab").
 
-SUCHE im Gespräch nach konkreten Zusagen/Versprechen:
-- "Ich werde...", "Ich mache ab jetzt...", "Das übernehme ich"
-- "Ich hole die Kinder ab", "Ich koche..."
-- "Okay, das mache ich so", "Einverstanden, ich übernehme das"
-- Wenn jemand "Ja" sagt auf die Frage ob etwas festgehalten werden soll
-
-WENN mindestens eine konkrete Zusage gefunden wird (was hier sehr wahrscheinlich ist):
-Du MUSST den folgenden Block am Ende hinzufügen:
-
----
-**Vereinbarung erkannt**
+Falls JA, schreibe EXAKT in diesem Format:
 - Was: [Die konkreteste Zusage als Satz, z.B. "Alen holt montags die Kinder ab"]
 - Wer: [Name der Person die es zugesagt hat]
 - Bedürfnis: [Das Bedürfnis dahinter, z.B. Entlastung, Fairness, Zeit]
----
 
-REGELN:
-- NUR EINE Vereinbarung (die konkreteste/wichtigste)
-- Der Block ist PFLICHT wenn es Zusagen gab
-- NUR weglassen wenn wirklich KEINE konkreten Zusagen gemacht wurden
+Falls NEIN (keine konkreten Zusagen):
+- Keine konkrete Vereinbarung in dieser Session
 
 Gespräch:
 `;
@@ -235,25 +223,39 @@ export async function POST(request) {
  * Parse analysis text to extract agreement suggestion
  */
 function parseAnalysisForAgreement(fullText, session) {
-  // Check for agreement section (try both markers for compatibility)
-  let agreementMarker = "**Vereinbarung erkannt**";
-  let markerIndex = fullText.indexOf(agreementMarker);
-  
-  // Fallback to old marker
-  if (markerIndex === -1) {
-    agreementMarker = "**Mögliche Vereinbarung erkannt**";
-    markerIndex = fullText.indexOf(agreementMarker);
+  // Check for agreement section - try multiple markers
+  const markers = [
+    "**Vereinbarung**",           // New format (part of structure)
+    "**Vereinbarung erkannt**",   // Old format
+    "**Mögliche Vereinbarung erkannt**"  // Legacy format
+  ];
+
+  let agreementMarker = null;
+  let markerIndex = -1;
+
+  for (const marker of markers) {
+    const idx = fullText.indexOf(marker);
+    if (idx !== -1) {
+      agreementMarker = marker;
+      markerIndex = idx;
+      break;
+    }
   }
-  
+
   if (markerIndex === -1) {
     return { analysis: fullText, suggestedAgreement: null };
   }
 
-  // Split analysis and agreement section
-  const analysis = fullText.substring(0, markerIndex).trim();
+  // Get the agreement section (from marker to end or next section)
   const agreementSection = fullText.substring(markerIndex);
 
-  // Parse agreement details (support both old and new format)
+  // Check if it says "keine Vereinbarung"
+  if (agreementSection.toLowerCase().includes("keine konkrete vereinbarung") ||
+      agreementSection.toLowerCase().includes("keine vereinbarung")) {
+    return { analysis: fullText, suggestedAgreement: null };
+  }
+
+  // Parse agreement details
   const whatMatch = agreementSection.match(/- Was: (.+)/);
   const needMatch = agreementSection.match(/- (?:Bedürfnis|Dahinter): (.+)/);
   const whoMatch = agreementSection.match(/- Wer: (.+)/);
@@ -266,36 +268,40 @@ function parseAnalysisForAgreement(fullText, session) {
   let responsible = "both";
   if (whoMatch) {
     const who = whoMatch[1].toLowerCase().trim();
-    
-    // Try to match with names from session context
-    if (session.summary) {
-      // Extract names from context header if present
-      const contextMatch = session.summary.match(/\[Kontext: User=([^,]+), Partner=([^\]]+)\]/);
-      const coupleMatch = session.summary.match(/\[Couple Session: ([^&]+) & ([^\]]+)\]/);
-      
-      let userName = "";
-      let partnerName = "";
-      
-      if (contextMatch) {
-        userName = contextMatch[1].toLowerCase();
-        partnerName = contextMatch[2].toLowerCase();
-      } else if (coupleMatch) {
-        userName = coupleMatch[1].toLowerCase();
-        partnerName = coupleMatch[2].toLowerCase();
-      }
 
-      if (who.includes(userName) && !who.includes(partnerName)) {
-        responsible = "user_a";
-      } else if (who.includes(partnerName) && !who.includes(userName)) {
-        responsible = "user_b";
-      } else if (who.includes("beide") || who.includes("wir") || who.includes("gemeinsam")) {
-        responsible = "both";
-      }
+    // Try to match with names from session context or analysis
+    const contextMatch = fullText.match(/\[Kontext: User=([^,]+), Partner=([^\]]+)\]/);
+    const coupleMatch = fullText.match(/\[Couple Session: ([^&]+) & ([^\]]+)\]/);
+
+    let userName = "";
+    let partnerName = "";
+
+    if (contextMatch) {
+      userName = contextMatch[1].toLowerCase().trim();
+      partnerName = contextMatch[2].toLowerCase().trim();
+    } else if (coupleMatch) {
+      userName = coupleMatch[1].toLowerCase().trim();
+      partnerName = coupleMatch[2].toLowerCase().trim();
+    }
+
+    if (userName && who.includes(userName) && !who.includes(partnerName)) {
+      responsible = "user_a";
+    } else if (partnerName && who.includes(partnerName) && !who.includes(userName)) {
+      responsible = "user_b";
+    } else if (who.includes("beide") || who.includes("wir") || who.includes("gemeinsam")) {
+      responsible = "both";
     }
   }
 
+  console.log("Agreement parsed:", {
+    what: whatMatch[1].trim(),
+    who: whoMatch ? whoMatch[1].trim() : "both",
+    need: needMatch ? needMatch[1].trim() : null,
+    responsible
+  });
+
   return {
-    analysis,
+    analysis: fullText, // Keep full analysis (agreement section is part of it now)
     suggestedAgreement: {
       title: whatMatch[1].trim(),
       underlyingNeed: needMatch ? needMatch[1].trim() : null,
