@@ -34,7 +34,8 @@ export default function Home() {
   const [messageCount, setMessageCount] = useState(0);
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
-  
+  const [pendingSuggestionsCount, setPendingSuggestionsCount] = useState(0);
+
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
@@ -54,7 +55,7 @@ export default function Home() {
   // Check for memory consent
   useEffect(() => {
     if (!authLoading && user && profile && profile.name && profile.partner_name) {
-      const neverDecided = profile.memory_consent === null || 
+      const neverDecided = profile.memory_consent === null ||
                            profile.memory_consent === undefined ||
                            (profile.memory_consent === false && !profile.memory_consent_at);
       if (neverDecided) {
@@ -62,6 +63,26 @@ export default function Home() {
       }
     }
   }, [user, profile, authLoading, router]);
+
+  // Load pending suggestions count for badge
+  useEffect(() => {
+    if (user && profile?.couple_id) {
+      loadPendingSuggestionsCount();
+    }
+  }, [user, profile?.couple_id]);
+
+  const loadPendingSuggestionsCount = async () => {
+    if (!profile?.couple_id) return;
+    try {
+      const response = await fetch(
+        `/api/agreements/suggestions?coupleId=${profile.couple_id}`
+      );
+      const data = await response.json();
+      setPendingSuggestionsCount(data.suggestions?.length || 0);
+    } catch (error) {
+      console.error("Failed to load suggestions count:", error);
+    }
+  };
 
   useEffect(() => {
     if (started && !timerRef.current) {
@@ -423,7 +444,12 @@ export default function Home() {
             <span style={{...styles.navLabel, ...styles.navLabelActive}}>Home</span>
           </button>
           <button onClick={() => router.push("/wir")} style={styles.navItem}>
-            <span style={styles.navIcon}>💑</span>
+            <div style={styles.navIconWrapper}>
+              <span style={styles.navIcon}>💑</span>
+              {pendingSuggestionsCount > 0 && (
+                <span style={styles.navBadge}>{pendingSuggestionsCount}</span>
+              )}
+            </div>
             <span style={styles.navLabel}>Wir</span>
           </button>
           <button onClick={() => router.push("/history")} style={styles.navItem}>
@@ -977,6 +1003,26 @@ const styles = {
   navItemActive: {},
   navIcon: {
     fontSize: "24px",
+  },
+  navIconWrapper: {
+    position: "relative",
+    display: "inline-block",
+  },
+  navBadge: {
+    position: "absolute",
+    top: "-6px",
+    right: "-10px",
+    background: "#ef4444",
+    color: "white",
+    fontSize: "11px",
+    fontWeight: "bold",
+    minWidth: "18px",
+    height: "18px",
+    borderRadius: "9px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "0 4px",
   },
   navLabel: {
     fontSize: "12px",

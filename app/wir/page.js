@@ -21,6 +21,10 @@ export default function WirPage() {
   const [pendingDissolution, setPendingDissolution] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Pending agreement suggestions
+  const [pendingSuggestions, setPendingSuggestions] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
   useEffect(() => {
     if (!loading && !user) {
       router.push("/auth");
@@ -39,6 +43,35 @@ export default function WirPage() {
       checkPendingDissolution();
     }
   }, [user, profile?.couple_id]);
+
+  // Load pending agreement suggestions
+  useEffect(() => {
+    if (user && profile?.couple_id) {
+      loadPendingSuggestions();
+    }
+  }, [user, profile?.couple_id, refreshKey]);
+
+  const loadPendingSuggestions = async () => {
+    if (!profile?.couple_id) return;
+
+    setLoadingSuggestions(true);
+    try {
+      const response = await fetch(
+        `/api/agreements/suggestions?coupleId=${profile.couple_id}`
+      );
+      const data = await response.json();
+
+      if (data.suggestions) {
+        // Filter to only show suggestions where current user can act
+        // or needs to be notified
+        setPendingSuggestions(data.suggestions);
+      }
+    } catch (error) {
+      console.error("Failed to load suggestions:", error);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
 
   const checkPendingDissolution = async () => {
     try {
@@ -131,10 +164,43 @@ export default function WirPage() {
           </div>
         )}
 
+        {/* Pending Suggestions Section - Only if connected and has suggestions */}
+        {isConnected && pendingSuggestions.length > 0 && (
+          <div style={styles.suggestionsSection}>
+            <div style={styles.suggestionsBanner}>
+              <span style={styles.suggestionsIcon}>⏳</span>
+              <div style={styles.suggestionsContent}>
+                <p style={styles.suggestionsTitle}>
+                  {pendingSuggestions.length === 1
+                    ? "1 Vereinbarung wartet auf Bestätigung"
+                    : `${pendingSuggestions.length} Vereinbarungen warten auf Bestätigung`}
+                </p>
+              </div>
+            </div>
+
+            {pendingSuggestions.map((suggestion) => (
+              <div key={suggestion.id} style={styles.suggestionCard}>
+                <p style={styles.suggestionText}>"{suggestion.title}"</p>
+                {suggestion.underlying_need && (
+                  <p style={styles.suggestionNeed}>
+                    Dahinter: {suggestion.underlying_need}
+                  </p>
+                )}
+                <button
+                  onClick={() => router.push(`/history?sessionId=${suggestion.session_id}`)}
+                  style={styles.suggestionButton}
+                >
+                  Ansehen & Bestätigen
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Agreements Section - Only if connected */}
         {isConnected && (
           <div style={styles.agreementsSection}>
-            <AgreementsList 
+            <AgreementsList
               key={refreshKey}
               onSelectAgreement={(id) => setSelectedAgreementId(id)}
               onCreateNew={() => setShowCreateAgreement(true)}
@@ -204,7 +270,12 @@ export default function WirPage() {
           <span style={styles.navLabel}>Home</span>
         </button>
         <button style={{...styles.navItem, ...styles.navItemActive}}>
-          <span style={styles.navIcon}>💑</span>
+          <div style={styles.navIconWrapper}>
+            <span style={styles.navIcon}>💑</span>
+            {pendingSuggestions.length > 0 && (
+              <span style={styles.navBadge}>{pendingSuggestions.length}</span>
+            )}
+          </div>
           <span style={{...styles.navLabel, ...styles.navLabelActive}}>Wir</span>
         </button>
         <button onClick={() => router.push("/history")} style={styles.navItem}>
@@ -452,6 +523,60 @@ const styles = {
     boxShadow: "0 4px 20px rgba(139, 92, 246, 0.1)",
     marginBottom: "16px",
   },
+  suggestionsSection: {
+    background: "linear-gradient(135deg, #fef3c7, #fde68a)",
+    borderRadius: "24px",
+    padding: "20px",
+    marginBottom: "16px",
+    border: "1px solid #fcd34d",
+  },
+  suggestionsBanner: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "16px",
+  },
+  suggestionsIcon: {
+    fontSize: "28px",
+  },
+  suggestionsContent: {
+    flex: 1,
+  },
+  suggestionsTitle: {
+    margin: 0,
+    fontWeight: "600",
+    color: "#92400e",
+    fontSize: "16px",
+  },
+  suggestionCard: {
+    background: "rgba(255,255,255,0.7)",
+    borderRadius: "12px",
+    padding: "16px",
+    marginBottom: "12px",
+  },
+  suggestionText: {
+    fontSize: "15px",
+    fontWeight: "500",
+    color: "#78350f",
+    margin: "0 0 8px 0",
+  },
+  suggestionNeed: {
+    fontSize: "13px",
+    color: "#a16207",
+    margin: "0 0 12px 0",
+    fontStyle: "italic",
+  },
+  suggestionButton: {
+    padding: "10px 20px",
+    background: "#f59e0b",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+    width: "100%",
+  },
   cardSecondary: {
     background: "white",
     borderRadius: "16px",
@@ -508,6 +633,26 @@ const styles = {
   navItemActive: {},
   navIcon: {
     fontSize: "24px",
+  },
+  navIconWrapper: {
+    position: "relative",
+    display: "inline-block",
+  },
+  navBadge: {
+    position: "absolute",
+    top: "-6px",
+    right: "-10px",
+    background: "#ef4444",
+    color: "white",
+    fontSize: "11px",
+    fontWeight: "bold",
+    minWidth: "18px",
+    height: "18px",
+    borderRadius: "9px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "0 4px",
   },
   navLabel: {
     fontSize: "12px",
