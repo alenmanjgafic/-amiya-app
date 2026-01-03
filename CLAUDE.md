@@ -87,9 +87,10 @@ const AGENT_ID = "agent_8601kdk8kndtedgbn0ea13zff5aa";
   - `partner_name`: Name des Partners
   - `user_context`: Kontext aus Memory System (max 4000 Zeichen)
 
-### 2. Memory System mit Consent
+### 2. Memory System v2 mit Privacy auf Daten-Ebene
 
 Das Memory System speichert Kontext zwischen Sessions, aber **nur mit expliziter Zustimmung**.
+Vollständige Dokumentation: [docs/MEMORY_SYSTEM.md](docs/MEMORY_SYSTEM.md)
 
 **Consent-Flow:**
 1. User durchläuft Onboarding (`/onboarding`)
@@ -97,13 +98,22 @@ Das Memory System speichert Kontext zwischen Sessions, aber **nur mit expliziter
 3. Muss aktiv zustimmen oder ablehnen
 4. `memory_consent` + `memory_consent_at` werden in `profiles` gespeichert
 
-**Zwei Kontext-Typen:**
-- `personal_context` (nur für den User sichtbar) - in `profiles`
-- `shared_context` (für beide Partner) - in `couples`
+**Privacy-Matrix (auf DATEN-Ebene geschützt!):**
+| Datenquelle | Solo Session | Couple Session |
+|-------------|--------------|----------------|
+| Eigene Solo-Sessions | ✅ Ja | ❌ Nein |
+| Partner's Solo-Sessions | ❌ Nein | ❌ Nein |
+| Couple-Sessions | ✅ Ja | ✅ Ja |
+| Shared Facts | ✅ Ja | ✅ Ja |
+| Agreements | ✅ Ja | ✅ Ja |
 
-**Privacy:**
+**Zwei Analyse-Outputs:**
+1. `analysis` - User-facing, warm (Solo) oder neutral (Couple)
+2. `summary_for_coach` - Internes Summary für Amiyas Gedächtnis
+
+**GDPR-Konformität:**
 - Transkripte werden nach Analyse gelöscht (`summary: null`)
-- Keine Kinder-Namen speichern (GDPR)
+- Keine Kinder-Namen in Kontext (nur "Kind (10)")
 - Solo-Aussagen über Partner bleiben privat
 
 ### 3. Session-Analyse System
@@ -207,17 +217,32 @@ created_at      timestamp
 ### sessions
 
 ```sql
-id              uuid (PK)
-user_id         uuid (FK)         -- Wer hat gestartet
-couple_id       uuid (FK)         -- Für Couple Sessions
-type            text              -- 'solo' | 'couple'
-status          text              -- 'active' | 'completed'
-summary         text              -- Transkript (wird nach Analyse gelöscht)
-analysis        text              -- Claude-generierte Analyse
-themes          text[]            -- Erkannte Themen
+id                  uuid (PK)
+user_id             uuid (FK)         -- Wer hat gestartet
+couple_id           uuid (FK)         -- Für Couple Sessions
+type                text              -- 'solo' | 'couple'
+status              text              -- 'active' | 'completed'
+summary             text              -- Transkript (wird nach Analyse gelöscht!)
+analysis            text              -- User-facing Analyse
+summary_for_coach   text              -- Internes Coach-Summary (v2)
+key_points          jsonb             -- Strukturierte Extraktion (v2)
+themes              text[]            -- Erkannte Themen
 analysis_created_at timestamp
-created_at      timestamp
-ended_at        timestamp
+created_at          timestamp
+ended_at            timestamp
+```
+
+**key_points JSONB Struktur:**
+```json
+{
+  "topic": "Hauptthema in 3-5 Wörtern",
+  "discussed": ["Punkt 1", "Punkt 2"],
+  "emotions": ["Frustration", "Hoffnung"],
+  "statements": ["Wichtige Aussage 1"],
+  "open_questions": ["Was nicht geklärt wurde"],
+  "follow_up": ["Konkrete Follow-up Frage"],
+  "insights": [{"type": "breakthrough", "content": "..."}]
+}
 ```
 
 ### agreements
@@ -306,9 +331,21 @@ created_at      timestamp
 
 | Route | Methode | Beschreibung |
 |-------|---------|--------------|
-| `/api/memory/get` | POST | Lädt Kontext für Session-Start |
+| `/api/memory/get` | POST | Lädt Kontext für Session-Start (Privacy-Filter!) |
 | `/api/memory/update` | POST | Aktualisiert Kontext nach Session |
 | `/api/memory/delete` | POST | Löscht Memory-Daten |
+
+### ElevenLabs Agent Tools
+
+| Route | Methode | Beschreibung |
+|-------|---------|--------------|
+| `/api/agent-tools` | POST | Server Tools für ElevenLabs Agent |
+
+**Verfügbare Tools:**
+- `get_topic_history` - Vergangene Sessions zu einem Thema laden
+- `check_statements` - Widersprüche zu früheren Aussagen prüfen
+- `get_agreement_detail` - Details zu einer Vereinbarung laden
+- `save_insight` - Wichtige Erkenntnisse sofort speichern
 
 ### Agreements
 
@@ -414,6 +451,8 @@ Key Token-Kategorien:
 ---
 
 ## Dokumentation
+
+- **Memory System v2:** Siehe [docs/MEMORY_SYSTEM.md](docs/MEMORY_SYSTEM.md) für die vollständige Dokumentation des Memory Systems - Privacy-Matrix, ElevenLabs Tools, Analyse-Prompts und API-Architektur.
 
 - **ElevenLabs Agent System Prompt:** Siehe [docs/ELEVENLABS_AGENT.md](docs/ELEVENLABS_AGENT.md) für den vollständigen Voice Agent Prompt mit Amiyas Persönlichkeit, Gesprächsführung, Turn-Taking Regeln und Agreement Detection.
 

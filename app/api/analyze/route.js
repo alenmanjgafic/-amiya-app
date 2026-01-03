@@ -1,6 +1,10 @@
 /**
  * ANALYZE API - app/api/analyze/route.js
  * Claude-powered session analysis with Agreement Detection
+ *
+ * Generates TWO outputs:
+ * 1. analysis - User-facing, warm/neutral depending on session type
+ * 2. summary_for_coach - Internal factual summary for Amiya's memory
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
@@ -14,20 +18,30 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Dynamischer Prompt basierend auf Session-Type
+// ═══════════════════════════════════════════════════════════
+// USER-FACING ANALYSIS PROMPTS
+// ═══════════════════════════════════════════════════════════
+
 const getAnalysisPrompt = (sessionType) => {
   const isCoupleSession = sessionType === "couple";
-  
+
   if (isCoupleSession) {
+    // Couple: Neutral, balanced, "on the side of the relationship" (Gottman)
     return `Du bist Amiya, eine erfahrene Beziehungscoach.
 Du analysierst eine COUPLE SESSION - beide Partner waren dabei.
 
 STIL:
-- Warm und unterstützend, nicht klinisch
+- Neutral und ausgewogen - du bist "auf der Seite der Beziehung"
+- KEINE Parteinahme - beide Perspektiven sind gleichwertig
 - Verwende die Namen der Personen
 - Fokussiere auf Muster und Stärken, nicht nur Probleme
 - Deutsch
 - Sprich beide Partner an (ihr-Form)
+
+WICHTIG:
+- Validiere BEIDE Perspektiven gleichermassen
+- Keine Schuldzuweisungen
+- Beobachte Dynamiken, nicht "wer recht hat"
 
 STRUKTUR (EXAKT EINHALTEN - ALLE ABSCHNITTE SIND PFLICHT):
 
@@ -81,18 +95,24 @@ Falls NEIN (keine konkreten Zusagen):
 Gespräch:
 `;
   }
-  
-  // Solo Session Prompt
+
+  // Solo: Warm, empathetic, but NOT bashing the partner
   return `Du bist Amiya, eine erfahrene Beziehungscoach.
 Du analysierst eine SOLO SESSION - nur ein Partner war dabei.
 
 STIL:
 - Warm und unterstützend, nicht klinisch
-- Verwende die Namen der Personen
+- Verwende den Namen der Person
 - Fokussiere auf Muster und Stärken, nicht nur Probleme
 - Max 400 Wörter
 - Deutsch
 - Sprich den User direkt an (du-Form)
+
+WICHTIG - Partner nicht abwerten:
+- Validiere die GEFÜHLE des Users (z.B. "Du fühlst dich übersehen")
+- Aber werte den Partner NICHT ab (nicht: "Dein Partner ignoriert dich")
+- Bleibe bei der Perspektive des Users ohne Schuldzuweisungen
+- Erkenne an dass beide Seiten berechtigte Bedürfnisse haben können
 
 STRUKTUR:
 
@@ -100,10 +120,69 @@ STRUKTUR:
 (2-3 Sätze: Worum ging es?)
 
 **Was mir aufgefallen ist**
-(2-3 Beobachtungen/Muster)
+(2-3 Beobachtungen/Muster - neutral über Partner formuliert)
 
 **Mögliche nächste Schritte**
 (1-2 konkrete Vorschläge)
+
+Gespräch:
+`;
+};
+
+// ═══════════════════════════════════════════════════════════
+// COACH SUMMARY PROMPT (Internal use for Amiya's memory)
+// ═══════════════════════════════════════════════════════════
+
+const getCoachSummaryPrompt = (sessionType, userName, partnerName) => {
+  const isCoupleSession = sessionType === "couple";
+  const sessionLabel = isCoupleSession
+    ? `Couple Session mit ${userName} & ${partnerName}`
+    : `Solo Session mit ${userName}`;
+
+  return `Du erstellst interne Notizen für einen Beziehungscoach.
+Diese Notizen sind NICHT für den User sichtbar - sie dienen dem Coach als Gedächtnis.
+
+SESSION: ${sessionLabel}
+DATUM: ${new Date().toISOString().split('T')[0]}
+
+Erstelle eine FAKTISCHE Zusammenfassung. Sei neutral, nicht wertend.
+
+FORMAT (halte dich exakt daran):
+
+THEMA: (Hauptthema in 3-5 Wörtern)
+
+BESPROCHEN:
+- (Bullet Point 1)
+- (Bullet Point 2)
+- (Bullet Point 3)
+
+EMOTIONEN:
+- (Was war spürbar: Frustration, Trauer, Hoffnung, Wut, Angst, etc.)
+
+WICHTIGE AUSSAGEN:
+- "[Wörtliche oder sinngemässe Aussage 1]"
+- "[Wörtliche oder sinngemässe Aussage 2]"
+
+${isCoupleSession ? `DYNAMIK:
+- (Beobachtete Muster zwischen den Partnern)
+- (z.B. Pursuer-Distancer, Kritik-Verteidigung, etc.)
+` : `PERSPEKTIVE AUF PARTNER:
+- (Wie sieht User den Partner - subjektiv!)
+`}
+
+OFFEN GEBLIEBEN:
+- (Was wurde nicht geklärt)
+- (Welche Fragen kamen auf)
+
+NÄCHSTES MAL FRAGEN:
+- (Konkrete Follow-up Frage 1)
+- (Konkrete Follow-up Frage 2)
+
+REGELN:
+- Faktisch, nicht wertend
+- Keine Kindernamen (GDPR) - nur "Tochter (10)" oder "Sohn (8)"
+- Max 400 Wörter
+- Keine therapeutischen Bewertungen
 
 Gespräch:
 `;
@@ -120,7 +199,7 @@ export async function POST(request) {
       return Response.json({ error: "Session ID required" }, { status: 400 });
     }
 
-    // Get session from database (simple query)
+    // Get session from database
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
       .select("*")
@@ -136,8 +215,26 @@ export async function POST(request) {
       return Response.json({ error: "No conversation to analyze" }, { status: 400 });
     }
 
-    // For couple sessions, fetch the actual names from the database
+    // Get user info for personalization
+    let userName = "User";
+    let partnerName = "Partner";
     let coupleNames = null;
+
+    // For solo sessions, get the user's profile
+    if (session.user_id) {
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("name, partner_name")
+        .eq("id", session.user_id)
+        .single();
+
+      if (userProfile) {
+        userName = userProfile.name || "User";
+        partnerName = userProfile.partner_name || "Partner";
+      }
+    }
+
+    // For couple sessions, fetch both names
     if (session.type === "couple" && session.couple_id) {
       const { data: couple } = await supabase
         .from("couples")
@@ -158,17 +255,22 @@ export async function POST(request) {
             user_a_name: userA?.name || "",
             user_b_name: userB?.name || ""
           };
+          userName = coupleNames.user_a_name;
+          partnerName = coupleNames.user_b_name;
         }
       }
     }
 
-    // Generate analysis with Claude - use session type for correct prompt
-    const analysisPrompt = getAnalysisPrompt(session.type || "solo");
     const isCoupleSession = session.type === "couple";
-    
-    const message = await anthropic.messages.create({
+
+    // ═══════════════════════════════════════════════════════════
+    // 1. Generate USER-FACING analysis
+    // ═══════════════════════════════════════════════════════════
+    const analysisPrompt = getAnalysisPrompt(session.type || "solo");
+
+    const userAnalysisMessage = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: isCoupleSession ? 2500 : 1500, // Couple needs more for detailed structure
+      max_tokens: isCoupleSession ? 2500 : 1500,
       messages: [
         {
           role: "user",
@@ -177,22 +279,49 @@ export async function POST(request) {
       ],
     });
 
-    const fullAnalysis = message.content[0].text;
+    const fullAnalysis = userAnalysisMessage.content[0].text;
 
-    // Parse analysis for agreement suggestion
+    // Parse for agreement suggestion
     const { analysis, suggestedAgreement } = parseAnalysisForAgreement(fullAnalysis, session, coupleNames);
+
+    // ═══════════════════════════════════════════════════════════
+    // 2. Generate COACH SUMMARY (internal)
+    // ═══════════════════════════════════════════════════════════
+    const coachPrompt = getCoachSummaryPrompt(session.type || "solo", userName, partnerName);
+
+    const coachSummaryMessage = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      messages: [
+        {
+          role: "user",
+          content: coachPrompt + session.summary,
+        },
+      ],
+    });
+
+    const summaryForCoach = coachSummaryMessage.content[0].text;
+
+    // ═══════════════════════════════════════════════════════════
+    // 3. Extract key points for structured storage
+    // ═══════════════════════════════════════════════════════════
+    const keyPoints = extractKeyPoints(summaryForCoach, session.type);
 
     // Detect themes from conversation
     const themes = detectThemes(session.summary);
 
-    // Save analysis (and delete transcript for privacy)
+    // ═══════════════════════════════════════════════════════════
+    // 4. Save everything to database
+    // ═══════════════════════════════════════════════════════════
     const { error: updateError } = await supabase
       .from("sessions")
       .update({
         analysis: analysis,
+        summary_for_coach: summaryForCoach,
+        key_points: keyPoints,
         analysis_created_at: new Date().toISOString(),
         themes: themes,
-        summary: null, // Delete for privacy
+        summary: null, // Delete transcript for privacy
       })
       .eq("id", sessionId);
 
@@ -227,8 +356,8 @@ export async function POST(request) {
       }
     }
 
-    return Response.json({ 
-      success: true, 
+    return Response.json({
+      success: true,
       analysis: analysis,
       themes: themes,
       suggestedAgreement: savedSuggestion ? {
@@ -243,6 +372,82 @@ export async function POST(request) {
     console.error("Analysis error:", error);
     return Response.json({ error: "Analysis failed" }, { status: 500 });
   }
+}
+
+/**
+ * Extract key points from coach summary for structured storage
+ */
+function extractKeyPoints(summaryForCoach, sessionType) {
+  const keyPoints = {
+    topic: null,
+    discussed: [],
+    emotions: [],
+    statements: [],
+    open_questions: [],
+    follow_up: []
+  };
+
+  try {
+    // Extract topic
+    const topicMatch = summaryForCoach.match(/THEMA:\s*(.+)/);
+    if (topicMatch) {
+      keyPoints.topic = topicMatch[1].trim();
+    }
+
+    // Extract discussed points
+    const discussedMatch = summaryForCoach.match(/BESPROCHEN:\n([\s\S]*?)(?=\n\n|\nEMOTIONEN:)/);
+    if (discussedMatch) {
+      keyPoints.discussed = discussedMatch[1]
+        .split('\n')
+        .filter(line => line.trim().startsWith('-'))
+        .map(line => line.replace(/^-\s*/, '').trim())
+        .filter(Boolean);
+    }
+
+    // Extract emotions
+    const emotionsMatch = summaryForCoach.match(/EMOTIONEN:\n([\s\S]*?)(?=\n\n|\nWICHTIGE)/);
+    if (emotionsMatch) {
+      keyPoints.emotions = emotionsMatch[1]
+        .split('\n')
+        .filter(line => line.trim().startsWith('-'))
+        .map(line => line.replace(/^-\s*/, '').trim())
+        .filter(Boolean);
+    }
+
+    // Extract statements
+    const statementsMatch = summaryForCoach.match(/WICHTIGE AUSSAGEN:\n([\s\S]*?)(?=\n\n|\nDYNAMIK:|\nPERSPEKTIVE|\nOFFEN)/);
+    if (statementsMatch) {
+      keyPoints.statements = statementsMatch[1]
+        .split('\n')
+        .filter(line => line.trim().startsWith('-'))
+        .map(line => line.replace(/^-\s*/, '').replace(/[""]/g, '').trim())
+        .filter(Boolean);
+    }
+
+    // Extract open questions
+    const openMatch = summaryForCoach.match(/OFFEN GEBLIEBEN:\n([\s\S]*?)(?=\n\n|\nNÄCHSTES)/);
+    if (openMatch) {
+      keyPoints.open_questions = openMatch[1]
+        .split('\n')
+        .filter(line => line.trim().startsWith('-'))
+        .map(line => line.replace(/^-\s*/, '').trim())
+        .filter(Boolean);
+    }
+
+    // Extract follow-up questions
+    const followUpMatch = summaryForCoach.match(/NÄCHSTES MAL FRAGEN:\n([\s\S]*?)(?=\n\n|$)/);
+    if (followUpMatch) {
+      keyPoints.follow_up = followUpMatch[1]
+        .split('\n')
+        .filter(line => line.trim().startsWith('-'))
+        .map(line => line.replace(/^-\s*/, '').trim())
+        .filter(Boolean);
+    }
+  } catch (error) {
+    console.error("Failed to extract key points:", error);
+  }
+
+  return keyPoints;
 }
 
 /**
