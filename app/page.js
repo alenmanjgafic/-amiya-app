@@ -56,6 +56,7 @@ export default function Home() {
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
+  const mediaStreamRef = useRef(null); // Für Mikrofon-Cleanup
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -154,7 +155,8 @@ export default function Home() {
       setCurrentSessionId(session.id);
 
       const { Conversation } = await import("@elevenlabs/client");
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream; // Speichern für Cleanup
 
       console.log("Context length:", userContext.length);
       console.log("Context preview:", userContext.substring(0, 300));
@@ -277,9 +279,15 @@ export default function Home() {
     const sessionIdToAnalyze = currentSessionId;
     const currentMessages = messagesRef.current;
     const hasMessages = currentMessages.length > 0;
-    
+
     setAnalysisError(null);
-    
+
+    // SOFORT Loading-State setzen wenn Analyse gewünscht
+    if (requestAnalysis && hasMessages) {
+      setIsGeneratingAnalysis(true);
+      setShowEndDialog(false);
+    }
+
     if (currentSessionId && hasMessages) {
       try {
         let summary = "";
@@ -289,12 +297,10 @@ export default function Home() {
         summary += currentMessages
           .map(m => `${m.role === "user" ? (profile?.name || "User") : "Amiya"}: ${m.content}`)
           .join("\n");
-        
+
         await sessionsService.end(currentSessionId, summary, []);
-        
+
         if (requestAnalysis) {
-          setIsGeneratingAnalysis(true);
-          setShowEndDialog(false);
           
           const viability = await checkAnalysisViability();
           
@@ -363,6 +369,10 @@ export default function Home() {
   }, [currentSessionId, profile, checkAnalysisViability, resetSession, user]);
 
   const handleEndClick = useCallback(async () => {
+    // SOFORT visuelles Feedback geben
+    setVoiceState(STATE.IDLE);
+
+    // ElevenLabs Session beenden
     if (conversationRef.current) {
       try {
         await conversationRef.current.endSession();
@@ -371,7 +381,15 @@ export default function Home() {
       }
       conversationRef.current = null;
     }
-    setVoiceState(STATE.IDLE);
+
+    // WICHTIG: Mikrofon explizit freigeben (Fix für Safari)
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log("Audio track stopped:", track.label);
+      });
+      mediaStreamRef.current = null;
+    }
 
     // Check if auto_analyze is enabled
     if (profile?.auto_analyze !== false) {
@@ -392,11 +410,19 @@ export default function Home() {
 
   useEffect(() => {
     return () => {
+      // Cleanup beim Verlassen der Seite
       if (conversationRef.current) {
         conversationRef.current.endSession();
+        conversationRef.current = null;
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      // Mikrofon freigeben
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
       }
     };
   }, []);
