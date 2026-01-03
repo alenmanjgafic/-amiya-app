@@ -400,8 +400,8 @@ export default function Home() {
     // Check if auto_analyze is enabled
     if (profile?.auto_analyze !== false) {
       // Auto-analyze: skip dialog and directly analyze
-      // WICHTIG: started=false erst NACH dem Dialog setzen, sonst verschwindet UI
-      setStarted(false);
+      // WICHTIG: started NICHT hier auf false setzen!
+      // resetSession() macht das am Ende (nach Modal-Interaktion)
       endSession(true);
     } else {
       // Manual mode: show dialog (started bleibt true damit UI sichtbar bleibt)
