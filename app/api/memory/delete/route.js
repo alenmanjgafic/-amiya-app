@@ -34,17 +34,18 @@ export async function POST(request) {
 
     switch (deleteType) {
       case "personal":
-        // Delete only personal context
+        // Delete only personal context + coaching profile
         await supabase
           .from("profiles")
           .update({
-            personal_context: getEmptyPersonalContext()
+            personal_context: getEmptyPersonalContext(),
+            coaching_profile: getEmptyCoachingProfile()
           })
           .eq("id", userId);
 
-        return Response.json({ 
-          success: true, 
-          deleted: "personal_context" 
+        return Response.json({
+          success: true,
+          deleted: ["personal_context", "coaching_profile"]
         });
 
       case "statements":
@@ -92,15 +93,22 @@ export async function POST(request) {
         });
 
       case "all":
-        // Delete everything + revoke consent
+        // Delete everything + revoke consent (GDPR: Recht auf Löschung)
         await supabase
           .from("profiles")
           .update({
             memory_consent: false,
             memory_consent_at: null,
-            personal_context: getEmptyPersonalContext()
+            personal_context: getEmptyPersonalContext(),
+            coaching_profile: getEmptyCoachingProfile()
           })
           .eq("id", userId);
+
+        // Optional: Engagement-Metriken aus Sessions löschen
+        await supabase
+          .from("sessions")
+          .update({ engagement_metrics: null })
+          .eq("user_id", userId);
 
         if (coupleId) {
           await supabase
@@ -199,5 +207,23 @@ function getEmptySharedContext() {
       open_agreements: [],
       sensitive: []
     }
+  };
+}
+
+/**
+ * Empty coaching profile structure (Adaptive Coaching)
+ * GDPR: Wird bei Datenlöschung zurückgesetzt
+ */
+function getEmptyCoachingProfile() {
+  return {
+    communication_style: "unknown",
+    avg_engagement_ratio: null,
+    sessions_analyzed: 0,
+    trust_level: "building",
+    trend: "stable",
+    best_approach: "balanced",
+    last_significant_change: null,
+    last_updated: null,
+    notes: []
   };
 }

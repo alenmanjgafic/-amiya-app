@@ -165,7 +165,66 @@ speichern "Session zu kurz"
 - Hinweis dass Session nicht gespeichert wurde
 - Session wird automatisch aus DB gelöscht
 
-### 4. "Gentle Challenger" Therapeutischer Ansatz
+### 4. Adaptive Coaching System
+
+Das Adaptive Coaching System lernt den Kommunikationsstil jedes Users und passt Amiyas Coaching-Ansatz entsprechend an.
+
+**Engagement-Metriken (pro Session):**
+```javascript
+{
+  user_messages: 5,        // Anzahl User-Nachrichten
+  user_chars: 230,         // Zeichen vom User
+  ai_chars: 890,           // Zeichen von Amiya
+  ratio: 0.21,             // User-Anteil am Gespräch
+  avg_msg_length: 46,      // Durchschnitt pro Nachricht
+  duration_sec: 340,       // Session-Dauer
+  trend: "opening_up"      // Verlauf innerhalb Session
+}
+```
+
+**Coaching-Profil (aggregiert über alle Sessions):**
+```javascript
+{
+  communication_style: "avoider" | "validator" | "volatile" | "balanced",
+  avg_engagement_ratio: 0.32,
+  sessions_analyzed: 8,
+  trust_level: "building" | "established" | "deep",
+  trend: "stable" | "opening_up" | "withdrawing",
+  best_approach: "gentle_questions" | "direct_reflection" | "structured",
+  notes: ["öffnet sich bei Gefühlsfragen", "braucht Zeit"]
+}
+```
+
+**Lern-Logik:**
+- Gewichteter Durchschnitt: 60% neuere Sessions, 40% ältere
+- Stil ändert sich nur bei konsistenten Mustern (2-3 Sessions)
+- Durchbrüche werden erkannt (> 2x normaler Ratio)
+- Trust-Level basiert auf Session-Anzahl + Engagement
+
+**Kommunikationsstile (nach Gottman):**
+| Stil | Beschreibung | Coaching-Ansatz |
+|------|--------------|-----------------|
+| Avoider | Kurze Antworten, braucht Zeit | Geduld, offene Fragen |
+| Validator | Teilt offen, sucht Bestätigung | Direkte Reflexion |
+| Volatile | Emotional, schwankend | Struktur geben |
+| Balanced | Ausgewogen | Standard-Ansatz |
+
+**Memory-Integration:**
+Amiya erhält Coaching-Hinweise im Kontext:
+```
+COACHING-HINWEISE:
+- Kommunikationsstil: zurückhaltend (baut noch Vertrauen auf)
+- Trend: Öffnet sich zunehmend
+- Ansatz: Geduldig Raum geben, nicht drängen
+- Hinweise: Hat sich in letzter Session mehr geöffnet
+```
+
+**GDPR:**
+- Nur bei `memory_consent = true` gespeichert
+- Löschbar via `/api/memory/delete` (deleteType: "personal" oder "all")
+- Keine Inhalte, nur Verhaltens-Metriken
+
+### 5. "Gentle Challenger" Therapeutischer Ansatz
 
 Amiya folgt dem **Gottman-Modell** für Beziehungstherapie:
 
@@ -196,6 +255,7 @@ memory_consent  boolean           -- Zustimmung zum Memory System
 memory_consent_at timestamp
 auto_analyze    boolean (default true) -- Automatisch analysieren oder fragen
 personal_context jsonb            -- Privater Kontext (Solo Sessions)
+coaching_profile jsonb            -- Adaptive Coaching (Kommunikationsstil, etc.)
 couple_id       uuid (FK)         -- Verknüpfung zum Couple
 partner_id      uuid (FK)         -- ID des Partners
 privacy_accepted_at timestamp
@@ -226,6 +286,7 @@ summary             text              -- Transkript (wird nach Analyse gelöscht
 analysis            text              -- User-facing Analyse
 summary_for_coach   text              -- Internes Coach-Summary (v2)
 key_points          jsonb             -- Strukturierte Extraktion (v2)
+engagement_metrics  jsonb             -- Adaptive Coaching Metriken (v2)
 themes              text[]            -- Erkannte Themen
 analysis_created_at timestamp
 created_at          timestamp
@@ -333,7 +394,13 @@ created_at      timestamp
 |-------|---------|--------------|
 | `/api/memory/get` | POST | Lädt Kontext für Session-Start (Privacy-Filter!) |
 | `/api/memory/update` | POST | Aktualisiert Kontext nach Session |
-| `/api/memory/delete` | POST | Löscht Memory-Daten |
+| `/api/memory/delete` | POST | Löscht Memory-Daten (GDPR) |
+
+### Adaptive Coaching
+
+| Route | Methode | Beschreibung |
+|-------|---------|--------------|
+| `/api/coaching-profile/update` | POST | Aktualisiert Coaching-Profil nach Session |
 
 ### Agreements
 

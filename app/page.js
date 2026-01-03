@@ -233,6 +233,88 @@ export default function Home() {
     }
   }, [user, profile]);
 
+  // ═══════════════════════════════════════════════════════════════════
+  // ADAPTIVE COACHING: Engagement-Metriken berechnen
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Berechnet Engagement-Metriken für die aktuelle Session
+   * Diese Daten werden gespeichert und für personalisiertes Coaching verwendet
+   *
+   * @param {Array} messages - Array von {role, content} Objekten
+   * @param {number} durationSec - Session-Dauer in Sekunden
+   * @returns {Object} Engagement-Metriken
+   */
+  const calculateEngagementMetrics = useCallback((messages, durationSec) => {
+    const userMsgs = messages.filter(m => m.role === "user");
+    const aiMsgs = messages.filter(m => m.role === "assistant");
+
+    const userChars = userMsgs.reduce((sum, m) => sum + m.content.length, 0);
+    const aiChars = aiMsgs.reduce((sum, m) => sum + m.content.length, 0);
+    const totalChars = userChars + aiChars;
+
+    // Trend: Vergleiche erste Hälfte mit zweiter Hälfte der User-Nachrichten
+    let trend = "consistent";
+    if (userMsgs.length >= 4) {
+      const midpoint = Math.floor(userMsgs.length / 2);
+      const firstHalfAvg = userMsgs.slice(0, midpoint).reduce((s, m) => s + m.content.length, 0) / midpoint;
+      const secondHalfAvg = userMsgs.slice(midpoint).reduce((s, m) => s + m.content.length, 0) / (userMsgs.length - midpoint);
+
+      if (secondHalfAvg > firstHalfAvg * 1.3) trend = "opening_up";
+      if (secondHalfAvg < firstHalfAvg * 0.7) trend = "closing_down";
+    }
+
+    return {
+      user_messages: userMsgs.length,
+      user_chars: userChars,
+      ai_chars: aiChars,
+      ratio: totalChars > 0 ? Math.round((userChars / totalChars) * 100) / 100 : 0,
+      avg_msg_length: userMsgs.length > 0 ? Math.round(userChars / userMsgs.length) : 0,
+      duration_sec: durationSec,
+      trend
+    };
+  }, []);
+
+  /**
+   * Schneller lokaler Viability-Check ohne API-Call
+   * Verwendet für sofortiges Feedback bei auto_analyze=OFF
+   *
+   * @returns {Object} {viable: boolean, reason: string|null}
+   */
+  const quickViabilityCheck = useCallback(() => {
+    const messages = messagesRef.current;
+
+    // Check 1: Keine Nachrichten
+    if (messages.length === 0) {
+      return { viable: false, reason: "empty" };
+    }
+
+    // Check 2: Transcript erstellen
+    const transcript = messages
+      .map(m => `${m.role === "user" ? "User" : "Amiya"}: ${m.content}`)
+      .join("\n");
+
+    // Check 3: Transcript zu kurz (< 200 Zeichen)
+    if (transcript.length < 200) {
+      return { viable: false, reason: "too_short" };
+    }
+
+    // Check 4: Zu wenig User-Nachrichten (< 2)
+    const userMessages = messages.filter(m => m.role === "user");
+    if (userMessages.length < 2) {
+      return { viable: false, reason: "too_short" };
+    }
+
+    // Check 5: User hat zu wenig gesagt (< 50 Zeichen)
+    const userContent = userMessages.map(m => m.content).join(" ");
+    if (userContent.length < 50) {
+      return { viable: false, reason: "too_short" };
+    }
+
+    // Alle Checks bestanden
+    return { viable: true, reason: null };
+  }, []);
+
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
     if (messages.length === 0) return { viable: false, reason: "empty" };
@@ -279,6 +361,7 @@ export default function Home() {
     const sessionIdToAnalyze = currentSessionId;
     const currentMessages = messagesRef.current;
     const hasMessages = currentMessages.length > 0;
+    const currentDuration = sessionTime; // Session-Dauer in Sekunden
 
     setAnalysisError(null);
 
@@ -290,6 +373,10 @@ export default function Home() {
 
     if (currentSessionId && hasMessages) {
       try {
+        // Engagement-Metriken berechnen (Adaptive Coaching)
+        const engagementMetrics = calculateEngagementMetrics(currentMessages, currentDuration);
+        console.log("Engagement metrics:", engagementMetrics);
+
         let summary = "";
         if (profile?.name || profile?.partner_name) {
           summary += `[Kontext: User=${profile?.name || "unbekannt"}, Partner=${profile?.partner_name || "unbekannt"}]\n\n`;
@@ -298,7 +385,27 @@ export default function Home() {
           .map(m => `${m.role === "user" ? (profile?.name || "User") : "Amiya"}: ${m.content}`)
           .join("\n");
 
-        await sessionsService.end(currentSessionId, summary, []);
+        // Session beenden MIT Engagement-Metriken
+        await sessionsService.end(currentSessionId, summary, [], engagementMetrics);
+
+        // Coaching-Profil aktualisieren (wenn memory_consent gegeben)
+        if (profile?.memory_consent) {
+          try {
+            await fetch("/api/coaching-profile/update", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                userId: user.id,
+                sessionId: currentSessionId,
+                engagementMetrics
+              }),
+            });
+            console.log("Coaching profile updated");
+          } catch (coachingError) {
+            console.error("Coaching profile update failed:", coachingError);
+            // Non-blocking - Session geht trotzdem weiter
+          }
+        }
 
         if (requestAnalysis) {
           
@@ -366,7 +473,7 @@ export default function Home() {
       setShowEndDialog(false);
       resetSession();
     }
-  }, [currentSessionId, profile, checkAnalysisViability, resetSession, user]);
+  }, [currentSessionId, profile, checkAnalysisViability, resetSession, user, sessionTime, calculateEngagementMetrics]);
 
   const handleEndClick = useCallback(async () => {
     // SOFORT visuelles Feedback geben
@@ -404,10 +511,18 @@ export default function Home() {
       // resetSession() macht das am Ende (nach Modal-Interaktion)
       endSession(true);
     } else {
-      // Manual mode: show dialog (started bleibt true damit UI sichtbar bleibt)
-      setShowEndDialog(true);
+      // Manual mode: erst lokalen Check, dann Dialog
+      const quickCheck = quickViabilityCheck();
+
+      if (!quickCheck.viable) {
+        // Session zu kurz → direkt Modal zeigen, kein Dialog
+        setShowTooShortModal(true);
+      } else {
+        // Genug Inhalt → Dialog zeigen
+        setShowEndDialog(true);
+      }
     }
-  }, [profile?.auto_analyze, endSession]);
+  }, [profile?.auto_analyze, endSession, quickViabilityCheck]);
 
   const handleCloseAnalysis = () => {
     setShowAnalysis(false);

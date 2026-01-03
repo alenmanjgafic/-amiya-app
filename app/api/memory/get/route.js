@@ -24,10 +24,10 @@ export async function POST(request) {
       return Response.json({ error: "userId required" }, { status: 400 });
     }
 
-    // 1. Get user profile
+    // 1. Get user profile (inkl. coaching_profile für adaptive Coaching)
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("name, partner_name, memory_consent")
+      .select("name, partner_name, memory_consent, coaching_profile")
       .eq("id", userId)
       .single();
 
@@ -196,7 +196,7 @@ SESSION: ${sessionType === "couple" ? "Couple" : "Solo"}`;
 
 /**
  * Solo session context
- * Includes: Own solo sessions + couple sessions + agreements + shared facts
+ * Includes: Own solo sessions + couple sessions + agreements + shared facts + coaching hints
  */
 function buildSoloContext(profile, sessions, agreements, sharedFacts, userId) {
   const parts = [];
@@ -205,6 +205,12 @@ function buildSoloContext(profile, sessions, agreements, sharedFacts, userId) {
   parts.push(`NAME: ${profile.name || "User"}
 PARTNER: ${profile.partner_name || "Partner"}
 SESSION: Solo`);
+
+  // Coaching hints (Adaptive Coaching)
+  const coachingHints = buildCoachingHints(profile.coaching_profile);
+  if (coachingHints) {
+    parts.push(coachingHints);
+  }
 
   // Shared facts (from couple)
   if (sharedFacts) {
@@ -264,12 +270,19 @@ ${agreementLines.join("\n")}`);
 /**
  * Couple session context
  * PRIVACY: Only couple sessions - NO solo sessions!
+ * Note: coaching_profile vom Session-Starter wird verwendet
  */
 function buildCoupleContext(profile, sessions, agreements, sharedFacts) {
   const parts = [];
 
   // Basic info
   parts.push(`COUPLE SESSION: ${profile.name || "User"} & ${profile.partner_name || "Partner"}`);
+
+  // Coaching hints (für den Session-Starter)
+  const coachingHints = buildCoachingHints(profile.coaching_profile);
+  if (coachingHints) {
+    parts.push(coachingHints);
+  }
 
   // Check for first session
   if (sessions.length === 0 && agreements.length === 0 && !sharedFacts) {
@@ -412,4 +425,67 @@ ${validStrengths.slice(-3).map(s => `- ${s}`).join("\n")}`);
   }
 
   return parts.join("\n\n");
+}
+
+/**
+ * Build coaching hints from coaching_profile
+ * Gibt Amiya Hinweise zum optimalen Coaching-Ansatz für diesen User
+ */
+function buildCoachingHints(coachingProfile) {
+  if (!coachingProfile || coachingProfile.communication_style === "unknown") {
+    return null;
+  }
+
+  const parts = [];
+  const cp = coachingProfile;
+
+  // Hauptzeile: Stil + Trust-Level
+  const styleDescriptions = {
+    avoider: "zurückhaltend, braucht Zeit",
+    validator: "teilt offen, schätzt Bestätigung",
+    volatile: "emotional, schwankend",
+    balanced: "ausgewogen"
+  };
+
+  const trustDescriptions = {
+    building: "baut noch Vertrauen auf",
+    established: "Vertrauen etabliert",
+    deep: "tiefes Vertrauen"
+  };
+
+  const styleDesc = styleDescriptions[cp.communication_style] || cp.communication_style;
+  const trustDesc = trustDescriptions[cp.trust_level] || cp.trust_level;
+
+  parts.push(`Kommunikationsstil: ${styleDesc} (${trustDesc})`);
+
+  // Trend
+  if (cp.trend === "opening_up") {
+    parts.push("Trend: Öffnet sich zunehmend");
+  } else if (cp.trend === "withdrawing") {
+    parts.push("Trend: Zieht sich etwas zurück");
+  }
+
+  // Empfohlener Ansatz
+  const approachDescriptions = {
+    patient_space: "Geduldig Raum geben, nicht drängen",
+    gentle_questions: "Offene, einladende Fragen stellen",
+    encourage_gently: "Öffnung sanft ermutigen",
+    create_safety: "Sicherheit geben, behutsam sein",
+    active_listening: "Aktiv zuhören, spiegeln",
+    direct_reflection: "Direkte Reflexion, tiefere Fragen",
+    structured: "Struktur geben, sortieren helfen",
+    balanced: "Ausgewogen vorgehen"
+  };
+
+  const approachDesc = approachDescriptions[cp.best_approach] || cp.best_approach;
+  parts.push(`Ansatz: ${approachDesc}`);
+
+  // Notizen (max 2)
+  if (cp.notes?.length > 0) {
+    const relevantNotes = cp.notes.slice(0, 2);
+    parts.push(`Hinweise: ${relevantNotes.join("; ")}`);
+  }
+
+  return `COACHING-HINWEISE:
+${parts.map(p => `- ${p}`).join("\n")}`;
 }
