@@ -371,6 +371,13 @@ export default function Home() {
   const handleEndClick = useCallback(async () => {
     // SOFORT visuelles Feedback geben
     setVoiceState(STATE.IDLE);
+    setStarted(false);
+
+    // Timer stoppen
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
 
     // ElevenLabs Session beenden
     if (conversationRef.current) {
