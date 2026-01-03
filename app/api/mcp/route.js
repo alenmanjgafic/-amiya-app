@@ -80,46 +80,77 @@ const TOOLS = [
  * GET - SSE Endpoint für MCP
  */
 export async function GET(request) {
+  console.log("🔌 MCP SSE Connection requested");
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     start(controller) {
-      // Send initial connection message
-      const initMessage = {
+      // Send server info event
+      const serverInfo = {
         jsonrpc: "2.0",
-        method: "initialize",
-        params: {
+        id: 0,
+        result: {
           protocolVersion: "2024-11-05",
           serverInfo: {
             name: "amiya-memory-tools",
             version: "1.0.0"
           },
           capabilities: {
-            tools: {}
+            tools: {
+              listChanged: false
+            }
           }
         }
       };
-
-      controller.enqueue(encoder.encode(`data: ${JSON.stringify(initMessage)}\n\n`));
+      controller.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify(serverInfo)}\n\n`));
+      console.log("✅ Sent server info");
 
       // Send tools list
-      const toolsMessage = {
+      const toolsList = {
         jsonrpc: "2.0",
-        method: "tools/list",
+        id: 1,
         result: {
           tools: TOOLS
         }
       };
+      controller.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify(toolsList)}\n\n`));
+      console.log("✅ Sent tools list");
 
-      controller.enqueue(encoder.encode(`data: ${JSON.stringify(toolsMessage)}\n\n`));
+      // Keep connection alive with heartbeat
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(`: heartbeat\n\n`));
+        } catch (e) {
+          clearInterval(heartbeat);
+        }
+      }, 15000);
     }
   });
 
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
+      "Cache-Control": "no-cache, no-transform",
       "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "X-Accel-Buffering": "no",
+    },
+  });
+}
+
+/**
+ * OPTIONS - CORS preflight
+ */
+export async function OPTIONS(request) {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
     },
   });
 }
