@@ -335,18 +335,6 @@ created_at      timestamp
 | `/api/memory/update` | POST | Aktualisiert Kontext nach Session |
 | `/api/memory/delete` | POST | Löscht Memory-Daten |
 
-### ElevenLabs Agent Tools
-
-| Route | Methode | Beschreibung |
-|-------|---------|--------------|
-| `/api/agent-tools` | POST | Server Tools für ElevenLabs Agent |
-
-**Verfügbare Tools:**
-- `get_topic_history` - Vergangene Sessions zu einem Thema laden
-- `check_statements` - Widersprüche zu früheren Aussagen prüfen
-- `get_agreement_detail` - Details zu einer Vereinbarung laden
-- `save_insight` - Wichtige Erkenntnisse sofort speichern
-
 ### Agreements
 
 | Route | Methode | Beschreibung |
