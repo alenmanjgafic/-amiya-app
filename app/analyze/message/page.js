@@ -150,6 +150,12 @@ export default function MessageAnalyzerPage() {
   // RESULT VIEW
   // ════════════════════════════════════════════════════════════
   if (result) {
+    // Defensive: ensure analysis object exists
+    const analysis = result.analysis || {};
+    const analysisText = analysis.text || "Analyse nicht verfügbar.";
+    const analysisThemes = analysis.themes || [];
+    const analysisPatterns = analysis.patterns || null;
+
     return (
       <div style={{ ...tokens.layout.page, padding: 0, paddingBottom: "100px" }}>
         {/* Header */}
@@ -189,15 +195,15 @@ export default function MessageAnalyzerPage() {
 
           {/* Analysis Text */}
           <div style={{ ...tokens.cards.elevated, marginBottom: "20px" }}>
-            <AnalysisRenderer text={result.analysis.text} tokens={tokens} />
+            <AnalysisRenderer text={analysisText} tokens={tokens} />
           </div>
 
           {/* Themes */}
-          {result.analysis.themes?.length > 0 && (
+          {analysisThemes.length > 0 && (
             <div style={{ marginBottom: "20px" }}>
               <p style={{ ...tokens.typography.label, marginBottom: "8px" }}>THEMEN</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                {result.analysis.themes.map((theme, i) => (
+                {analysisThemes.map((theme, i) => (
                   <span key={i} style={tokens.badges.muted}>
                     {getThemeLabel(theme)}
                   </span>
@@ -207,8 +213,8 @@ export default function MessageAnalyzerPage() {
           )}
 
           {/* Detected Patterns */}
-          {result.analysis.patterns && (
-            <PatternsView patterns={result.analysis.patterns} tokens={tokens} />
+          {analysisPatterns && (
+            <PatternsView patterns={analysisPatterns} tokens={tokens} />
           )}
 
           {/* Rewrite Suggestions */}
@@ -607,6 +613,15 @@ export default function MessageAnalyzerPage() {
 // ════════════════════════════════════════════════════════════
 
 function AnalysisRenderer({ text, tokens }) {
+  // Defensive null check to prevent crashes
+  if (!text || typeof text !== 'string') {
+    return (
+      <p style={tokens.typography.body}>
+        Analyse wird geladen...
+      </p>
+    );
+  }
+
   const lines = text.split("\n");
 
   return (

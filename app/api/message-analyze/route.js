@@ -483,60 +483,82 @@ export async function POST(request) {
 /**
  * Build readable analysis text from structured data
  * This creates the markdown-like text for display in the UI
+ * Now with defensive null checks to prevent crashes
  */
 function buildAnalysisText(structured, userName, partnerName) {
   const lines = [];
 
+  // Ensure structured exists
+  if (!structured) {
+    return "Analyse konnte nicht erstellt werden.";
+  }
+
   // Summary
   lines.push("**Zusammenfassung**");
-  lines.push(structured.summary);
+  lines.push(structured.summary || "Keine Zusammenfassung verfügbar.");
   lines.push("");
 
   // Emotional Landscape
-  lines.push("**Emotionale Landschaft**");
-  lines.push(`- ${userName}: ${structured.emotional_landscape.user}`);
-  lines.push(`- ${partnerName}: ${structured.emotional_landscape.partner}`);
-  lines.push("");
-
-  // Patterns
-  lines.push("**Erkannte Muster**");
-  lines.push("");
-
-  if (structured.patterns.challenges?.length > 0) {
-    lines.push("### Herausforderungen");
-    for (const challenge of structured.patterns.challenges) {
-      lines.push(`- **${getPatternLabel(challenge.pattern)}** - ${challenge.description}`);
-    }
+  if (structured.emotional_landscape) {
+    lines.push("**Emotionale Landschaft**");
+    lines.push(`- ${userName}: ${structured.emotional_landscape.user || "Nicht erkannt"}`);
+    lines.push(`- ${partnerName}: ${structured.emotional_landscape.partner || "Nicht erkannt"}`);
     lines.push("");
   }
 
-  if (structured.patterns.strengths?.length > 0) {
-    lines.push("### Stärken");
-    for (const strength of structured.patterns.strengths) {
-      lines.push(`- **${getPatternLabel(strength.pattern)}** - ${strength.description}`);
-    }
+  // Patterns
+  if (structured.patterns) {
+    lines.push("**Erkannte Muster**");
     lines.push("");
+
+    if (structured.patterns.challenges?.length > 0) {
+      lines.push("### Herausforderungen");
+      for (const challenge of structured.patterns.challenges) {
+        if (challenge) {
+          lines.push(`- **${getPatternLabel(challenge.pattern)}** - ${challenge.description || ""}`);
+        }
+      }
+      lines.push("");
+    }
+
+    if (structured.patterns.strengths?.length > 0) {
+      lines.push("### Stärken");
+      for (const strength of structured.patterns.strengths) {
+        if (strength) {
+          lines.push(`- **${getPatternLabel(strength.pattern)}** - ${strength.description || ""}`);
+        }
+      }
+      lines.push("");
+    }
   }
 
   // User Needs
-  lines.push(`**Was ${userName} möglicherweise braucht**`);
-  for (const need of structured.user_needs) {
-    lines.push(`- ${need}`);
+  if (Array.isArray(structured.user_needs) && structured.user_needs.length > 0) {
+    lines.push(`**Was ${userName} möglicherweise braucht**`);
+    for (const need of structured.user_needs) {
+      if (need) lines.push(`- ${need}`);
+    }
+    lines.push("");
   }
-  lines.push("");
 
   // Partner Needs
-  lines.push(`**Was ${partnerName} möglicherweise braucht**`);
-  for (const need of structured.partner_needs) {
-    lines.push(`- ${need}`);
+  if (Array.isArray(structured.partner_needs) && structured.partner_needs.length > 0) {
+    lines.push(`**Was ${partnerName} möglicherweise braucht**`);
+    for (const need of structured.partner_needs) {
+      if (need) lines.push(`- ${need}`);
+    }
+    lines.push("");
   }
-  lines.push("");
 
   // Recommendations
-  lines.push("**Konkrete Empfehlungen**");
-  structured.recommendations.forEach((rec, i) => {
-    lines.push(`${i + 1}. **${rec.title}**: ${rec.description}`);
-  });
+  if (Array.isArray(structured.recommendations) && structured.recommendations.length > 0) {
+    lines.push("**Konkrete Empfehlungen**");
+    structured.recommendations.forEach((rec, i) => {
+      if (rec) {
+        lines.push(`${i + 1}. **${rec.title || "Empfehlung"}**: ${rec.description || ""}`);
+      }
+    });
+  }
 
   return lines.join("\n");
 }
