@@ -4,8 +4,8 @@
  * UPDATED: Kontext-Limit auf 4000 Zeichen erhöht für Agreements
  */
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../lib/AuthContext";
 import { useTheme } from "../lib/ThemeContext";
 import { sessionsService } from "../lib/sessions";
@@ -23,7 +23,9 @@ import {
   MessageCircle,
   Volume2,
   LogOut,
-  BarChart2
+  BarChart2,
+  Bug,
+  X
 } from "lucide-react";
 
 const AGENT_ID = "agent_8601kdk8kndtedgbn0ea13zff5aa";
@@ -36,10 +38,48 @@ const STATE = {
   SPEAKING: "speaking"
 };
 
+// Wrapper für Suspense (useSearchParams braucht das)
 export default function Home() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "16px",
+      background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
+    }}>
+      <div style={{
+        width: "40px",
+        height: "40px",
+        border: "4px solid #e5e7eb",
+        borderTopColor: "#8b5cf6",
+        borderRadius: "50%",
+        animation: "spin 1s linear infinite",
+      }} />
+      <p style={{ color: "#6b7280" }}>Laden...</p>
+    </div>
+  );
+}
+
+function HomeContent() {
   const { user, profile, loading: authLoading, signOut, updateProfile } = useAuth();
   const { tokens, isDarkMode } = useTheme();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Test-Modus: ?testMode=true in URL
+  const isTestMode = searchParams.get("testMode") === "true";
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   const [started, setStarted] = useState(false);
   const [voiceState, setVoiceState] = useState(STATE.IDLE);
@@ -517,6 +557,22 @@ export default function Home() {
     resetSession();
   };
 
+  // ============ TEST MODE HELPERS ============
+  const addFakeMessages = () => {
+    const fakeMessages = [
+      { role: "assistant", content: "Hallo! Schön, dass du da bist. Was beschäftigt dich heute?" },
+      { role: "user", content: "Ich habe das Gefühl, dass mein Partner und ich aneinander vorbeireden." },
+      { role: "assistant", content: "Das klingt belastend. Kannst du mir ein konkretes Beispiel nennen?" },
+      { role: "user", content: "Gestern wollte ich über unsere Wochenendpläne sprechen, aber er hat nur auf sein Handy geschaut." },
+      { role: "assistant", content: "Ich verstehe. Wie hast du dich in dem Moment gefühlt?" },
+      { role: "user", content: "Ignoriert und unwichtig. Als ob meine Bedürfnisse keine Rolle spielen." },
+    ];
+    messagesRef.current = fakeMessages;
+    setMessageCount(fakeMessages.length);
+    setStarted(true);
+    setSessionTime(180); // 3 Minuten
+  };
+
   useEffect(() => {
     return () => {
       // Cleanup beim Verlassen der Seite
@@ -829,6 +885,131 @@ export default function Home() {
             sessionId={analysisSessionId}
             onClose={handleCloseAnalysis}
           />
+        )}
+
+        {/* ============ DEBUG PANEL auf START SCREEN ============ */}
+        {isTestMode && (
+          <>
+            {/* Floating Debug Button */}
+            <button
+              onClick={() => setShowDebugPanel(!showDebugPanel)}
+              style={{
+                position: "fixed",
+                bottom: "100px",
+                right: "20px",
+                width: "50px",
+                height: "50px",
+                borderRadius: "50%",
+                background: showDebugPanel ? tokens.colors.error : "#6366f1",
+                color: "white",
+                border: "none",
+                cursor: "pointer",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 9999,
+              }}
+            >
+              {showDebugPanel ? <X size={24} /> : <Bug size={24} />}
+            </button>
+
+            {/* Debug Panel */}
+            {showDebugPanel && (
+              <div style={{
+                position: "fixed",
+                bottom: "160px",
+                right: "20px",
+                width: "300px",
+                background: tokens.colors.bg.elevated,
+                borderRadius: tokens.radii.lg,
+                boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
+                padding: "16px",
+                zIndex: 9998,
+                border: `1px solid ${tokens.colors.bg.soft}`,
+              }}>
+                <h4 style={{
+                  color: tokens.colors.text.primary,
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                  marginBottom: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}>
+                  <Bug size={16} /> Test-Modus (Start)
+                </h4>
+
+                {/* Profile Status */}
+                <div style={{
+                  background: tokens.colors.bg.surface,
+                  borderRadius: tokens.radii.sm,
+                  padding: "10px",
+                  marginBottom: "12px",
+                  fontSize: "12px",
+                }}>
+                  <div style={{ color: tokens.colors.text.muted, marginBottom: "4px" }}>
+                    Profil-Status:
+                  </div>
+                  <div style={{ color: tokens.colors.text.secondary }}>
+                    memory_consent: <span style={{ color: profile?.memory_consent ? tokens.colors.success : tokens.colors.error }}>
+                      {profile?.memory_consent ? "true" : "false"}
+                    </span>
+                  </div>
+                  <div style={{ color: tokens.colors.text.secondary }}>
+                    auto_analyze: <span style={{ color: profile?.auto_analyze ? tokens.colors.success : tokens.colors.error }}>
+                      {profile?.auto_analyze ? "true" : "false"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Test Buttons */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <button
+                    onClick={addFakeMessages}
+                    style={{
+                      padding: "10px",
+                      background: "#6366f1",
+                      color: "white",
+                      border: "none",
+                      borderRadius: tokens.radii.sm,
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Fake-Session starten
+                  </button>
+                  <button
+                    onClick={() => setShowEndDialog(true)}
+                    style={{
+                      padding: "10px",
+                      background: "#8b5cf6",
+                      color: "white",
+                      border: "none",
+                      borderRadius: tokens.radii.sm,
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Ende-Dialog anzeigen
+                  </button>
+                </div>
+
+                {/* Info */}
+                <p style={{
+                  color: tokens.colors.text.muted,
+                  fontSize: "11px",
+                  marginTop: "12px",
+                  marginBottom: 0,
+                  lineHeight: "1.4",
+                }}>
+                  URL: ?testMode=true
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
     );
@@ -1299,6 +1480,167 @@ export default function Home() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* ============ DEBUG PANEL (nur im Test-Modus) ============ */}
+      {isTestMode && (
+        <>
+          {/* Floating Debug Button */}
+          <button
+            onClick={() => setShowDebugPanel(!showDebugPanel)}
+            style={{
+              position: "fixed",
+              bottom: "20px",
+              right: "20px",
+              width: "50px",
+              height: "50px",
+              borderRadius: "50%",
+              background: showDebugPanel ? tokens.colors.error : "#6366f1",
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 9999,
+            }}
+          >
+            {showDebugPanel ? <X size={24} /> : <Bug size={24} />}
+          </button>
+
+          {/* Debug Panel */}
+          {showDebugPanel && (
+            <div style={{
+              position: "fixed",
+              bottom: "80px",
+              right: "20px",
+              width: "300px",
+              background: tokens.colors.bg.elevated,
+              borderRadius: tokens.radii.lg,
+              boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
+              padding: "16px",
+              zIndex: 9998,
+              border: `1px solid ${tokens.colors.bg.soft}`,
+            }}>
+              <h4 style={{
+                color: tokens.colors.text.primary,
+                fontSize: "14px",
+                fontWeight: "bold",
+                marginBottom: "12px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}>
+                <Bug size={16} /> Test-Modus
+              </h4>
+
+              {/* Profile Status */}
+              <div style={{
+                background: tokens.colors.bg.surface,
+                borderRadius: tokens.radii.sm,
+                padding: "10px",
+                marginBottom: "12px",
+                fontSize: "12px",
+              }}>
+                <div style={{ color: tokens.colors.text.muted, marginBottom: "4px" }}>
+                  Profil-Status:
+                </div>
+                <div style={{ color: tokens.colors.text.secondary }}>
+                  memory_consent: <span style={{ color: profile?.memory_consent ? tokens.colors.success : tokens.colors.error }}>
+                    {profile?.memory_consent ? "true" : "false"}
+                  </span>
+                </div>
+                <div style={{ color: tokens.colors.text.secondary }}>
+                  auto_analyze: <span style={{ color: profile?.auto_analyze ? tokens.colors.success : tokens.colors.error }}>
+                    {profile?.auto_analyze ? "true" : "false"}
+                  </span>
+                </div>
+                <div style={{ color: tokens.colors.text.secondary }}>
+                  Messages: {messageCount}
+                </div>
+              </div>
+
+              {/* Test Buttons */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <button
+                  onClick={addFakeMessages}
+                  style={{
+                    padding: "10px",
+                    background: "#6366f1",
+                    color: "white",
+                    border: "none",
+                    borderRadius: tokens.radii.sm,
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                  }}
+                >
+                  Fake-Nachrichten hinzufügen
+                </button>
+                <button
+                  onClick={() => setShowEndDialog(true)}
+                  style={{
+                    padding: "10px",
+                    background: "#8b5cf6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: tokens.radii.sm,
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                  }}
+                >
+                  Ende-Dialog anzeigen
+                </button>
+                <button
+                  onClick={() => setShowTooShortModal(true)}
+                  style={{
+                    padding: "10px",
+                    background: "#f59e0b",
+                    color: "white",
+                    border: "none",
+                    borderRadius: tokens.radii.sm,
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                  }}
+                >
+                  "Zu kurz" Modal anzeigen
+                </button>
+                <button
+                  onClick={() => {
+                    setIsGeneratingAnalysis(true);
+                    setTimeout(() => setIsGeneratingAnalysis(false), 3000);
+                  }}
+                  style={{
+                    padding: "10px",
+                    background: "#10b981",
+                    color: "white",
+                    border: "none",
+                    borderRadius: tokens.radii.sm,
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    fontWeight: "500",
+                  }}
+                >
+                  Analyse-Ladescreen (3s)
+                </button>
+              </div>
+
+              {/* Info */}
+              <p style={{
+                color: tokens.colors.text.muted,
+                fontSize: "11px",
+                marginTop: "12px",
+                marginBottom: 0,
+                lineHeight: "1.4",
+              }}>
+                URL: ?testMode=true
+              </p>
+            </div>
+          )}
+        </>
       )}
 
       <style jsx global>{`
