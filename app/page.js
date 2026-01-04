@@ -91,10 +91,10 @@ function HomeContent() {
   const isTestMode = searchParams.get("testMode") === "true";
   const [showDebugPanel, setShowDebugPanel] = useState(false);
 
-  // From Analysis: ?fromAnalysis=sessionId - starts session with analysis context
-  const fromAnalysisId = searchParams.get("fromAnalysis");
+  // From Analysis: ?startWithAnalysis=true - starts session with analysis context from sessionStorage
+  const startWithAnalysis = searchParams.get("startWithAnalysis") === "true";
   const [analysisContext, setAnalysisContext] = useState(null);
-  const [loadingAnalysisContext, setLoadingAnalysisContext] = useState(false);
+  const [shouldAutoStart, setShouldAutoStart] = useState(false);
 
   const [started, setStarted] = useState(false);
   const [voiceState, setVoiceState] = useState(STATE.IDLE);
@@ -145,35 +145,33 @@ function HomeContent() {
     }
   }, [user, profile?.couple_id]);
 
-  // Load analysis context if coming from message analysis
+  // Load analysis context from sessionStorage and auto-start session
   useEffect(() => {
-    if (fromAnalysisId && user) {
-      loadAnalysisContext(fromAnalysisId);
-    }
-  }, [fromAnalysisId, user]);
-
-  const loadAnalysisContext = async (sessionId) => {
-    setLoadingAnalysisContext(true);
-    try {
-      const response = await fetch(`/api/sessions/${sessionId}`);
-      if (response.ok) {
-        const session = await response.json();
-        if (session.type === "message_analysis" && session.analysis) {
-          setAnalysisContext({
-            sessionId: session.id,
-            analysis: session.analysis,
-            themes: session.themes || [],
-            patterns: session.detected_patterns || {}
-          });
-          console.log("Loaded analysis context for voice session");
+    if (startWithAnalysis && user && profile?.name && !started) {
+      try {
+        const stored = sessionStorage.getItem('amiya-analysis-context');
+        if (stored) {
+          const context = JSON.parse(stored);
+          setAnalysisContext(context);
+          setShouldAutoStart(true);
+          // Clear sessionStorage after reading
+          sessionStorage.removeItem('amiya-analysis-context');
+          console.log("Loaded analysis context from sessionStorage");
         }
+      } catch (error) {
+        console.error("Failed to load analysis context:", error);
       }
-    } catch (error) {
-      console.error("Failed to load analysis context:", error);
-    } finally {
-      setLoadingAnalysisContext(false);
     }
-  };
+  }, [startWithAnalysis, user, profile?.name, started]);
+
+  // Auto-start session when ready
+  useEffect(() => {
+    if (shouldAutoStart && analysisContext && !started) {
+      console.log("Auto-starting session with analysis context");
+      setShouldAutoStart(false); // Prevent double-start
+      startSession();
+    }
+  }, [shouldAutoStart, analysisContext, started, startSession]);
 
   const loadPendingSuggestionsCount = async () => {
     if (!profile?.couple_id || !user?.id) return;
@@ -684,6 +682,39 @@ Frage den User wie er sich dabei fühlt und was er besprechen möchte.
         <p style={{ ...tokens.typography.small, marginTop: "16px" }}>
           {!user ? "Anmeldung wird geprüft..." : "Profil wird geladen..."}
         </p>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // PREPARING SESSION FROM ANALYSIS - Show loading while auto-starting
+  // ============================================================================
+  if (startWithAnalysis && !started) {
+    return (
+      <div style={{
+        ...tokens.layout.pageCentered,
+        flexDirection: "column",
+        gap: "16px",
+      }}>
+        <div style={tokens.loaders.spinner(50)} />
+        <h2 style={{
+          ...tokens.typography.h2,
+          marginTop: "16px",
+          marginBottom: "8px",
+        }}>Session wird gestartet...</h2>
+        <p style={{
+          ...tokens.typography.body,
+          textAlign: "center",
+          maxWidth: "280px",
+        }}>
+          Amiya bereitet sich auf das Gespräch vor.
+        </p>
+        <style jsx global>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }

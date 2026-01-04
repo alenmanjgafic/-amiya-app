@@ -286,7 +286,16 @@ export default function MessageAnalyzerPage() {
 
               {/* Voice Session Button */}
               <button
-                onClick={() => router.push(`/?fromAnalysis=${result.sessionId}`)}
+                onClick={() => {
+                  // Save analysis context to sessionStorage for immediate use
+                  const contextForSession = {
+                    sessionId: result.sessionId,
+                    analysis: analysisText,
+                    themes: analysisThemes,
+                  };
+                  sessionStorage.setItem('amiya-analysis-context', JSON.stringify(contextForSession));
+                  router.push('/?startWithAnalysis=true');
+                }}
                 style={{
                   ...tokens.cards.interactive,
                   display: "flex",
