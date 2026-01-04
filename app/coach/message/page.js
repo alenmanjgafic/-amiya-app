@@ -351,6 +351,7 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
                 <EditableText
                   text={message.suggestion}
                   onChange={(newText) => updateSuggestion(index, newText)}
+                  partnerName={profile?.partner_name}
                 />
                 <div style={styles.suggestionActions}>
                   <button

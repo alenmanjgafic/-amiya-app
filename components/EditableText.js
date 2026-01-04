@@ -1,134 +1,182 @@
 "use client";
 
 /**
- * EDITABLE TEXT COMPONENT
+ * EDITABLE TEXT COMPONENT - Collaborative Editing
  *
- * Tap-to-edit text editor for message suggestions
- * Users can tap on any word/phrase to edit it inline
+ * Vision: Guided, collaborative text refinement with Amiya
  *
- * Features:
- * - Segments text into editable chunks
- * - Tap to open edit popover
- * - Real-time text updates
- * - Highlights edited sections
+ * Flow:
+ * 1. User taps on a segment they want to change
+ * 2. Modal opens with quick feedback options
+ * 3. User selects feedback type or writes custom
+ * 4. Amiya suggests alternatives
+ * 5. User picks one or writes own version
+ * 6. Text updates with visual indicator
  */
 
 import { useState, useRef, useEffect } from "react";
-import { Check, X, Pencil } from "lucide-react";
+import { X, Sparkles, Check, MessageSquare, ChevronRight } from "lucide-react";
 
-export default function EditableText({ text, onChange, readOnly = false }) {
+// Quick feedback options
+const FEEDBACK_OPTIONS = [
+  { id: "formal", label: "Zu formal" },
+  { id: "defensive", label: "Zu defensiv" },
+  { id: "not_me", label: "Nicht ich" },
+  { id: "too_soft", label: "Zu weich" },
+  { id: "too_direct", label: "Zu direkt" },
+];
+
+export default function EditableText({
+  text,
+  onChange,
+  onRequestAlternatives,
+  partnerName = "Partner",
+  readOnly = false,
+}) {
   const [segments, setSegments] = useState([]);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [editValue, setEditValue] = useState("");
-  const [editedIndices, setEditedIndices] = useState(new Set());
-  const popoverRef = useRef(null);
-  const inputRef = useRef(null);
+  const [editedSegments, setEditedSegments] = useState(new Set());
 
-  // Split text into segments (by sentence or clause)
+  // Modal state
+  const [selectedSegment, setSelectedSegment] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(null);
+  const [modalStep, setModalStep] = useState("feedback"); // 'feedback' | 'alternatives' | 'loading'
+  const [selectedFeedback, setSelectedFeedback] = useState([]);
+  const [customFeedback, setCustomFeedback] = useState("");
+  const [alternatives, setAlternatives] = useState([]);
+  const [amiyaResponse, setAmiyaResponse] = useState("");
+  const [customAlternative, setCustomAlternative] = useState("");
+
+  // Split text into segments
   useEffect(() => {
     if (!text) return;
 
-    // Split by sentence-ending punctuation, keeping the delimiter
-    const parts = text.split(/([.!?,;:]\s*)/);
-    const newSegments = [];
+    // Split by natural phrases (commas, conjunctions, sentence parts)
+    const splitPattern = /([^,;.!?]+[,;.!?]?\s*)/g;
+    const parts = text.match(splitPattern) || [text];
 
-    for (let i = 0; i < parts.length; i += 2) {
-      const content = parts[i] || "";
-      const delimiter = parts[i + 1] || "";
-      if (content.trim() || delimiter.trim()) {
-        newSegments.push({
-          text: content + delimiter,
-          original: content + delimiter,
-        });
+    // Combine very short segments with previous
+    const merged = [];
+    let current = "";
+
+    for (const part of parts) {
+      current += part;
+      // Keep segment if it's long enough or ends with punctuation
+      if (current.length > 15 || /[.!?]$/.test(current.trim())) {
+        merged.push(current.trim());
+        current = "";
+      }
+    }
+    if (current.trim()) {
+      if (merged.length > 0) {
+        merged[merged.length - 1] += " " + current.trim();
+      } else {
+        merged.push(current.trim());
       }
     }
 
-    // If we only have one segment, split by phrases (commas, conjunctions)
-    if (newSegments.length <= 1 && text.length > 50) {
-      const phrasesParts = text.split(/(\s*(?:und|aber|oder|weil|dass|wenn|denn|also|jedoch)\s*|,\s*)/i);
-      const phraseSegments = [];
-
-      for (let i = 0; i < phrasesParts.length; i++) {
-        const part = phrasesParts[i];
-        if (part && part.trim()) {
-          phraseSegments.push({
-            text: part,
-            original: part,
-          });
-        }
-      }
-
-      if (phraseSegments.length > 1) {
-        setSegments(phraseSegments);
-        return;
-      }
-    }
-
-    setSegments(newSegments.length > 0 ? newSegments : [{ text, original: text }]);
+    setSegments(merged.map((s) => ({ text: s, original: s })));
   }, [text]);
 
-  // Focus input when editing starts
-  useEffect(() => {
-    if (editingIndex !== null && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [editingIndex]);
-
-  // Click outside to close popover
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (popoverRef.current && !popoverRef.current.contains(event.target)) {
-        cancelEdit();
-      }
-    };
-
-    if (editingIndex !== null) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [editingIndex]);
-
-  const startEdit = (index) => {
+  const openModal = (segment, index) => {
     if (readOnly) return;
-    setEditingIndex(index);
-    setEditValue(segments[index].text);
+    setSelectedSegment(segment);
+    setSelectedIndex(index);
+    setModalStep("feedback");
+    setSelectedFeedback([]);
+    setCustomFeedback("");
+    setAlternatives([]);
+    setAmiyaResponse("");
+    setCustomAlternative("");
   };
 
-  const confirmEdit = () => {
-    if (editingIndex === null) return;
+  const closeModal = () => {
+    setSelectedSegment(null);
+    setSelectedIndex(null);
+  };
+
+  const toggleFeedback = (id) => {
+    setSelectedFeedback((prev) =>
+      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
+    );
+  };
+
+  const requestAlternatives = async () => {
+    if (!selectedSegment) return;
+
+    setModalStep("loading");
+
+    // Build feedback description
+    const feedbackLabels = selectedFeedback.map(
+      (id) => FEEDBACK_OPTIONS.find((o) => o.id === id)?.label
+    );
+    const feedbackText = [
+      ...feedbackLabels,
+      customFeedback ? `"${customFeedback}"` : "",
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    try {
+      if (onRequestAlternatives) {
+        const result = await onRequestAlternatives(
+          selectedSegment.text,
+          feedbackText
+        );
+        setAmiyaResponse(result.explanation || "Hier sind ein paar Alternativen:");
+        setAlternatives(result.alternatives || []);
+      } else {
+        // Fallback: Call API directly
+        const response = await fetch("/api/coach/reformulate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            originalText: selectedSegment.text,
+            feedback: feedbackText,
+            fullMessage: text,
+            partnerName,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setAmiyaResponse(data.explanation);
+          setAlternatives(data.alternatives);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to get alternatives:", error);
+      setAmiyaResponse("Entschuldige, da ist etwas schief gelaufen.");
+      setAlternatives([]);
+    }
+
+    setModalStep("alternatives");
+  };
+
+  const selectAlternative = (newText) => {
+    if (selectedIndex === null) return;
 
     const newSegments = [...segments];
-    newSegments[editingIndex] = {
-      ...newSegments[editingIndex],
-      text: editValue,
+    newSegments[selectedIndex] = {
+      ...newSegments[selectedIndex],
+      text: newText,
     };
     setSegments(newSegments);
 
-    // Track edited indices
-    const newEdited = new Set(editedIndices);
-    newEdited.add(editingIndex);
-    setEditedIndices(newEdited);
+    // Mark as edited
+    const newEdited = new Set(editedSegments);
+    newEdited.add(selectedIndex);
+    setEditedSegments(newEdited);
 
-    // Notify parent of change
-    const newText = newSegments.map((s) => s.text).join("");
-    onChange?.(newText);
+    // Notify parent
+    const fullText = newSegments.map((s) => s.text).join(" ");
+    onChange?.(fullText);
 
-    setEditingIndex(null);
-    setEditValue("");
+    closeModal();
   };
 
-  const cancelEdit = () => {
-    setEditingIndex(null);
-    setEditValue("");
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      confirmEdit();
-    } else if (e.key === "Escape") {
-      cancelEdit();
+  const handleCustomAlternative = () => {
+    if (customAlternative.trim()) {
+      selectAlternative(customAlternative.trim());
     }
   };
 
@@ -136,51 +184,163 @@ export default function EditableText({ text, onChange, readOnly = false }) {
 
   return (
     <div style={styles.container}>
+      {/* Hint */}
       {!readOnly && (
         <div style={styles.hint}>
-          <Pencil size={12} />
-          <span>Tippe auf einen Teil zum Bearbeiten</span>
+          <MessageSquare size={12} />
+          <span>Tippe auf einen Teil zum Anpassen</span>
         </div>
       )}
 
+      {/* Text with tappable segments */}
       <div style={styles.textContainer}>
         {segments.map((segment, index) => (
           <span
             key={index}
-            onClick={() => startEdit(index)}
+            onClick={() => openModal(segment, index)}
             style={{
               ...styles.segment,
-              ...(editedIndices.has(index) ? styles.editedSegment : {}),
-              ...(editingIndex === index ? styles.activeSegment : {}),
+              ...(editedSegments.has(index) ? styles.editedSegment : {}),
               ...(readOnly ? styles.readOnlySegment : {}),
             }}
           >
-            {segment.text}
-
-            {/* Edit Popover */}
-            {editingIndex === index && (
-              <div ref={popoverRef} style={styles.popover}>
-                <textarea
-                  ref={inputRef}
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  style={styles.editInput}
-                  rows={3}
-                />
-                <div style={styles.popoverActions}>
-                  <button onClick={cancelEdit} style={styles.cancelButton}>
-                    <X size={16} />
-                  </button>
-                  <button onClick={confirmEdit} style={styles.confirmButton}>
-                    <Check size={16} />
-                  </button>
-                </div>
-              </div>
+            {editedSegments.has(index) && (
+              <span style={styles.editedMarker}>|</span>
             )}
+            {segment.text}{" "}
           </span>
         ))}
       </div>
+
+      {/* Modal */}
+      {selectedSegment && (
+        <div style={styles.modalOverlay} onClick={closeModal}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            {/* Close button */}
+            <button onClick={closeModal} style={styles.closeButton}>
+              <X size={20} />
+            </button>
+
+            {/* Step 1: Feedback */}
+            {modalStep === "feedback" && (
+              <>
+                {/* Selected text */}
+                <div style={styles.selectedTextBox}>
+                  <span style={styles.selectedText}>
+                    "{selectedSegment.text}"
+                  </span>
+                  <span style={styles.selectedLabel}>ausgewählt</span>
+                </div>
+
+                <p style={styles.modalQuestion}>Was stört dich daran?</p>
+
+                {/* Feedback chips */}
+                <div style={styles.chipsContainer}>
+                  {FEEDBACK_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      onClick={() => toggleFeedback(option.id)}
+                      style={{
+                        ...styles.chip,
+                        ...(selectedFeedback.includes(option.id)
+                          ? styles.chipSelected
+                          : {}),
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p style={styles.orLabel}>Oder beschreib es:</p>
+
+                <input
+                  type="text"
+                  value={customFeedback}
+                  onChange={(e) => setCustomFeedback(e.target.value)}
+                  placeholder="klingt als würde ich mich rechtfertigen..."
+                  style={styles.customInput}
+                />
+
+                <button
+                  onClick={requestAlternatives}
+                  disabled={
+                    selectedFeedback.length === 0 && !customFeedback.trim()
+                  }
+                  style={{
+                    ...styles.primaryButton,
+                    opacity:
+                      selectedFeedback.length === 0 && !customFeedback.trim()
+                        ? 0.5
+                        : 1,
+                  }}
+                >
+                  Neu formulieren
+                  <ChevronRight size={18} />
+                </button>
+              </>
+            )}
+
+            {/* Loading */}
+            {modalStep === "loading" && (
+              <div style={styles.loadingContainer}>
+                <Sparkles size={32} style={styles.loadingIcon} />
+                <p>Amiya denkt nach...</p>
+              </div>
+            )}
+
+            {/* Step 2: Alternatives */}
+            {modalStep === "alternatives" && (
+              <>
+                <div style={styles.amiyaHeader}>
+                  <Sparkles size={16} />
+                  <span>AMIYA</span>
+                </div>
+
+                <p style={styles.amiyaResponse}>{amiyaResponse}</p>
+
+                {/* Alternative options */}
+                <div style={styles.alternativesContainer}>
+                  {alternatives.map((alt, index) => (
+                    <button
+                      key={index}
+                      onClick={() => selectAlternative(alt)}
+                      style={styles.alternativeOption}
+                    >
+                      <span style={styles.radioCircle} />
+                      <span>"{alt}"</span>
+                    </button>
+                  ))}
+                </div>
+
+                <p style={styles.orLabel}>
+                  Oder sag mir wie DU es sagen würdest:
+                </p>
+
+                <div style={styles.customAlternativeRow}>
+                  <input
+                    type="text"
+                    value={customAlternative}
+                    onChange={(e) => setCustomAlternative(e.target.value)}
+                    placeholder="Meine eigene Version..."
+                    style={styles.customInput}
+                  />
+                  <button
+                    onClick={handleCustomAlternative}
+                    disabled={!customAlternative.trim()}
+                    style={{
+                      ...styles.checkButton,
+                      opacity: !customAlternative.trim() ? 0.5 : 1,
+                    }}
+                  >
+                    <Check size={20} />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -195,79 +355,215 @@ const styles = {
     gap: 6,
     fontSize: 11,
     color: "#888",
-    marginBottom: 8,
+    marginBottom: 12,
     opacity: 0.8,
   },
   textContainer: {
-    lineHeight: 1.7,
+    lineHeight: 1.8,
     fontSize: 15,
   },
   segment: {
-    position: "relative",
     cursor: "pointer",
-    padding: "2px 0",
+    padding: "2px 4px",
+    margin: "2px 0",
     borderRadius: 4,
     transition: "background-color 0.15s ease",
+    display: "inline",
   },
   editedSegment: {
-    backgroundColor: "rgba(139, 201, 139, 0.2)",
+    backgroundColor: "rgba(139, 201, 139, 0.15)",
     color: "#a8e8a8",
+    borderLeft: "2px solid #8bc98b",
+    paddingLeft: 8,
   },
-  activeSegment: {
-    backgroundColor: "rgba(232, 213, 196, 0.3)",
+  editedMarker: {
+    color: "#8bc98b",
+    fontWeight: "bold",
+    marginRight: 4,
   },
   readOnlySegment: {
     cursor: "default",
   },
-  popover: {
-    position: "absolute",
-    top: "100%",
+
+  // Modal styles
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
     left: 0,
     right: 0,
-    minWidth: 250,
-    backgroundColor: "#1a1a1a",
-    border: "1px solid #444",
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 8,
-    zIndex: 100,
-    boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    zIndex: 1000,
+    padding: 16,
   },
-  editInput: {
+  modal: {
     width: "100%",
-    padding: 12,
-    backgroundColor: "#0a0a0a",
+    maxWidth: 400,
+    backgroundColor: "#1a1a1a",
+    borderRadius: 20,
+    padding: 24,
+    paddingBottom: 32,
+    position: "relative",
+    maxHeight: "80vh",
+    overflowY: "auto",
+  },
+  closeButton: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    background: "none",
+    border: "none",
+    color: "#666",
+    cursor: "pointer",
+    padding: 4,
+  },
+  selectedTextBox: {
+    backgroundColor: "#0d0d0d",
     border: "1px solid #333",
-    borderRadius: 8,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  selectedText: {
+    fontSize: 15,
+    lineHeight: 1.5,
+    color: "#e8d5c4",
+  },
+  selectedLabel: {
+    fontSize: 11,
+    color: "#666",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    alignSelf: "flex-end",
+  },
+  modalQuestion: {
+    fontSize: 15,
+    color: "#fff",
+    marginBottom: 16,
+  },
+  chipsContainer: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 20,
+  },
+  chip: {
+    padding: "8px 14px",
+    backgroundColor: "#2a2a2a",
+    border: "1px solid #444",
+    borderRadius: 20,
+    color: "#ccc",
+    fontSize: 13,
+    cursor: "pointer",
+    transition: "all 0.15s ease",
+  },
+  chipSelected: {
+    backgroundColor: "#e8d5c4",
+    borderColor: "#e8d5c4",
+    color: "#0a0a0a",
+  },
+  orLabel: {
+    fontSize: 13,
+    color: "#888",
+    marginBottom: 12,
+  },
+  customInput: {
+    width: "100%",
+    padding: "12px 16px",
+    backgroundColor: "#0d0d0d",
+    border: "1px solid #333",
+    borderRadius: 12,
     color: "#fff",
     fontSize: 14,
-    lineHeight: 1.5,
-    resize: "none",
     outline: "none",
-    fontFamily: "inherit",
+    marginBottom: 20,
   },
-  popoverActions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: 8,
-    marginTop: 8,
-  },
-  cancelButton: {
-    width: 36,
-    height: 36,
-    borderRadius: "50%",
-    backgroundColor: "#333",
-    border: "none",
-    color: "#fff",
+  primaryButton: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
+    width: "100%",
+    padding: "14px 20px",
+    backgroundColor: "#e8d5c4",
+    border: "none",
+    borderRadius: 12,
+    color: "#0a0a0a",
+    fontSize: 15,
+    fontWeight: 600,
     cursor: "pointer",
   },
-  confirmButton: {
-    width: 36,
-    height: 36,
+  loadingContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "40px 20px",
+    gap: 16,
+    color: "#888",
+  },
+  loadingIcon: {
+    color: "#e8d5c4",
+    animation: "pulse 1.5s ease-in-out infinite",
+  },
+  amiyaHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 12,
+    color: "#e8d5c4",
+    textTransform: "uppercase",
+    letterSpacing: "1px",
+    marginBottom: 12,
+  },
+  amiyaResponse: {
+    fontSize: 15,
+    lineHeight: 1.6,
+    color: "#fff",
+    marginBottom: 20,
+  },
+  alternativesContainer: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+    marginBottom: 24,
+  },
+  alternativeOption: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: "14px 16px",
+    backgroundColor: "#0d0d0d",
+    border: "1px solid #333",
+    borderRadius: 12,
+    color: "#fff",
+    fontSize: 14,
+    textAlign: "left",
+    cursor: "pointer",
+    transition: "all 0.15s ease",
+  },
+  radioCircle: {
+    width: 18,
+    height: 18,
     borderRadius: "50%",
+    border: "2px solid #e8d5c4",
+    flexShrink: 0,
+    marginTop: 2,
+  },
+  customAlternativeRow: {
+    display: "flex",
+    gap: 12,
+  },
+  checkButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     backgroundColor: "#8bc98b",
     border: "none",
     color: "#0a0a0a",
@@ -275,5 +571,6 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
+    flexShrink: 0,
   },
 };
