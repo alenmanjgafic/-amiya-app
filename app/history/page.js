@@ -252,13 +252,16 @@ export default function HistoryPage() {
               onClick={() => router.push(filter === "couple" ? "/wir" : "/")}
               style={{
                 padding: "14px 28px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${isDarkMode ? "#5eead4" : "#0f766e"})`,
+                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
                 color: "white",
                 border: "none",
                 borderRadius: tokens.radii.md,
                 fontSize: "15px",
                 fontWeight: "600",
                 cursor: "pointer",
+                boxShadow: isDarkMode
+                  ? tokens.shadows.glow(tokens.colors.aurora.mint)
+                  : `0 4px 15px ${tokens.colors.aurora.mint}20`,
               }}
             >
               {filter === "couple" ? "Couple Session starten" : "Session starten"}

@@ -519,7 +519,7 @@ export default function CoupleSessionPage() {
               width: "80px",
               height: "80px",
               borderRadius: "50%",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${isDarkMode ? "#5eead4" : "#0f766e"})`,
+              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
               animation: "pulse 2s ease-in-out infinite",
             }} />}
             {voiceState === STATE.THINKING && <div style={styles.thinkingPulse} />}
@@ -823,10 +823,9 @@ function getStateColor(state, isDarkMode = false) {
   const lavender = isDarkMode ? "#a78bfa" : "#7c3aed";
   const rose = isDarkMode ? "#f9a8d4" : "#db2777";
   const mint = isDarkMode ? "#7dd3c0" : "#0d9488";
-  const mintEnd = isDarkMode ? "#5eead4" : "#0f766e";
   const colors = {
     [STATE.CONNECTING]: "linear-gradient(135deg, #6b7280, #4b5563)",
-    [STATE.LISTENING]: `linear-gradient(135deg, ${mint}, ${mintEnd})`,
+    [STATE.LISTENING]: `linear-gradient(135deg, ${mint}, ${lavender})`,
     [STATE.THINKING]: "linear-gradient(135deg, #f59e0b, #d97706)",
     [STATE.SPEAKING]: `linear-gradient(135deg, ${lavender}, ${rose})`,
     [STATE.IDLE]: "linear-gradient(135deg, #6b7280, #4b5563)"
@@ -861,9 +860,18 @@ function getStatusRingStyle(state, isDarkMode = false) {
   const mint = isDarkMode ? "#7dd3c0" : "#0d9488";
   const ringStyles = {
     [STATE.CONNECTING]: { borderColor: "#6b7280" },
-    [STATE.LISTENING]: { borderColor: mint, boxShadow: `0 0 40px ${mint}50` },
-    [STATE.THINKING]: { borderColor: "#f59e0b", boxShadow: "0 0 40px rgba(245,158,11,0.3)" },
-    [STATE.SPEAKING]: { borderColor: lavender, boxShadow: `0 0 40px ${lavender}50` },
+    [STATE.LISTENING]: {
+      borderColor: mint,
+      boxShadow: isDarkMode ? `0 0 40px ${mint}30` : `0 4px 20px ${mint}20`
+    },
+    [STATE.THINKING]: {
+      borderColor: "#f59e0b",
+      boxShadow: isDarkMode ? "0 0 40px rgba(245,158,11,0.3)" : "0 4px 20px rgba(245,158,11,0.2)"
+    },
+    [STATE.SPEAKING]: {
+      borderColor: lavender,
+      boxShadow: isDarkMode ? `0 0 40px ${lavender}30` : `0 4px 20px ${lavender}20`
+    },
     [STATE.IDLE]: { borderColor: "#6b7280" }
   };
   return ringStyles[state] || ringStyles[STATE.IDLE];
