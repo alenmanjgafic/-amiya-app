@@ -494,6 +494,43 @@ npm install
 npm run dev
 ```
 
+### Test-Modus (Debug Panel)
+
+Für schnelleres Testen ohne echte Voice-Sessions gibt es einen Test-Modus.
+
+**Aktivierung:** `?testMode=true` an die URL anhängen
+```
+https://amiya.app/?testMode=true
+https://localhost:3000/?testMode=true
+```
+
+**Debug Panel:**
+- Lila Bug-Button erscheint rechts unten
+- Klick öffnet das Debug-Panel
+
+**Verfügbare Test-Funktionen:**
+
+| Button | Funktion |
+|--------|----------|
+| **Fake-Session starten** | Fügt 6 Beispiel-Nachrichten hinzu, simuliert laufende Session (3 Min) |
+| **Ende-Dialog anzeigen** | Zeigt den Session-Ende-Dialog (Mit/Ohne Analyse) |
+| **"Zu kurz" Modal anzeigen** | Zeigt das Modal für zu kurze Sessions |
+| **Analyse-Ladescreen (3s)** | Simuliert den Analyse-Ladebildschirm für 3 Sekunden |
+
+**Angezeigter Profil-Status:**
+- `memory_consent`: Zeigt ob Memory-System aktiviert
+- `auto_analyze`: Zeigt ob automatische Analyse aktiviert
+- `Messages`: Anzahl der Nachrichten in der aktuellen Session
+
+**Typischer Test-Workflow:**
+1. URL mit `?testMode=true` öffnen
+2. Bug-Button klicken
+3. "Fake-Session starten" klicken
+4. "Beenden" klicken oder "Ende-Dialog anzeigen"
+5. Dialog-Verhalten testen (Mit/Ohne Analyse)
+
+**Hinweis:** Der Test-Modus ist auf Start-Screen und Session-Screen verfügbar.
+
 ### Wichtige Konventionen
 
 1. **Styling:** Inline styles mit Theme Tokens aus `ThemeContext` (Light/Dark Mode)
