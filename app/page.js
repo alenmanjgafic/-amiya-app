@@ -62,6 +62,12 @@ function LoadingScreen() {
       gap: "16px",
       background: "#fafaf9",
     }}>
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
       <div style={{
         width: "40px",
         height: "40px",
@@ -626,6 +632,9 @@ function HomeContent() {
         gap: "16px",
       }}>
         <div style={tokens.loaders.spinner(40)} />
+        <p style={{ ...tokens.typography.small, marginTop: "16px" }}>
+          {!user ? "Anmeldung wird geprüft..." : "Profil wird geladen..."}
+        </p>
       </div>
     );
   }
