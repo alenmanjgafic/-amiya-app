@@ -1,17 +1,22 @@
 /**
- * MEMORY CONSENT PAGE - app/onboarding/memory/page.js
- * Consent-Screen für Memory-System nach Namen-Eingabe
+ * UNIFIED CONSENT PAGE - app/onboarding/memory/page.js
+ * Vereint Memory-Consent und Analyse-Einstellung in eine Entscheidung.
+ *
+ * Logik: "Analyse" = Memory + Metrics + automatische Analyse
+ *        "Ohne Analyse" = Nichts wird gespeichert
  */
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../lib/AuthContext";
+import { Sparkles, Power, ChevronDown, ChevronUp } from "lucide-react";
 
-export default function MemoryConsentPage() {
+export default function UnifiedConsentPage() {
   const { user, profile, loading, updateProfile } = useAuth();
   const router = useRouter();
-  
+
   const [saving, setSaving] = useState(false);
+  const [showMoreInfo, setShowMoreInfo] = useState(false);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -30,7 +35,6 @@ export default function MemoryConsentPage() {
   // Skip if already has consent decision (explicitly set)
   useEffect(() => {
     if (!loading && profile) {
-      // Only skip if consent was explicitly set (has a timestamp)
       const hasDecided = profile.memory_consent_at !== null && profile.memory_consent_at !== undefined;
       if (hasDecided) {
         router.push("/");
@@ -38,15 +42,20 @@ export default function MemoryConsentPage() {
     }
   }, [profile, loading, router]);
 
-  const handleConsent = async (consent) => {
+  /**
+   * Handle user choice - unified consent model
+   * @param {boolean} enableAnalysis - true = analyze + remember, false = nothing saved
+   */
+  const handleChoice = async (enableAnalysis) => {
     setSaving(true);
     try {
       await updateProfile({
-        memory_consent: consent,
+        // Unified: Analyse = alles aktiviert, sonst alles deaktiviert
+        memory_consent: enableAnalysis,
         memory_consent_at: new Date().toISOString(),
+        auto_analyze: enableAnalysis,
       });
-      // Go to analysis preferences (step 3)
-      router.push("/onboarding/analysis");
+      router.push("/");
     } catch (error) {
       console.error("Failed to save consent:", error);
       setSaving(false);
@@ -62,87 +71,128 @@ export default function MemoryConsentPage() {
     );
   }
 
-  const partnerName = profile?.partner_name || "Partner";
-
   return (
     <div style={styles.container}>
       <div style={styles.card}>
         {/* Header */}
         <div style={styles.header}>
-          <div style={styles.logo}>🧠</div>
-          <h1 style={styles.title}>Soll Amiya sich erinnern?</h1>
+          <div style={styles.logo}>
+            <Sparkles size={35} color="white" />
+          </div>
+          <h1 style={styles.title}>Wie soll Amiya dich begleiten?</h1>
         </div>
 
-        {/* Progress indicator - Step 2 of 3 */}
+        {/* Progress indicator - Step 2 of 2 */}
         <div style={styles.progress}>
           <div style={{...styles.progressDot, ...styles.progressDotCompleted}} />
           <div style={{...styles.progressLine, ...styles.progressLineCompleted}} />
           <div style={styles.progressDot} />
-          <div style={styles.progressLine} />
-          <div style={{...styles.progressDot, ...styles.progressDotInactive}} />
         </div>
 
-        {/* Explanation */}
-        <div style={styles.content}>
-          <p style={styles.intro}>
-            Amiya kann sich an eure Gespräche erinnern, um euch besser zu begleiten.
-          </p>
+        {/* Intro text */}
+        <p style={styles.intro}>
+          Mit Analyse kann Amiya euren Fortschritt verfolgen und euch von Session zu Session besser unterstützen.
+        </p>
 
-          {/* What Amiya remembers */}
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Was Amiya sich merkt:</h3>
-            
-            <div style={styles.subsection}>
-              <p style={styles.subsectionTitle}>Nur für dich (aus Solo Sessions):</p>
-              <ul style={styles.list}>
-                <li>Was du erzählt hast</li>
-                <li>Deine persönlichen Themen</li>
-              </ul>
-            </div>
-
-            <div style={styles.subsection}>
-              <p style={styles.subsectionTitle}>Für euch beide (aus Couple Sessions):</p>
-              <ul style={styles.list}>
-                <li>Gemeinsame Fakten (Kinder, Beziehungsdauer)</li>
-                <li>Eure Stärken als Paar</li>
-                <li>Was bei euch funktioniert</li>
-                <li>Eure Vereinbarungen</li>
-                <li>Euren Fortschritt über Zeit</li>
-              </ul>
-            </div>
-          </div>
-
-          {/* What Amiya doesn't do */}
-          <div style={styles.noteBox}>
-            <p style={styles.noteText}>
-              <strong>Wichtig:</strong> Amiya erstellt keine Diagnosen oder Bewertungen. 
-              Sie speichert nur was ihr selbst erzählt habt.
-            </p>
-          </div>
-        </div>
-
-        {/* Buttons */}
-        <div style={styles.buttons}>
+        {/* Options */}
+        <div style={styles.options}>
+          {/* Option 1: Mit Analyse (Recommended) */}
           <button
-            onClick={() => handleConsent(true)}
-            style={styles.primaryButton}
+            onClick={() => handleChoice(true)}
+            style={styles.optionButtonPrimary}
             disabled={saving}
           >
-            {saving ? "Speichern..." : "Ja, Amiya darf sich erinnern"}
+            <div style={styles.recommendedBadge}>Empfohlen</div>
+            <div style={styles.optionIcon}>
+              <Sparkles size={24} color="#8b5cf6" />
+            </div>
+            <div style={styles.optionContent}>
+              <span style={styles.optionTitle}>Mit Analyse</span>
+              <span style={styles.optionDesc}>
+                Amiya analysiert eure Sessions und erinnert sich an euch
+              </span>
+            </div>
           </button>
-          
+
+          {/* Option 2: Ohne Analyse */}
           <button
-            onClick={() => handleConsent(false)}
-            style={styles.secondaryButton}
+            onClick={() => handleChoice(false)}
+            style={styles.optionButtonSecondary}
             disabled={saving}
           >
-            Nein, jede Session startet neu
+            <div style={styles.optionIconSecondary}>
+              <Power size={24} color="#9ca3af" />
+            </div>
+            <div style={styles.optionContent}>
+              <span style={styles.optionTitleSecondary}>Ohne Analyse</span>
+              <span style={styles.optionDesc}>
+                Jede Session startet neu, ohne Auswertung
+              </span>
+            </div>
           </button>
         </div>
+
+        {/* More Info Toggle */}
+        <button
+          onClick={() => setShowMoreInfo(!showMoreInfo)}
+          style={styles.moreInfoToggle}
+        >
+          <span>Warum ist Analyse wichtig?</span>
+          {showMoreInfo ? (
+            <ChevronUp size={18} color="#8b5cf6" />
+          ) : (
+            <ChevronDown size={18} color="#8b5cf6" />
+          )}
+        </button>
+
+        {/* Expandable Info Section */}
+        {showMoreInfo && (
+          <div style={styles.infoSection}>
+            <div style={styles.infoItem}>
+              <span style={styles.infoEmoji}>🎯</span>
+              <div>
+                <strong>Personalisierte Unterstützung</strong>
+                <p style={styles.infoText}>
+                  Amiya lernt, wie ihr kommuniziert und was euch wichtig ist.
+                  So kann sie euch immer besser begleiten.
+                </p>
+              </div>
+            </div>
+
+            <div style={styles.infoItem}>
+              <span style={styles.infoEmoji}>📈</span>
+              <div>
+                <strong>Euren Fortschritt sehen</strong>
+                <p style={styles.infoText}>
+                  Nach jeder Session bekommt ihr eine Zusammenfassung mit konkreten
+                  Beobachtungen und nächsten Schritten.
+                </p>
+              </div>
+            </div>
+
+            <div style={styles.infoItem}>
+              <span style={styles.infoEmoji}>🔒</span>
+              <div>
+                <strong>Volle Kontrolle</strong>
+                <p style={styles.infoText}>
+                  Ihr könnt jederzeit alle gespeicherten Daten einsehen oder löschen.
+                  Amiya speichert nur, was ihr selbst erzählt.
+                </p>
+              </div>
+            </div>
+
+            <div style={styles.highlightBox}>
+              <p style={styles.highlightText}>
+                Die meisten Paare profitieren am meisten von der Analyse-Funktion,
+                weil sie hilft, Muster zu erkennen und echte Fortschritte zu machen.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Footer note */}
         <p style={styles.footer}>
-          Du kannst das jederzeit in den Einstellungen ändern und alle Notizen löschen.
+          Du kannst das jederzeit in den Einstellungen ändern.
         </p>
       </div>
 
@@ -198,7 +248,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: "32px",
+    marginBottom: "24px",
   },
   progressDot: {
     width: "12px",
@@ -209,11 +259,8 @@ const styles = {
   progressDotCompleted: {
     background: "#8b5cf6",
   },
-  progressDotInactive: {
-    background: "#e5e7eb",
-  },
   progressLine: {
-    width: "30px",
+    width: "40px",
     height: "3px",
     background: "#e5e7eb",
   },
@@ -229,17 +276,14 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "35px",
     boxShadow: "0 8px 30px rgba(139,92,246,0.3)",
   },
   title: {
-    fontSize: "24px",
+    fontSize: "22px",
     fontWeight: "bold",
     color: "#1f2937",
     margin: 0,
-  },
-  content: {
-    marginBottom: "24px",
+    lineHeight: "1.3",
   },
   intro: {
     color: "#6b7280",
@@ -248,71 +292,139 @@ const styles = {
     marginBottom: "24px",
     lineHeight: "1.6",
   },
-  section: {
-    marginBottom: "20px",
-  },
-  sectionTitle: {
-    fontSize: "15px",
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: "16px",
-  },
-  subsection: {
-    background: "#f9fafb",
-    borderRadius: "12px",
-    padding: "16px",
-    marginBottom: "12px",
-  },
-  subsectionTitle: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#6b7280",
-    marginBottom: "8px",
-  },
-  list: {
-    margin: 0,
-    paddingLeft: "20px",
-    color: "#4b5563",
-    fontSize: "14px",
-    lineHeight: "1.8",
-  },
-  noteBox: {
-    background: "#fef3c7",
-    borderRadius: "12px",
-    padding: "16px",
-    borderLeft: "4px solid #f59e0b",
-  },
-  noteText: {
-    margin: 0,
-    fontSize: "14px",
-    color: "#92400e",
-    lineHeight: "1.5",
-  },
-  buttons: {
+  options: {
     display: "flex",
     flexDirection: "column",
     gap: "12px",
-    marginBottom: "16px",
+    marginBottom: "20px",
   },
-  primaryButton: {
-    padding: "16px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
-    color: "white",
-    border: "none",
+  optionButtonPrimary: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+    padding: "18px 16px",
+    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 100%)",
+    border: "2px solid #8b5cf6",
+    borderRadius: "16px",
+    cursor: "pointer",
+    textAlign: "left",
+    position: "relative",
+  },
+  optionButtonSecondary: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+    padding: "18px 16px",
+    background: "#f9fafb",
+    border: "2px solid #e5e7eb",
+    borderRadius: "16px",
+    cursor: "pointer",
+    textAlign: "left",
+  },
+  optionIcon: {
+    width: "48px",
+    height: "48px",
     borderRadius: "12px",
+    background: "white",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    boxShadow: "0 2px 8px rgba(139, 92, 246, 0.1)",
+  },
+  optionIconSecondary: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "12px",
+    background: "white",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  optionContent: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+    flex: 1,
+  },
+  optionTitle: {
     fontSize: "16px",
     fontWeight: "600",
-    cursor: "pointer",
+    color: "#1f2937",
   },
-  secondaryButton: {
-    padding: "16px",
-    background: "#f3f4f6",
-    color: "#6b7280",
-    border: "none",
-    borderRadius: "12px",
+  optionTitleSecondary: {
     fontSize: "16px",
-    fontWeight: "500",
+    fontWeight: "600",
+    color: "#6b7280",
+  },
+  optionDesc: {
+    fontSize: "13px",
+    color: "#6b7280",
+    lineHeight: "1.4",
+  },
+  recommendedBadge: {
+    position: "absolute",
+    top: "-10px",
+    right: "16px",
+    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    color: "white",
+    fontSize: "11px",
+    fontWeight: "600",
+    padding: "4px 12px",
+    borderRadius: "20px",
+    boxShadow: "0 2px 8px rgba(139, 92, 246, 0.3)",
+  },
+  moreInfoToggle: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    width: "100%",
+    padding: "12px",
+    background: "transparent",
+    border: "none",
     cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "500",
+    color: "#8b5cf6",
+    marginBottom: "8px",
+  },
+  infoSection: {
+    background: "#fafafa",
+    borderRadius: "16px",
+    padding: "20px",
+    marginBottom: "16px",
+  },
+  infoItem: {
+    display: "flex",
+    gap: "12px",
+    marginBottom: "16px",
+  },
+  infoEmoji: {
+    fontSize: "20px",
+    flexShrink: 0,
+    marginTop: "2px",
+  },
+  infoText: {
+    fontSize: "13px",
+    color: "#6b7280",
+    margin: "4px 0 0 0",
+    lineHeight: "1.5",
+  },
+  highlightBox: {
+    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 100%)",
+    borderRadius: "12px",
+    padding: "14px",
+    marginTop: "8px",
+    borderLeft: "3px solid #8b5cf6",
+  },
+  highlightText: {
+    margin: 0,
+    fontSize: "13px",
+    color: "#5b21b6",
+    lineHeight: "1.5",
+    fontWeight: "500",
   },
   footer: {
     textAlign: "center",

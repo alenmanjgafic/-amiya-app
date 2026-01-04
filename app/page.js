@@ -22,7 +22,8 @@ import {
   Ear,
   MessageCircle,
   Volume2,
-  LogOut
+  LogOut,
+  BarChart2
 } from "lucide-react";
 
 const AGENT_ID = "agent_8601kdk8kndtedgbn0ea13zff5aa";
@@ -36,7 +37,7 @@ const STATE = {
 };
 
 export default function Home() {
-  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { user, profile, loading: authLoading, signOut, updateProfile } = useAuth();
   const { tokens, isDarkMode } = useTheme();
   const router = useRouter();
 
@@ -275,45 +276,7 @@ export default function Home() {
     };
   }, []);
 
-  /**
-   * Schneller lokaler Viability-Check ohne API-Call
-   * Verwendet für sofortiges Feedback bei auto_analyze=OFF
-   *
-   * @returns {Object} {viable: boolean, reason: string|null}
-   */
-  const quickViabilityCheck = useCallback(() => {
-    const messages = messagesRef.current;
-
-    // Check 1: Keine Nachrichten
-    if (messages.length === 0) {
-      return { viable: false, reason: "empty" };
-    }
-
-    // Check 2: Transcript erstellen
-    const transcript = messages
-      .map(m => `${m.role === "user" ? "User" : "Amiya"}: ${m.content}`)
-      .join("\n");
-
-    // Check 3: Transcript zu kurz (< 200 Zeichen)
-    if (transcript.length < 200) {
-      return { viable: false, reason: "too_short" };
-    }
-
-    // Check 4: Zu wenig User-Nachrichten (< 2)
-    const userMessages = messages.filter(m => m.role === "user");
-    if (userMessages.length < 2) {
-      return { viable: false, reason: "too_short" };
-    }
-
-    // Check 5: User hat zu wenig gesagt (< 50 Zeichen)
-    const userContent = userMessages.map(m => m.content).join(" ");
-    if (userContent.length < 50) {
-      return { viable: false, reason: "too_short" };
-    }
-
-    // Alle Checks bestanden
-    return { viable: true, reason: null };
-  }, []);
+  // quickViabilityCheck entfernt: Unified Consent Model braucht keinen lokalen Check mehr
 
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
@@ -368,7 +331,6 @@ export default function Home() {
     // SOFORT Loading-State setzen wenn Analyse gewünscht
     if (requestAnalysis && hasMessages) {
       setIsGeneratingAnalysis(true);
-      setShowEndDialog(false);
     }
 
     if (currentSessionId && hasMessages) {
@@ -464,15 +426,11 @@ export default function Home() {
       }
     } else if (requestAnalysis && !hasMessages) {
       // No messages at all - show friendly modal
-      setShowEndDialog(false);
       setShowTooShortModal(true);
       return;
     }
-    
-    if (!requestAnalysis) {
-      setShowEndDialog(false);
-      resetSession();
-    }
+
+    // Unified Consent Model: resetSession() wird jetzt direkt in handleEndClick aufgerufen
   }, [currentSessionId, profile, checkAnalysisViability, resetSession, user, sessionTime, calculateEngagementMetrics]);
 
   const handleEndClick = useCallback(async () => {
@@ -504,30 +462,58 @@ export default function Home() {
       mediaStreamRef.current = null;
     }
 
-    // Check if auto_analyze is enabled
-    if (profile?.auto_analyze !== false) {
-      // Auto-analyze: skip dialog and directly analyze
-      // WICHTIG: started NICHT hier auf false setzen!
-      // resetSession() macht das am Ende (nach Modal-Interaktion)
+    /**
+     * Session-Ende Logik:
+     * - auto_analyze=true → Automatisch analysieren
+     * - auto_analyze=false → Dialog zeigen (Erinnerung an Vorteile)
+     */
+    if (profile?.auto_analyze) {
+      // Mit Analyse: automatisch analysieren
       endSession(true);
     } else {
-      // Manual mode: erst lokalen Check, dann Dialog
-      const quickCheck = quickViabilityCheck();
-
-      if (!quickCheck.viable) {
-        // Session zu kurz → direkt Modal zeigen, kein Dialog
-        setShowTooShortModal(true);
-      } else {
-        // Genug Inhalt → Dialog zeigen
-        setShowEndDialog(true);
-      }
+      // Dialog zeigen - User kann pro Session entscheiden
+      // Bei "Mit Analyse" wird Consent dauerhaft aktiviert
+      setShowEndDialog(true);
     }
-  }, [profile?.auto_analyze, endSession, quickViabilityCheck]);
+  }, [profile?.auto_analyze, endSession]);
 
   const handleCloseAnalysis = () => {
     setShowAnalysis(false);
     setAnalysisSessionId(null);
     setAnalysisError(null);
+    resetSession();
+  };
+
+  /**
+   * User wählt "Mit Analyse" im Dialog
+   * → Consent dauerhaft aktivieren + Session analysieren
+   */
+  const handleDialogAnalyze = async () => {
+    setShowEndDialog(false);
+
+    // Consent dauerhaft aktivieren
+    try {
+      await updateProfile({
+        memory_consent: true,
+        memory_consent_at: new Date().toISOString(),
+        auto_analyze: true,
+      });
+      console.log("Consent permanently enabled via dialog");
+    } catch (err) {
+      console.error("Failed to update consent:", err);
+    }
+
+    // Session analysieren
+    endSession(true);
+  };
+
+  /**
+   * User wählt "Ohne Analyse" im Dialog
+   * → Session beenden ohne Analyse
+   */
+  const handleDialogSkip = async () => {
+    setShowEndDialog(false);
+    await endSession(false);
     resetSession();
   };
 
@@ -1047,6 +1033,7 @@ export default function Home() {
         </p>
       </div>
 
+      {/* Session-Ende Dialog mit Analyse-Empfehlung */}
       {showEndDialog && (
         <div style={{
           position: "fixed",
@@ -1054,7 +1041,7 @@ export default function Home() {
           left: 0,
           right: 0,
           bottom: 0,
-          background: "rgba(0,0,0,0.5)",
+          background: "rgba(0,0,0,0.6)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -1064,40 +1051,91 @@ export default function Home() {
           <div style={{
             background: tokens.colors.bg.elevated,
             borderRadius: tokens.radii.xl,
-            padding: "32px",
+            padding: "28px",
             maxWidth: "400px",
             width: "100%",
             textAlign: "center",
           }}>
+            {/* Header */}
+            <div style={{
+              width: "56px",
+              height: "56px",
+              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+              borderRadius: "16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+            }}>
+              <BarChart2 size={28} color="white" />
+            </div>
+
             <h3 style={{
               fontSize: "20px",
               fontWeight: "bold",
               color: tokens.colors.text.primary,
-              marginBottom: "12px",
+              marginBottom: "8px",
               fontFamily: tokens.fonts.display,
-            }}>Session beenden?</h3>
+            }}>Session beenden</h3>
+
             <p style={{
               color: tokens.colors.text.secondary,
-              marginBottom: "24px",
+              marginBottom: "20px",
               lineHeight: "1.5",
+              fontSize: "15px",
             }}>
-              {messageCount > 0
-                ? "Möchtest du eine Analyse dieser Session?"
-                : "Keine Gespräche aufgezeichnet."
-              }
+              Möchtest du eine Analyse dieser Session?
             </p>
+
+            {/* Vorteile Box */}
+            <div style={{
+              background: tokens.colors.bg.surface,
+              borderRadius: tokens.radii.md,
+              padding: "16px",
+              marginBottom: "20px",
+              textAlign: "left",
+            }}>
+              <p style={{
+                color: tokens.colors.text.primary,
+                fontSize: "14px",
+                fontWeight: "600",
+                margin: "0 0 12px 0",
+              }}>Mit Analyse kannst du:</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "16px" }}>📈</span>
+                  <span style={{ color: tokens.colors.text.secondary, fontSize: "14px" }}>
+                    Muster in eurer Kommunikation sehen
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "16px" }}>🎯</span>
+                  <span style={{ color: tokens.colors.text.secondary, fontSize: "14px" }}>
+                    Konkrete nächste Schritte erhalten
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "16px" }}>🧠</span>
+                  <span style={{ color: tokens.colors.text.secondary, fontSize: "14px" }}>
+                    Amiya lernt euch besser kennen
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Buttons */}
             <div style={{
               display: "flex",
               gap: "12px",
               marginBottom: "16px",
             }}>
               <button
-                onClick={() => endSession(false)}
+                onClick={handleDialogSkip}
                 style={{
                   flex: 1,
                   padding: "14px",
                   background: tokens.colors.bg.surface,
-                  color: tokens.colors.text.primary,
+                  color: tokens.colors.text.secondary,
                   border: "none",
                   borderRadius: tokens.radii.md,
                   fontSize: "15px",
@@ -1108,7 +1146,7 @@ export default function Home() {
                 Ohne Analyse
               </button>
               <button
-                onClick={() => endSession(true)}
+                onClick={handleDialogAnalyze}
                 style={{
                   flex: 1,
                   padding: "14px",
@@ -1118,14 +1156,37 @@ export default function Home() {
                   borderRadius: tokens.radii.md,
                   fontSize: "15px",
                   fontWeight: "600",
-                  cursor: messageCount > 0 ? "pointer" : "not-allowed",
-                  opacity: messageCount > 0 ? 1 : 0.5,
+                  cursor: "pointer",
+                  position: "relative",
                 }}
-                disabled={messageCount === 0}
               >
                 Mit Analyse
+                <span style={{
+                  position: "absolute",
+                  top: "-8px",
+                  right: "-8px",
+                  background: tokens.colors.aurora.gold,
+                  color: "#1f2937",
+                  fontSize: "10px",
+                  fontWeight: "700",
+                  padding: "2px 6px",
+                  borderRadius: "10px",
+                }}>
+                  Empfohlen
+                </span>
               </button>
             </div>
+
+            {/* Hinweis */}
+            <p style={{
+              color: tokens.colors.text.muted,
+              fontSize: "12px",
+              lineHeight: "1.5",
+              margin: 0,
+            }}>
+              Mit "Mit Analyse" aktivierst du das Memory-System dauerhaft.
+              Du kannst das jederzeit in den Einstellungen ändern.
+            </p>
           </div>
         </div>
       )}

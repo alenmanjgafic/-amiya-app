@@ -92,11 +92,19 @@ const AGENT_ID = "agent_8601kdk8kndtedgbn0ea13zff5aa";
 Das Memory System speichert Kontext zwischen Sessions, aber **nur mit expliziter Zustimmung**.
 Vollständige Dokumentation: [docs/MEMORY_SYSTEM.md](docs/MEMORY_SYSTEM.md)
 
-**Consent-Flow:**
-1. User durchläuft Onboarding (`/onboarding`)
-2. Wird zu `/onboarding/memory` weitergeleitet
-3. Muss aktiv zustimmen oder ablehnen
-4. `memory_consent` + `memory_consent_at` werden in `profiles` gespeichert
+**Unified Consent Model (2-Step Onboarding):**
+1. `/onboarding` - Name + Partner-Name eingeben
+2. `/onboarding/memory` - Unified Consent: "Mit Analyse" oder "Ohne Analyse"
+
+**Die Entscheidung setzt BEIDE Werte gleichzeitig:**
+- "Mit Analyse" → `memory_consent=true`, `auto_analyze=true`
+- "Ohne Analyse" → `memory_consent=false`, `auto_analyze=false`
+
+**Consent-Upgrade via Session-Ende Dialog:**
+- Wer "Ohne Analyse" wählt, sieht nach jeder Session einen Dialog
+- Dialog erklärt Vorteile der Analyse (nicht aufdringlich)
+- Bei Klick auf "Mit Analyse" wird Consent DAUERHAFT aktiviert
+- So werden User regelmässig an die Vorteile erinnert
 
 **Privacy-Matrix (auf DATEN-Ebene geschützt!):**
 | Datenquelle | Solo Session | Couple Session |
@@ -126,9 +134,9 @@ Das Analyse-System prüft ob genug Inhalt für eine sinnvolle Analyse vorhanden 
 - Mind. 50 Zeichen User-Content
 - Claude prüft ob substanzieller Inhalt vorhanden
 
-**Analyse-Einstellung (`auto_analyze` in profiles):**
-- `true` (Standard): Nach Session wird automatisch analysiert
-- `false`: User wird nach Session gefragt "Mit/Ohne Analyse?"
+**Analyse-Einstellung (Unified Consent Model):**
+- `auto_analyze=true` (= `memory_consent=true`): Automatische Analyse + Memory
+- `auto_analyze=false` (= `memory_consent=false`): Dialog zeigt Vorteile + Consent-Upgrade möglich
 
 **Flow bei Session-Ende:**
 ```
@@ -137,27 +145,40 @@ Session endet
      ▼
 auto_analyze?
      │
-  ┌──┴──┐
-  │     │
- true  false
-  │     │
-  ▼     ▼
-Analyse  Dialog:
-direkt   Mit/Ohne?
-     │
-     ▼
-Viability Check
-     │
-  ┌──┴──┐
-  │     │
- OK    Zu kurz
-  │     │
-  ▼     ▼
-Analyse  Modal:
-speichern "Session zu kurz"
-         + Tipps
-         + Session löschen
+  ┌──────┴──────┐
+  │             │
+ true         false
+  │             │
+  ▼             ▼
+Viability    Dialog mit
+Check        Vorteilen zeigen
+  │             │
+  │         ┌───┴───┐
+  │         │       │
+  │      "Ohne"  "Mit Analyse"
+  │         │       │
+  │         ▼       ▼
+  │      Session  Consent-Upgrade:
+  │      beenden  memory_consent=true
+  │               auto_analyze=true
+  │               (dauerhaft!)
+  │               │
+  ┌──┴──┐         │
+  │     │         │
+ OK    Zu kurz    │
+  │     │         │
+  ▼     ▼         ▼
+Analyse Modal    Analyse
++Memory "zu kurz" +Memory
++Metrics          +Metrics
 ```
+
+**Session-Ende Dialog (bei auto_analyze=false):**
+- Zeigt Vorteile der Analyse (Muster erkennen, nächste Schritte, Amiya lernt)
+- "Empfohlen" Badge auf "Mit Analyse" Button
+- Hinweis: "Mit Analyse aktivierst du das Memory-System dauerhaft"
+- Bei "Mit Analyse": Consent wird DAUERHAFT auf true gesetzt (kein temporäres Override)
+- Gilt für Solo UND Couple Sessions
 
 **"Zu kurz" Modal:**
 - Freundliche Erklärung warum keine Analyse möglich

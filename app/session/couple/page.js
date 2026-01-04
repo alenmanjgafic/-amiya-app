@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../../lib/AuthContext";
 import { useTheme } from "../../../lib/ThemeContext";
 import { sessionsService } from "../../../lib/sessions";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, BarChart2 } from "lucide-react";
 
 const AGENT_ID = "agent_8601kdk8kndtedgbn0ea13zff5aa";
 
@@ -22,7 +22,7 @@ const STATE = {
 };
 
 export default function CoupleSessionPage() {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, updateProfile } = useAuth();
   const { tokens } = useTheme();
   const router = useRouter();
   
@@ -329,7 +329,7 @@ export default function CoupleSessionPage() {
         if (requestAnalysis) {
           setIsGeneratingAnalysis(true);
           setShowEndDialog(false);
-          
+
           const viability = await checkAnalysisViability();
           
           if (!viability.viable) {
@@ -390,13 +390,45 @@ export default function CoupleSessionPage() {
       }, 3000);
       return;
     }
-    
+
     if (!requestAnalysis) {
       setShowEndDialog(false);
       resetSession();
       router.push("/wir");
     }
   }, [currentSessionId, userName, partnerName, router, checkAnalysisViability, resetSession, user, profile]);
+
+  /**
+   * User wählt "Mit Analyse" im Dialog
+   * → Consent dauerhaft aktivieren + Session analysieren
+   */
+  const handleDialogAnalyze = async () => {
+    setShowEndDialog(false);
+
+    // Consent dauerhaft aktivieren
+    try {
+      await updateProfile({
+        memory_consent: true,
+        memory_consent_at: new Date().toISOString(),
+        auto_analyze: true,
+      });
+      console.log("Consent permanently enabled via dialog (couple)");
+    } catch (err) {
+      console.error("Failed to update consent:", err);
+    }
+
+    // Session analysieren
+    endSession(true);
+  };
+
+  /**
+   * User wählt "Ohne Analyse" im Dialog
+   * → Session beenden ohne Analyse
+   */
+  const handleDialogSkip = async () => {
+    setShowEndDialog(false);
+    await endSession(false);
+  };
 
   useEffect(() => {
     return () => {
@@ -499,35 +531,160 @@ export default function CoupleSessionPage() {
         </p>
       </div>
 
+      {/* Session-Ende Dialog mit Analyse-Empfehlung */}
       {showEndDialog && (
-        <div style={styles.dialogOverlay}>
-          <div style={styles.dialog}>
-            <h3 style={styles.dialogTitle}>Session beenden?</h3>
-            <p style={styles.dialogText}>
-              {messageCount > 0
-                ? "Möchtet ihr eine gemeinsame Analyse?"
-                : "Keine Gespräche aufgezeichnet."
-              }
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.6)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px",
+          zIndex: 1000,
+        }}>
+          <div style={{
+            background: tokens.colors.bg.elevated,
+            borderRadius: tokens.radii.xl,
+            padding: "28px",
+            maxWidth: "400px",
+            width: "100%",
+            textAlign: "center",
+          }}>
+            {/* Header */}
+            <div style={{
+              width: "56px",
+              height: "56px",
+              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+              borderRadius: "16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+            }}>
+              <BarChart2 size={28} color="white" />
+            </div>
+
+            <h3 style={{
+              fontSize: "20px",
+              fontWeight: "bold",
+              color: tokens.colors.text.primary,
+              marginBottom: "8px",
+              fontFamily: tokens.fonts.display,
+            }}>Session beenden</h3>
+
+            <p style={{
+              color: tokens.colors.text.secondary,
+              marginBottom: "20px",
+              lineHeight: "1.5",
+              fontSize: "15px",
+            }}>
+              Möchtet ihr eine Analyse dieser Session?
             </p>
-            <div style={styles.dialogButtons}>
-              <button 
-                onClick={() => endSession(false)} 
-                style={styles.dialogButtonSecondary}
+
+            {/* Vorteile Box */}
+            <div style={{
+              background: tokens.colors.bg.surface,
+              borderRadius: tokens.radii.md,
+              padding: "16px",
+              marginBottom: "20px",
+              textAlign: "left",
+            }}>
+              <p style={{
+                color: tokens.colors.text.primary,
+                fontSize: "14px",
+                fontWeight: "600",
+                margin: "0 0 12px 0",
+              }}>Mit Analyse könnt ihr:</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "16px" }}>📈</span>
+                  <span style={{ color: tokens.colors.text.secondary, fontSize: "14px" }}>
+                    Muster in eurer Kommunikation sehen
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "16px" }}>🎯</span>
+                  <span style={{ color: tokens.colors.text.secondary, fontSize: "14px" }}>
+                    Konkrete nächste Schritte erhalten
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "16px" }}>🧠</span>
+                  <span style={{ color: tokens.colors.text.secondary, fontSize: "14px" }}>
+                    Amiya lernt euch besser kennen
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div style={{
+              display: "flex",
+              gap: "12px",
+              marginBottom: "16px",
+            }}>
+              <button
+                onClick={handleDialogSkip}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  background: tokens.colors.bg.surface,
+                  color: tokens.colors.text.secondary,
+                  border: "none",
+                  borderRadius: tokens.radii.md,
+                  fontSize: "15px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                }}
               >
                 Ohne Analyse
               </button>
-              <button 
-                onClick={() => endSession(true)} 
+              <button
+                onClick={handleDialogAnalyze}
                 style={{
-                  ...styles.dialogButtonPrimary,
-                  opacity: messageCount > 0 ? 1 : 0.5,
-                  cursor: messageCount > 0 ? "pointer" : "not-allowed"
+                  flex: 1,
+                  padding: "14px",
+                  background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                  color: "white",
+                  border: "none",
+                  borderRadius: tokens.radii.md,
+                  fontSize: "15px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  position: "relative",
                 }}
-                disabled={messageCount === 0}
               >
                 Mit Analyse
+                <span style={{
+                  position: "absolute",
+                  top: "-8px",
+                  right: "-8px",
+                  background: tokens.colors.aurora.gold,
+                  color: "#1f2937",
+                  fontSize: "10px",
+                  fontWeight: "700",
+                  padding: "2px 6px",
+                  borderRadius: "10px",
+                }}>
+                  Empfohlen
+                </span>
               </button>
             </div>
+
+            {/* Hinweis */}
+            <p style={{
+              color: tokens.colors.text.muted,
+              fontSize: "12px",
+              lineHeight: "1.5",
+              margin: 0,
+            }}>
+              Mit "Mit Analyse" aktiviert ihr das Memory-System dauerhaft.
+              Ihr könnt das jederzeit in den Einstellungen ändern.
+            </p>
           </div>
         </div>
       )}
