@@ -236,7 +236,8 @@ export async function POST(request) {
     const today = new Date().toISOString().split("T")[0];
 
     // 3. Update based on session type
-    if (sessionType === "solo") {
+    // message_analysis is treated like solo - personal reflection on communication patterns
+    if (sessionType === "solo" || sessionType === "message_analysis") {
       // Update personal context
       const result = await updateSoloContext(
         profile.personal_context || getDefaultPersonalContext(),

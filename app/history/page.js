@@ -17,6 +17,7 @@ import {
   User,
   Users,
   LayoutList,
+  MessageSquare,
 } from "lucide-react";
 
 export default function HistoryPage() {
@@ -142,6 +143,7 @@ export default function HistoryPage() {
     if (filter === "all") return true;
     if (filter === "solo") return session.type === "solo" || !session.type;
     if (filter === "couple") return session.type === "couple";
+    if (filter === "message") return session.type === "message_analysis";
     return true;
   });
 
@@ -192,6 +194,7 @@ export default function HistoryPage() {
           { key: "all", Icon: LayoutList, label: "Alle" },
           { key: "solo", Icon: User, label: "Solo" },
           { key: "couple", Icon: Users, label: "Couple" },
+          { key: "message", Icon: MessageSquare, label: "Nachrichten" },
         ].map(({ key, Icon, label }) => (
           <button
             key={key}
@@ -228,14 +231,23 @@ export default function HistoryPage() {
                 ? "Noch keine Sessions"
                 : filter === "solo"
                   ? "Noch keine Solo Sessions"
-                  : "Noch keine Couple Sessions"
+                  : filter === "couple"
+                    ? "Noch keine Couple Sessions"
+                    : "Noch keine Nachrichtenanalysen"
               }
             </p>
             <button
-              onClick={() => router.push(filter === "couple" ? "/wir" : "/")}
+              onClick={() => router.push(
+                filter === "couple" ? "/wir" :
+                filter === "message" ? "/analyze/message" : "/"
+              )}
               style={tokens.buttons.primary}
             >
-              {filter === "couple" ? "Couple Session starten" : "Session starten"}
+              {filter === "couple"
+                ? "Couple Session starten"
+                : filter === "message"
+                  ? "Nachricht analysieren"
+                  : "Session starten"}
             </button>
           </div>
         ) : (
@@ -261,12 +273,20 @@ export default function HistoryPage() {
                   borderRadius: "6px",
                   background: session.type === "couple"
                     ? (tokens.isDarkMode ? "rgba(249, 168, 212, 0.2)" : "#fce7f3")
-                    : tokens.colors.bg.surface,
+                    : session.type === "message_analysis"
+                      ? (tokens.isDarkMode ? "rgba(147, 197, 253, 0.2)" : "#dbeafe")
+                      : tokens.colors.bg.surface,
                   color: session.type === "couple"
                     ? tokens.colors.aurora.rose
-                    : tokens.colors.text.secondary,
+                    : session.type === "message_analysis"
+                      ? tokens.colors.aurora.sky
+                      : tokens.colors.text.secondary,
                 }}>
-                  {session.type === "couple" ? "COUPLE SESSION" : "SOLO SESSION"}
+                  {session.type === "couple"
+                    ? "COUPLE SESSION"
+                    : session.type === "message_analysis"
+                      ? "NACHRICHTENANALYSE"
+                      : "SOLO SESSION"}
                 </span>
                 <span style={tokens.typography.small}>{formatDate(session.created_at)}</span>
               </div>
