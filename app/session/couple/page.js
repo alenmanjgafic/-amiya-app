@@ -663,13 +663,13 @@ export default function CoupleSessionPage() {
                   position: "absolute",
                   top: "-10px",
                   right: "-4px",
-                  background: "#10b981",
+                  background: tokens.colors.aurora.mint,
                   color: "white",
                   fontSize: "11px",
                   fontWeight: "600",
                   padding: "4px 8px",
                   borderRadius: "12px",
-                  boxShadow: "0 2px 8px rgba(16, 185, 129, 0.4)",
+                  boxShadow: `0 2px 8px ${tokens.colors.aurora.mint}66`,
                 }}>
                   Empfohlen
                 </span>
@@ -811,14 +811,15 @@ export default function CoupleSessionPage() {
 }
 
 // Helper functions with Design System colors
-// Light Mode: lavender=#7c3aed, rose=#db2777
-// Dark Mode: lavender=#a78bfa, rose=#f9a8d4
+// Light Mode: lavender=#7c3aed, rose=#db2777, mint=#0d9488
+// Dark Mode: lavender=#a78bfa, rose=#f9a8d4, mint=#7dd3c0
 function getStateColor(state, isDarkMode = false) {
   const lavender = isDarkMode ? "#a78bfa" : "#7c3aed";
   const rose = isDarkMode ? "#f9a8d4" : "#db2777";
+  const mint = isDarkMode ? "#7dd3c0" : "#0d9488";
   const colors = {
     [STATE.CONNECTING]: "linear-gradient(135deg, #6b7280, #4b5563)",
-    [STATE.LISTENING]: "linear-gradient(135deg, #22c55e, #16a34a)",
+    [STATE.LISTENING]: `linear-gradient(135deg, ${mint}, #0f766e)`,
     [STATE.THINKING]: "linear-gradient(135deg, #f59e0b, #d97706)",
     [STATE.SPEAKING]: `linear-gradient(135deg, ${lavender}, ${rose})`,
     [STATE.IDLE]: "linear-gradient(135deg, #6b7280, #4b5563)"
@@ -850,9 +851,10 @@ function getStatusText(state) {
 
 function getStatusRingStyle(state, isDarkMode = false) {
   const lavender = isDarkMode ? "#a78bfa" : "#7c3aed";
+  const mint = isDarkMode ? "#7dd3c0" : "#0d9488";
   const ringStyles = {
     [STATE.CONNECTING]: { borderColor: "#6b7280" },
-    [STATE.LISTENING]: { borderColor: "#22c55e", boxShadow: "0 0 40px rgba(34,197,94,0.3)" },
+    [STATE.LISTENING]: { borderColor: mint, boxShadow: `0 0 40px ${mint}50` },
     [STATE.THINKING]: { borderColor: "#f59e0b", boxShadow: "0 0 40px rgba(245,158,11,0.3)" },
     [STATE.SPEAKING]: { borderColor: lavender, boxShadow: `0 0 40px ${lavender}50` },
     [STATE.IDLE]: { borderColor: "#6b7280" }
@@ -987,7 +989,7 @@ const styles = {
     width: "80px",
     height: "80px",
     borderRadius: "50%",
-    background: "linear-gradient(135deg, #22c55e, #16a34a)",
+    background: "linear-gradient(135deg, #0d9488, #0f766e)", // aurora.mint
     animation: "pulse 2s ease-in-out infinite",
   },
   thinkingPulse: {

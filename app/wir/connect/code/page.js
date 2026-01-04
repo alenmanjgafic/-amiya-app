@@ -495,7 +495,7 @@ const styles = {
     marginBottom: "16px",
   },
   success: {
-    color: "#16a34a",
+    color: "#0d9488", // aurora.mint
     fontSize: "14px",
     marginBottom: "16px",
   },

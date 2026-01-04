@@ -250,7 +250,7 @@ const styles = {
     color: "#374151",
   },
   listIcon: {
-    color: "#22c55e",
+    color: "#0d9488", // aurora.mint
     fontWeight: "bold",
   },
   listIconPrivate: {
