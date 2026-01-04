@@ -525,7 +525,7 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
           {/* Check-in Due */}
           {isCheckInDue && agreement.status === "active" && !showCheckIn && (
             <div style={{
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
               borderRadius: tokens.radii.md,
               padding: "20px",
               textAlign: "center",
@@ -696,7 +696,7 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
                       onClick={handleCheckIn}
                       style={{
                         padding: "12px 24px",
-                        background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                        background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
                         color: "white",
                         border: "none",
                         borderRadius: tokens.radii.md,

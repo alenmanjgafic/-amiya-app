@@ -346,7 +346,7 @@ export default function WirPage() {
               width: "80px",
               height: "80px",
               borderRadius: "50%",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -520,7 +520,7 @@ export default function WirPage() {
               onClick={() => router.push("/wir/connect")}
               style={{
                 padding: "16px 32px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
                 color: "white",
                 border: "none",
                 borderRadius: tokens.radii.md,
@@ -528,8 +528,8 @@ export default function WirPage() {
                 fontWeight: "600",
                 cursor: "pointer",
                 boxShadow: isDarkMode
-                  ? tokens.shadows.glow(tokens.colors.aurora.lavender)
-                  : "0 4px 15px rgba(124,58,237,0.3)",
+                  ? tokens.shadows.glow(tokens.colors.aurora.mint)
+                  : `0 4px 15px ${tokens.colors.aurora.mint}20`,
               }}
             >
               Verbinden

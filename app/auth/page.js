@@ -68,7 +68,7 @@ export default function AuthPage() {
           <div style={{
             width: "70px",
             height: "70px",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+            background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
             borderRadius: tokens.radii.xl,
             margin: "0 auto 16px",
             display: "flex",
@@ -187,7 +187,7 @@ export default function AuthPage() {
             type="submit"
             style={{
               padding: "16px",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
               color: "white",
               border: "none",
               borderRadius: tokens.radii.md,

@@ -564,7 +564,7 @@ export default function CoupleSessionPage() {
             <div style={{
               width: "56px",
               height: "56px",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
               borderRadius: "16px",
               display: "flex",
               alignItems: "center",
@@ -654,7 +654,7 @@ export default function CoupleSessionPage() {
                 style={{
                   flex: 1,
                   padding: "14px",
-                  background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                  background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
                   color: "white",
                   border: "none",
                   borderRadius: tokens.radii.md,
@@ -783,7 +783,7 @@ export default function CoupleSessionPage() {
               style={{
                 width: "100%",
                 padding: "14px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
                 color: "white",
                 border: "none",
                 borderRadius: tokens.radii.md,

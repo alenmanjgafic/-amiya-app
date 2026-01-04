@@ -147,7 +147,7 @@ export default function AgreementsList({ onSelectAgreement, onCreateNew }) {
         }}>Eure Vereinbarungen</h3>
         <button onClick={onCreateNew} style={{
           padding: "8px 16px",
-          background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+          background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
           color: "white",
           border: "none",
           borderRadius: tokens.radii.sm,

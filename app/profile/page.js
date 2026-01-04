@@ -155,7 +155,7 @@ export default function ProfilePage() {
             width: "80px",
             height: "80px",
             borderRadius: "50%",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+            background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
             color: "white",
             display: "flex",
             alignItems: "center",
@@ -269,7 +269,7 @@ export default function ProfilePage() {
             type="submit"
             style={{
               padding: "16px",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
               color: "white",
               border: "none",
               borderRadius: tokens.radii.md,
@@ -339,7 +339,7 @@ export default function ProfilePage() {
                 gap: "8px",
                 padding: "10px 16px",
                 background: isDarkMode
-                  ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`
+                  ? `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`
                   : tokens.colors.bg.surface,
                 border: isDarkMode ? "none" : `2px solid ${tokens.colors.bg.soft}`,
                 borderRadius: tokens.radii.pill,
@@ -397,7 +397,7 @@ export default function ProfilePage() {
                 gap: "8px",
                 padding: "10px 16px",
                 background: autoAnalyze
-                  ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`
+                  ? `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`
                   : tokens.colors.bg.surface,
                 border: autoAnalyze ? "none" : `2px solid ${tokens.colors.bg.soft}`,
                 borderRadius: tokens.radii.pill,

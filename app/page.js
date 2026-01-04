@@ -693,7 +693,7 @@ function HomeContent() {
                 width: "32px",
                 height: "32px",
                 borderRadius: "50%",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
                 color: "white",
                 display: "flex",
                 alignItems: "center",
@@ -1261,7 +1261,7 @@ function HomeContent() {
             <div style={{
               width: "56px",
               height: "56px",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
               borderRadius: "16px",
               display: "flex",
               alignItems: "center",
@@ -1351,7 +1351,7 @@ function HomeContent() {
                 style={{
                   flex: 1,
                   padding: "14px",
-                  background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                  background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
                   color: "white",
                   border: "none",
                   borderRadius: tokens.radii.md,
@@ -1487,7 +1487,7 @@ function HomeContent() {
               style={{
                 width: "100%",
                 padding: "14px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
                 color: "white",
                 border: "none",
                 borderRadius: tokens.radii.md,

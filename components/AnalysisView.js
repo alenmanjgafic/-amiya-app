@@ -884,7 +884,7 @@ export default function AnalysisView({ sessionId, onClose }) {
         <button onClick={onClose} style={{
           width: "100%",
           padding: "16px",
-          background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+          background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
           color: "white",
           border: "none",
           borderRadius: tokens.radii.md,

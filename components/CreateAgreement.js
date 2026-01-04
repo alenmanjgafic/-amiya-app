@@ -134,7 +134,7 @@ export default function CreateAgreement({ onClose, onCreated }) {
         }}>
           <div style={{
             height: "100%",
-            background: `linear-gradient(90deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+            background: `linear-gradient(90deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
             width: `${(step / 3) * 100}%`,
             transition: "width 0.3s ease",
           }} />
@@ -232,7 +232,7 @@ export default function CreateAgreement({ onClose, onCreated }) {
                 style={{
                   width: "100%",
                   padding: "16px",
-                  background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                  background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
                   color: "white",
                   border: "none",
                   borderRadius: tokens.radii.md,
@@ -376,7 +376,7 @@ export default function CreateAgreement({ onClose, onCreated }) {
                 <button onClick={() => setStep(3)} style={{
                   flex: 2,
                   padding: "16px",
-                  background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                  background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
                   color: "white",
                   border: "none",
                   borderRadius: tokens.radii.md,
