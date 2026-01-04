@@ -2,8 +2,7 @@
 
 /**
  * EDITABLE TEXT COMPONENT - Collaborative Editing
- *
- * Vision: Guided, collaborative text refinement with Amiya
+ * Uses Amiya Theme System for consistent styling
  *
  * Flow:
  * 1. User taps on a segment they want to change
@@ -14,8 +13,9 @@
  * 6. Text updates with visual indicator
  */
 
-import { useState, useRef, useEffect } from "react";
-import { X, Sparkles, Check, MessageSquare, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Sparkles, Check, Pencil, ChevronRight } from "lucide-react";
+import { useTheme } from "../lib/ThemeContext";
 
 // Quick feedback options
 const FEEDBACK_OPTIONS = [
@@ -33,6 +33,7 @@ export default function EditableText({
   partnerName = "Partner",
   readOnly = false,
 }) {
+  const { tokens } = useTheme();
   const [segments, setSegments] = useState([]);
   const [editedSegments, setEditedSegments] = useState(new Set());
   const [pressedIndex, setPressedIndex] = useState(null);
@@ -40,28 +41,28 @@ export default function EditableText({
   // Modal state
   const [selectedSegment, setSelectedSegment] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
-  const [modalStep, setModalStep] = useState("feedback"); // 'feedback' | 'alternatives' | 'loading'
+  const [modalStep, setModalStep] = useState("feedback");
   const [selectedFeedback, setSelectedFeedback] = useState([]);
   const [customFeedback, setCustomFeedback] = useState("");
   const [alternatives, setAlternatives] = useState([]);
   const [amiyaResponse, setAmiyaResponse] = useState("");
   const [customAlternative, setCustomAlternative] = useState("");
 
+  // Build dynamic styles based on theme
+  const styles = buildStyles(tokens);
+
   // Split text into segments
   useEffect(() => {
     if (!text) return;
 
-    // Split by natural phrases (commas, conjunctions, sentence parts)
     const splitPattern = /([^,;.!?]+[,;.!?]?\s*)/g;
     const parts = text.match(splitPattern) || [text];
 
-    // Combine very short segments with previous
     const merged = [];
     let current = "";
 
     for (const part of parts) {
       current += part;
-      // Keep segment if it's long enough or ends with punctuation
       if (current.length > 15 || /[.!?]$/.test(current.trim())) {
         merged.push(current.trim());
         current = "";
@@ -106,7 +107,6 @@ export default function EditableText({
 
     setModalStep("loading");
 
-    // Build feedback description
     const feedbackLabels = selectedFeedback.map(
       (id) => FEEDBACK_OPTIONS.find((o) => o.id === id)?.label
     );
@@ -126,7 +126,6 @@ export default function EditableText({
         setAmiyaResponse(result.explanation || "Hier sind ein paar Alternativen:");
         setAlternatives(result.alternatives || []);
       } else {
-        // Fallback: Call API directly
         const response = await fetch("/api/coach/reformulate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -163,12 +162,10 @@ export default function EditableText({
     };
     setSegments(newSegments);
 
-    // Mark as edited
     const newEdited = new Set(editedSegments);
     newEdited.add(selectedIndex);
     setEditedSegments(newEdited);
 
-    // Notify parent
     const fullText = newSegments.map((s) => s.text).join(" ");
     onChange?.(fullText);
 
@@ -188,7 +185,7 @@ export default function EditableText({
       {/* Hint */}
       {!readOnly && (
         <div style={styles.hint}>
-          <MessageSquare size={12} />
+          <Pencil size={12} />
           <span>Tippe auf einen Teil zum Anpassen</span>
         </div>
       )}
@@ -211,9 +208,6 @@ export default function EditableText({
               ...(readOnly ? styles.readOnlySegment : {}),
             }}
           >
-            {editedSegments.has(index) && (
-              <span style={styles.editedMarker}>|</span>
-            )}
             {segment.text}{" "}
           </span>
         ))}
@@ -231,17 +225,15 @@ export default function EditableText({
             {/* Step 1: Feedback */}
             {modalStep === "feedback" && (
               <>
-                {/* Selected text */}
                 <div style={styles.selectedTextBox}>
                   <span style={styles.selectedText}>
                     "{selectedSegment.text}"
                   </span>
-                  <span style={styles.selectedLabel}>ausgewählt</span>
+                  <span style={styles.selectedLabel}>ausgewahlt</span>
                 </div>
 
                 <p style={styles.modalQuestion}>Was stört dich daran?</p>
 
-                {/* Feedback chips */}
                 <div style={styles.chipsContainer}>
                   {FEEDBACK_OPTIONS.map((option) => (
                     <button
@@ -291,8 +283,10 @@ export default function EditableText({
             {/* Loading */}
             {modalStep === "loading" && (
               <div style={styles.loadingContainer}>
-                <Sparkles size={32} style={styles.loadingIcon} />
-                <p>Amiya denkt nach...</p>
+                <div style={styles.loadingIcon}>
+                  <Sparkles size={32} />
+                </div>
+                <p style={styles.loadingText}>Amiya denkt nach...</p>
               </div>
             )}
 
@@ -306,7 +300,6 @@ export default function EditableText({
 
                 <p style={styles.amiyaResponse}>{amiyaResponse}</p>
 
-                {/* Alternative options */}
                 <div style={styles.alternativesContainer}>
                   {alternatives.map((alt, index) => (
                     <button
@@ -330,7 +323,7 @@ export default function EditableText({
                     value={customAlternative}
                     onChange={(e) => setCustomAlternative(e.target.value)}
                     placeholder="Meine eigene Version..."
-                    style={styles.customInput}
+                    style={{ ...styles.customInput, marginBottom: 0, flex: 1 }}
                   />
                   <button
                     onClick={handleCustomAlternative}
@@ -352,240 +345,269 @@ export default function EditableText({
   );
 }
 
-const styles = {
-  container: {
-    position: "relative",
-  },
-  hint: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    fontSize: 11,
-    color: "#888",
-    marginBottom: 12,
-    opacity: 0.8,
-  },
-  textContainer: {
-    lineHeight: 1.8,
-    fontSize: 15,
-  },
-  segment: {
-    cursor: "pointer",
-    padding: "4px 6px",
-    margin: "2px 0",
-    borderRadius: 6,
-    transition: "all 0.15s ease",
-    display: "inline",
-    backgroundColor: "rgba(232, 213, 196, 0.08)",
-    borderBottom: "1px dashed rgba(232, 213, 196, 0.3)",
-    // Touch feedback via :active would need CSS, so we add visual hint
-  },
-  editedSegment: {
-    backgroundColor: "rgba(139, 201, 139, 0.15)",
-    color: "#a8e8a8",
-    borderLeft: "2px solid #8bc98b",
-    paddingLeft: 8,
-    borderBottom: "none",
-  },
-  pressedSegment: {
-    backgroundColor: "rgba(232, 213, 196, 0.25)",
-    transform: "scale(0.98)",
-  },
-  editedMarker: {
-    color: "#8bc98b",
-    fontWeight: "bold",
-    marginRight: 4,
-  },
-  readOnlySegment: {
-    cursor: "default",
-  },
+// Build styles dynamically from theme tokens
+function buildStyles(tokens) {
+  const { colors, radii, shadows } = tokens;
 
-  // Modal styles
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.8)",
-    display: "flex",
-    alignItems: "flex-end",
-    justifyContent: "center",
-    zIndex: 1000,
-    padding: 16,
-  },
-  modal: {
-    width: "100%",
-    maxWidth: 400,
-    backgroundColor: "#1a1a1a",
-    borderRadius: 20,
-    padding: 24,
-    paddingBottom: 32,
-    position: "relative",
-    maxHeight: "80vh",
-    overflowY: "auto",
-  },
-  closeButton: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    background: "none",
-    border: "none",
-    color: "#666",
-    cursor: "pointer",
-    padding: 4,
-  },
-  selectedTextBox: {
-    backgroundColor: "#0d0d0d",
-    border: "1px solid #333",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-  },
-  selectedText: {
-    fontSize: 15,
-    lineHeight: 1.5,
-    color: "#e8d5c4",
-  },
-  selectedLabel: {
-    fontSize: 11,
-    color: "#666",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    alignSelf: "flex-end",
-  },
-  modalQuestion: {
-    fontSize: 15,
-    color: "#fff",
-    marginBottom: 16,
-  },
-  chipsContainer: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 20,
-  },
-  chip: {
-    padding: "8px 14px",
-    backgroundColor: "#2a2a2a",
-    border: "1px solid #444",
-    borderRadius: 20,
-    color: "#ccc",
-    fontSize: 13,
-    cursor: "pointer",
-    transition: "all 0.15s ease",
-  },
-  chipSelected: {
-    backgroundColor: "#e8d5c4",
-    borderColor: "#e8d5c4",
-    color: "#0a0a0a",
-  },
-  orLabel: {
-    fontSize: 13,
-    color: "#888",
-    marginBottom: 12,
-  },
-  customInput: {
-    width: "100%",
-    padding: "12px 16px",
-    backgroundColor: "#0d0d0d",
-    border: "1px solid #333",
-    borderRadius: 12,
-    color: "#fff",
-    fontSize: 14,
-    outline: "none",
-    marginBottom: 20,
-  },
-  primaryButton: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    width: "100%",
-    padding: "14px 20px",
-    backgroundColor: "#e8d5c4",
-    border: "none",
-    borderRadius: 12,
-    color: "#0a0a0a",
-    fontSize: 15,
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  loadingContainer: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "40px 20px",
-    gap: 16,
-    color: "#888",
-  },
-  loadingIcon: {
-    color: "#e8d5c4",
-    animation: "pulse 1.5s ease-in-out infinite",
-  },
-  amiyaHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    fontSize: 12,
-    color: "#e8d5c4",
-    textTransform: "uppercase",
-    letterSpacing: "1px",
-    marginBottom: 12,
-  },
-  amiyaResponse: {
-    fontSize: 15,
-    lineHeight: 1.6,
-    color: "#fff",
-    marginBottom: 20,
-  },
-  alternativesContainer: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-    marginBottom: 24,
-  },
-  alternativeOption: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 12,
-    padding: "14px 16px",
-    backgroundColor: "#0d0d0d",
-    border: "1px solid #333",
-    borderRadius: 12,
-    color: "#fff",
-    fontSize: 14,
-    textAlign: "left",
-    cursor: "pointer",
-    transition: "all 0.15s ease",
-  },
-  radioCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: "50%",
-    border: "2px solid #e8d5c4",
-    flexShrink: 0,
-    marginTop: 2,
-  },
-  customAlternativeRow: {
-    display: "flex",
-    gap: 12,
-  },
-  checkButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: "#8bc98b",
-    border: "none",
-    color: "#0a0a0a",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    flexShrink: 0,
-  },
-};
+  return {
+    container: {
+      position: "relative",
+    },
+    hint: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      fontSize: 12,
+      color: colors.text.muted,
+      marginBottom: 12,
+    },
+    textContainer: {
+      lineHeight: 1.9,
+      fontSize: 15,
+      color: colors.text.primary,
+    },
+    segment: {
+      cursor: "pointer",
+      padding: "4px 8px",
+      margin: "2px 0",
+      borderRadius: radii.sm,
+      transition: "all 0.15s ease",
+      display: "inline",
+      backgroundColor: `${colors.aurora.lavender}10`,
+      borderBottom: `1px dashed ${colors.aurora.lavender}40`,
+    },
+    editedSegment: {
+      backgroundColor: `${colors.success}20`,
+      color: colors.success,
+      borderBottom: "none",
+      borderLeft: `2px solid ${colors.success}`,
+      paddingLeft: 10,
+    },
+    pressedSegment: {
+      backgroundColor: `${colors.aurora.lavender}25`,
+      transform: "scale(0.98)",
+    },
+    readOnlySegment: {
+      cursor: "default",
+      backgroundColor: "transparent",
+      borderBottom: "none",
+    },
+
+    // Modal
+    modalOverlay: {
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(0,0,0,0.7)",
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "center",
+      zIndex: 1000,
+      padding: 16,
+    },
+    modal: {
+      width: "100%",
+      maxWidth: 420,
+      backgroundColor: colors.bg.elevated,
+      borderRadius: radii.xl,
+      padding: 24,
+      paddingBottom: 32,
+      position: "relative",
+      maxHeight: "85vh",
+      overflowY: "auto",
+      boxShadow: shadows.large,
+    },
+    closeButton: {
+      position: "absolute",
+      top: 16,
+      right: 16,
+      background: "none",
+      border: "none",
+      color: colors.text.muted,
+      cursor: "pointer",
+      padding: 4,
+    },
+
+    // Selected text box
+    selectedTextBox: {
+      backgroundColor: colors.bg.surface,
+      border: `1px solid ${colors.bg.soft}`,
+      borderRadius: radii.md,
+      padding: 16,
+      marginBottom: 20,
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+    },
+    selectedText: {
+      fontSize: 15,
+      lineHeight: 1.5,
+      color: colors.aurora.lavender,
+      fontStyle: "italic",
+    },
+    selectedLabel: {
+      fontSize: 11,
+      color: colors.text.muted,
+      textTransform: "uppercase",
+      letterSpacing: "0.5px",
+      alignSelf: "flex-end",
+    },
+
+    // Question & labels
+    modalQuestion: {
+      fontSize: 16,
+      fontWeight: 500,
+      color: colors.text.primary,
+      marginBottom: 16,
+    },
+    orLabel: {
+      fontSize: 13,
+      color: colors.text.muted,
+      marginBottom: 12,
+    },
+
+    // Chips
+    chipsContainer: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 8,
+      marginBottom: 24,
+    },
+    chip: {
+      padding: "10px 16px",
+      backgroundColor: colors.bg.surface,
+      border: `1px solid ${colors.bg.soft}`,
+      borderRadius: radii.pill,
+      color: colors.text.secondary,
+      fontSize: 14,
+      cursor: "pointer",
+      transition: "all 0.15s ease",
+    },
+    chipSelected: {
+      backgroundColor: colors.aurora.lavender,
+      borderColor: colors.aurora.lavender,
+      color: "#ffffff",
+    },
+
+    // Inputs
+    customInput: {
+      width: "100%",
+      padding: "14px 16px",
+      backgroundColor: colors.bg.surface,
+      border: `1px solid ${colors.bg.soft}`,
+      borderRadius: radii.md,
+      color: colors.text.primary,
+      fontSize: 14,
+      outline: "none",
+      marginBottom: 20,
+      boxSizing: "border-box",
+    },
+
+    // Primary button
+    primaryButton: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      width: "100%",
+      padding: "16px 24px",
+      background: `linear-gradient(135deg, ${colors.aurora.mint}, ${colors.aurora.lavender})`,
+      border: "none",
+      borderRadius: radii.md,
+      color: "#ffffff",
+      fontSize: 16,
+      fontWeight: 600,
+      cursor: "pointer",
+      boxShadow: shadows.button,
+    },
+
+    // Loading
+    loadingContainer: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "48px 20px",
+      gap: 16,
+    },
+    loadingIcon: {
+      color: colors.aurora.lavender,
+      animation: "pulse 1.5s ease-in-out infinite",
+    },
+    loadingText: {
+      color: colors.text.muted,
+      fontSize: 14,
+    },
+
+    // Amiya response
+    amiyaHeader: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      fontSize: 12,
+      color: colors.aurora.mint,
+      textTransform: "uppercase",
+      letterSpacing: "1px",
+      marginBottom: 12,
+      fontWeight: 600,
+    },
+    amiyaResponse: {
+      fontSize: 15,
+      lineHeight: 1.6,
+      color: colors.text.primary,
+      marginBottom: 24,
+    },
+
+    // Alternatives
+    alternativesContainer: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      marginBottom: 24,
+    },
+    alternativeOption: {
+      display: "flex",
+      alignItems: "flex-start",
+      gap: 12,
+      padding: "16px",
+      backgroundColor: colors.bg.surface,
+      border: `1px solid ${colors.bg.soft}`,
+      borderRadius: radii.md,
+      color: colors.text.primary,
+      fontSize: 14,
+      textAlign: "left",
+      cursor: "pointer",
+      transition: "all 0.15s ease",
+    },
+    radioCircle: {
+      width: 18,
+      height: 18,
+      borderRadius: "50%",
+      border: `2px solid ${colors.aurora.mint}`,
+      flexShrink: 0,
+      marginTop: 2,
+    },
+
+    // Custom alternative row
+    customAlternativeRow: {
+      display: "flex",
+      gap: 12,
+      alignItems: "center",
+    },
+    checkButton: {
+      width: 50,
+      height: 50,
+      borderRadius: radii.md,
+      background: `linear-gradient(135deg, ${colors.aurora.mint}, ${colors.success})`,
+      border: "none",
+      color: "#ffffff",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: "pointer",
+      flexShrink: 0,
+    },
+  };
+}
