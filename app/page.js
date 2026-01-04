@@ -175,6 +175,24 @@ function HomeContent() {
     }
   };
 
+  // AUTO-START: When coming from analysis, start session automatically
+  const hasAutoStarted = useRef(false);
+  useEffect(() => {
+    if (
+      fromAnalysisId &&
+      analysisContext &&
+      !loadingAnalysisContext &&
+      !started &&
+      !hasAutoStarted.current &&
+      user &&
+      profile?.name
+    ) {
+      console.log("Auto-starting session with analysis context");
+      hasAutoStarted.current = true;
+      startSession();
+    }
+  }, [fromAnalysisId, analysisContext, loadingAnalysisContext, started, user, profile?.name, startSession]);
+
   const loadPendingSuggestionsCount = async () => {
     if (!profile?.couple_id || !user?.id) return;
     try {
@@ -684,6 +702,39 @@ Frage den User wie er sich dabei fühlt und was er besprechen möchte.
         <p style={{ ...tokens.typography.small, marginTop: "16px" }}>
           {!user ? "Anmeldung wird geprüft..." : "Profil wird geladen..."}
         </p>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // LOADING FROM ANALYSIS - Show loading while preparing auto-start
+  // ============================================================================
+  if (fromAnalysisId && (loadingAnalysisContext || (analysisContext && !started))) {
+    return (
+      <div style={{
+        ...tokens.layout.pageCentered,
+        flexDirection: "column",
+        gap: "16px",
+      }}>
+        <div style={tokens.loaders.spinner(50)} />
+        <h2 style={{
+          ...tokens.typography.h2,
+          marginTop: "16px",
+          marginBottom: "8px",
+        }}>Session wird vorbereitet...</h2>
+        <p style={{
+          ...tokens.typography.body,
+          textAlign: "center",
+          maxWidth: "280px",
+        }}>
+          Amiya bereitet sich auf das Gespräch über deine Analyse vor.
+        </p>
+        <style jsx global>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
