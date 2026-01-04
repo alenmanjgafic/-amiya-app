@@ -24,7 +24,10 @@ import {
   Home,
   Heart,
   ClipboardList,
-  User
+  User,
+  PenLine,
+  Mic,
+  ChevronRight
 } from "lucide-react";
 
 export default function MessageAnalyzerPage() {
@@ -213,21 +216,133 @@ export default function MessageAnalyzerPage() {
             <RewritesView rewrites={result.rewrites} tokens={tokens} />
           )}
 
-          {/* Action Buttons */}
-          <div style={{ marginTop: "24px", display: "flex", gap: "12px" }}>
-            <button
-              onClick={resetAnalyzer}
-              style={{ ...tokens.buttons.secondary, flex: 1 }}
-            >
-              <RefreshCw size={18} style={{ marginRight: "8px" }} />
-              Neue Analyse
-            </button>
-            <button
-              onClick={() => router.push("/history")}
-              style={{ ...tokens.buttons.primary, flex: 1 }}
-            >
-              Verlauf ansehen
-            </button>
+          {/* ════════════════════════════════════════════════════════════ */}
+          {/* ACTION SECTION - What do you want to do now? */}
+          {/* ════════════════════════════════════════════════════════════ */}
+          <div style={{
+            marginTop: "32px",
+            paddingTop: "24px",
+            borderTop: `1px solid ${tokens.colors.bg.soft}`
+          }}>
+            <p style={{
+              ...tokens.typography.label,
+              marginBottom: "16px",
+              textAlign: "center"
+            }}>
+              WAS MÖCHTEST DU JETZT TUN?
+            </p>
+
+            {/* Primary Actions */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {/* Compose Response Button */}
+              <button
+                onClick={() => router.push(`/coach/message?sessionId=${result.sessionId}`)}
+                style={{
+                  ...tokens.cards.interactive,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "16px",
+                  padding: "16px 20px",
+                  border: `2px solid ${tokens.colors.aurora.lavender}20`,
+                  textAlign: "left",
+                }}
+              >
+                <div style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "12px",
+                  background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  <PenLine size={24} color="white" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{
+                    ...tokens.typography.h3,
+                    fontSize: "16px",
+                    margin: 0,
+                    marginBottom: "4px"
+                  }}>
+                    Antwort verfassen
+                  </p>
+                  <p style={{
+                    ...tokens.typography.small,
+                    margin: 0
+                  }}>
+                    Amiya hilft dir die richtigen Worte zu finden
+                  </p>
+                </div>
+                <ChevronRight size={20} color={tokens.colors.text.muted} />
+              </button>
+
+              {/* Voice Session Button */}
+              <button
+                onClick={() => router.push(`/?fromAnalysis=${result.sessionId}`)}
+                style={{
+                  ...tokens.cards.interactive,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "16px",
+                  padding: "16px 20px",
+                  border: `2px solid ${tokens.colors.aurora.mint}20`,
+                  textAlign: "left",
+                }}
+              >
+                <div style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "12px",
+                  background: tokens.gradients.primary,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  <Mic size={24} color="white" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{
+                    ...tokens.typography.h3,
+                    fontSize: "16px",
+                    margin: 0,
+                    marginBottom: "4px"
+                  }}>
+                    Darüber sprechen
+                  </p>
+                  <p style={{
+                    ...tokens.typography.small,
+                    margin: 0
+                  }}>
+                    Voice-Session zu diesem Thema starten
+                  </p>
+                </div>
+                <ChevronRight size={20} color={tokens.colors.text.muted} />
+              </button>
+            </div>
+
+            {/* Secondary Actions */}
+            <div style={{
+              display: "flex",
+              gap: "12px",
+              marginTop: "16px"
+            }}>
+              <button
+                onClick={resetAnalyzer}
+                style={{ ...tokens.buttons.secondary, flex: 1 }}
+              >
+                <RefreshCw size={16} style={{ marginRight: "6px" }} />
+                Neue Analyse
+              </button>
+              <button
+                onClick={() => router.push("/history")}
+                style={{ ...tokens.buttons.ghost, flex: 1 }}
+              >
+                Verlauf
+              </button>
+            </div>
           </div>
         </div>
 

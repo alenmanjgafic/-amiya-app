@@ -4,6 +4,7 @@
  *
  * Features:
  * - Claude Vision for screenshot OCR
+ * - Claude Tool Use for STRUCTURED JSON output (99% reliable)
  * - Gottman: 4 Horsemen, Repair Attempts, Soft Startup
  * - NVC: Observation → Feeling → Need → Request
  * - Rewrite suggestions for better communication
@@ -20,6 +21,154 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+// ═══════════════════════════════════════════════════════════
+// TOOL DEFINITION for Structured Output
+// ═══════════════════════════════════════════════════════════
+
+const MESSAGE_ANALYSIS_TOOL = {
+  name: "message_analysis_result",
+  description: "Strukturierte Analyse einer Chat-Konversation nach Gottman-Methode und NVC",
+  input_schema: {
+    type: "object",
+    required: ["summary", "emotional_landscape", "patterns", "user_needs", "partner_needs", "recommendations", "rewrites"],
+    properties: {
+      summary: {
+        type: "string",
+        description: "2-3 Sätze: Was passiert in dieser Konversation?"
+      },
+      emotional_landscape: {
+        type: "object",
+        required: ["user", "partner"],
+        properties: {
+          user: {
+            type: "string",
+            description: "Ton/Stimmung des Users und was dahinter stecken könnte"
+          },
+          partner: {
+            type: "string",
+            description: "Ton/Stimmung des Partners und was dahinter stecken könnte"
+          }
+        }
+      },
+      patterns: {
+        type: "object",
+        required: ["challenges", "strengths"],
+        properties: {
+          challenges: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["pattern", "description"],
+              properties: {
+                pattern: {
+                  type: "string",
+                  enum: ["criticism", "contempt", "defensiveness", "stonewalling", "harsh_startup", "escalation", "other"],
+                  description: "Gottman-Muster Typ"
+                },
+                description: {
+                  type: "string",
+                  description: "Konkrete Beschreibung wie sich das Muster zeigt"
+                }
+              }
+            },
+            description: "Erkannte Herausforderungen/negative Muster"
+          },
+          strengths: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["pattern", "description"],
+              properties: {
+                pattern: {
+                  type: "string",
+                  enum: ["humor", "affection", "responsibility", "we_language", "soft_startup", "understanding", "other"],
+                  description: "Positives Muster Typ"
+                },
+                description: {
+                  type: "string",
+                  description: "Konkrete Beschreibung wie sich das Muster zeigt"
+                }
+              }
+            },
+            description: "Erkannte Stärken/Reparaturversuche"
+          }
+        }
+      },
+      user_needs: {
+        type: "array",
+        items: { type: "string" },
+        description: "Was der User möglicherweise braucht (2-3 Bedürfnisse)"
+      },
+      partner_needs: {
+        type: "array",
+        items: { type: "string" },
+        description: "Was der Partner möglicherweise braucht (2-3 Bedürfnisse)"
+      },
+      recommendations: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["title", "description"],
+          properties: {
+            title: {
+              type: "string",
+              description: "Kurzer Titel der Empfehlung"
+            },
+            description: {
+              type: "string",
+              description: "Ausführlichere Erklärung"
+            }
+          }
+        },
+        description: "2-3 konkrete Empfehlungen"
+      },
+      rewrites: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["original", "sender", "issue", "rewrite", "rationale"],
+          properties: {
+            original: {
+              type: "string",
+              description: "Originaltext der Nachricht"
+            },
+            sender: {
+              type: "string",
+              enum: ["user", "partner"],
+              description: "Wer hat die Nachricht geschrieben"
+            },
+            issue: {
+              type: "string",
+              description: "Was ist problematisch (kurz)"
+            },
+            rewrite: {
+              type: "string",
+              description: "Verbesserter, natürlich klingender Text"
+            },
+            nvc_format: {
+              type: "string",
+              description: "NVC-Format: Ich fühle [Gefühl] wenn [Beobachtung], weil ich [Bedürfnis] brauche. Könntest du [Bitte]?"
+            },
+            rationale: {
+              type: "string",
+              description: "Warum diese Version besser ist"
+            }
+          }
+        },
+        description: "1-3 Vorschläge für bessere Formulierungen der problematischsten Nachrichten"
+      },
+      detected_themes: {
+        type: "array",
+        items: {
+          type: "string",
+          enum: ["kommunikation", "kinder", "finanzen", "arbeit", "intimität", "alltag", "zeit", "vertrauen", "zukunft", "anerkennung"]
+        },
+        description: "Erkannte Themen (max 3)"
+      }
+    }
+  }
+};
 
 // ═══════════════════════════════════════════════════════════
 // MESSAGE ANALYSIS PROMPT (Gottman + NVC based)
@@ -39,21 +188,21 @@ ANALYSIERE NACH GOTTMAN-METHODE:
 
 1. DIE VIER APOKALYPTISCHEN REITER
 Suche nach Anzeichen von:
-- Kritik (Angriff auf den Charakter statt Verhalten)
-- Verachtung (Sarkasmus, Augenrollen, Beleidigungen)
-- Defensivität (Rechtfertigungen, Gegenangriffe)
-- Mauern (Rückzug, Schweigen, Abschalten)
+- Kritik (criticism): Angriff auf den Charakter statt Verhalten
+- Verachtung (contempt): Sarkasmus, Augenrollen, Beleidigungen
+- Defensivität (defensiveness): Rechtfertigungen, Gegenangriffe
+- Mauern (stonewalling): Rückzug, Schweigen, Abschalten
 
 2. REPARATURVERSUCHE (Positiv!)
 Erkenne positive Signale:
-- Humor zur Entspannung
-- Zuneigung zeigen
-- Verantwortung übernehmen
-- "Wir gegen das Problem" Sprache
-- Verständnis signalisieren
+- Humor (humor): zur Entspannung
+- Zuneigung (affection): zeigen
+- Verantwortung (responsibility): übernehmen
+- Wir-Sprache (we_language): "Wir gegen das Problem"
+- Verständnis (understanding): signalisieren
 
 3. SOFT STARTUP vs HARSH STARTUP
-Wie beginnt das Gespräch? Sanft oder vorwurfsvoll?
+Wie beginnt das Gespräch? Sanft (soft_startup) oder vorwurfsvoll (harsh_startup)?
 
 ═══════════════════════════════════════════════════════════════
 NVC-ANALYSE (Gewaltfreie Kommunikation):
@@ -65,65 +214,19 @@ Prüfe ob Nachrichten folgendes enthalten:
 - Bitte (konkret, machbar, positiv formuliert)
 
 ═══════════════════════════════════════════════════════════════
-OUTPUT FORMAT (EXAKT EINHALTEN):
+WICHTIGE REGELN:
 
-**Zusammenfassung**
-(2-3 Sätze: Was passiert in dieser Konversation?)
+1. REWRITES SIND PFLICHT: Du MUSST mindestens 1-3 Rewrite-Vorschläge machen
+   - Fokus auf die problematischsten Nachrichten
+   - Rewrite soll natürlich klingen, nicht belehrend
+   - NVC-Format als zusätzliche Hilfe
 
-**Emotionale Landschaft**
-- ${userName}: [Ton/Stimmung] - [Was dahinter stecken könnte]
-- ${partnerName}: [Ton/Stimmung] - [Was dahinter stecken könnte]
+2. Bleibe warm und unterstützend, nicht belehrend
+3. Keine Schuldzuweisungen
+4. Erkenne an dass beide Perspektiven valide sind
+5. Antworte auf Deutsch
 
-**Erkannte Muster**
-
-### Herausforderungen
-- [Muster 1: z.B. "Harsh Startup - Das Gespräch startet mit Vorwurf"]
-- [Muster 2]
-
-### Stärken
-- [Positives Muster: z.B. "Reparaturversuch mit Humor"]
-
-**Was ${userName} möglicherweise braucht**
-- [Bedürfnis 1]
-- [Bedürfnis 2]
-
-**Was ${partnerName} möglicherweise braucht**
-- [Bedürfnis 1]
-- [Bedürfnis 2]
-
-**Konkrete Empfehlungen**
-1. [Empfehlung für die nächste Reaktion]
-2. [Empfehlung für das zugrunde liegende Thema]
-
-═══════════════════════════════════════════════════════════════
-REWRITE SUGGESTIONS (JSON am Ende):
-
-Wenn du Nachrichten findest die verbessert werden könnten, füge am Ende an:
-
----REWRITES---
-[
-  {
-    "original": "Originaltext der Nachricht",
-    "sender": "user" oder "partner",
-    "issue": "Was problematisch ist (kurz)",
-    "rewrite": "Verbesserter Text",
-    "nvc_format": "Ich fühle [Gefühl] wenn [Beobachtung], weil ich [Bedürfnis] brauche. Könntest du [Bitte]?",
-    "rationale": "Warum diese Version besser ist"
-  }
-]
----END REWRITES---
-
-Regeln für Rewrites:
-- Max 3 Vorschläge
-- Fokus auf die problematischsten Nachrichten
-- Rewrite soll natürlich klingen, nicht belehrend
-- NVC-Format als zusätzliche Hilfe, nicht als Ersatz
-
-WICHTIG:
-- Bleibe warm und unterstützend, nicht belehrend
-- Keine Schuldzuweisungen
-- Erkenne an dass beide Perspektiven valide sind
-- Deutsch
+Nutze das Tool "message_analysis_result" um deine Analyse strukturiert zurückzugeben.
 
 NACHRICHTENKONVERSATION:
 `;
@@ -262,13 +365,15 @@ export async function POST(request) {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // 3. Generate analysis with Gottman + NVC prompt
+    // 3. Generate analysis with Tool Use for STRUCTURED output
     // ═══════════════════════════════════════════════════════════
     const analysisPrompt = getMessageAnalysisPrompt(userName, partnerName, additionalContext);
 
     const analysisMessage = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 3000,
+      max_tokens: 4000,
+      tools: [MESSAGE_ANALYSIS_TOOL],
+      tool_choice: { type: "tool", name: "message_analysis_result" },
       messages: [
         {
           role: "user",
@@ -277,30 +382,49 @@ export async function POST(request) {
       ]
     });
 
-    const fullAnalysis = analysisMessage.content[0].text;
+    // Extract structured data from tool use response
+    const toolUseBlock = analysisMessage.content.find(block => block.type === "tool_use");
+
+    if (!toolUseBlock || toolUseBlock.name !== "message_analysis_result") {
+      console.error("Tool use response not found:", analysisMessage.content);
+      return Response.json({ error: "Analyse-Format fehlgeschlagen" }, { status: 500 });
+    }
+
+    const structuredAnalysis = toolUseBlock.input;
+    console.log("Structured analysis received:", Object.keys(structuredAnalysis));
 
     // ═══════════════════════════════════════════════════════════
-    // 4. Parse rewrites from analysis
+    // 4. Extract data from structured response
     // ═══════════════════════════════════════════════════════════
-    const { analysis, rewrites } = parseRewriteSuggestions(fullAnalysis);
+    const rewrites = structuredAnalysis.rewrites || [];
+    const themes = structuredAnalysis.detected_themes || [];
+
+    // Convert structured patterns to legacy format for compatibility
+    const patterns = {
+      horsemen: structuredAnalysis.patterns?.challenges
+        ?.filter(c => ["criticism", "contempt", "defensiveness", "stonewalling"].includes(c.pattern))
+        ?.map(c => c.pattern) || [],
+      repairs: structuredAnalysis.patterns?.strengths
+        ?.filter(s => ["humor", "affection", "responsibility", "we_language", "understanding"].includes(s.pattern))
+        ?.map(s => s.pattern) || [],
+      dynamics: [
+        ...(structuredAnalysis.patterns?.challenges?.filter(c => ["harsh_startup", "escalation"].includes(c.pattern))?.map(c => c.pattern) || []),
+        ...(structuredAnalysis.patterns?.strengths?.filter(s => s.pattern === "soft_startup")?.map(s => s.pattern) || [])
+      ]
+    };
 
     // ═══════════════════════════════════════════════════════════
-    // 5. Detect patterns for structured storage
+    // 5. Build analysis text from structured data (for display & storage)
     // ═══════════════════════════════════════════════════════════
-    const patterns = detectPatterns(analysis);
+    const analysisText = buildAnalysisText(structuredAnalysis, userName, partnerName);
 
     // ═══════════════════════════════════════════════════════════
-    // 6. Detect themes
-    // ═══════════════════════════════════════════════════════════
-    const themes = detectThemes(extractedText);
-
-    // ═══════════════════════════════════════════════════════════
-    // 7. Save analysis and DELETE source_text (privacy)
+    // 6. Save analysis and DELETE source_text (privacy)
     // ═══════════════════════════════════════════════════════════
     const { error: updateError } = await supabase
       .from("sessions")
       .update({
-        analysis: analysis,
+        analysis: analysisText,
         detected_patterns: patterns,
         rewrite_suggestions: rewrites,
         themes: themes,
@@ -315,7 +439,7 @@ export async function POST(request) {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // 8. Update memory if consent given
+    // 7. Update memory if consent given
     // ═══════════════════════════════════════════════════════════
     if (hasMemoryConsent) {
       try {
@@ -327,7 +451,7 @@ export async function POST(request) {
             coupleId: coupleId || null,
             sessionId: session.id,
             sessionType: 'message_analysis',
-            analysis: analysis
+            analysis: analysisText
           })
         });
         console.log("Memory updated after message analysis");
@@ -341,9 +465,11 @@ export async function POST(request) {
       success: true,
       sessionId: session.id,
       analysis: {
-        text: analysis,
+        text: analysisText,
         patterns: patterns,
-        themes: themes
+        themes: themes,
+        // Include structured data for rich UI
+        structured: structuredAnalysis
       },
       rewrites: rewrites
     });
@@ -355,121 +481,86 @@ export async function POST(request) {
 }
 
 /**
- * Parse rewrite suggestions from analysis text
+ * Build readable analysis text from structured data
+ * This creates the markdown-like text for display in the UI
  */
-function parseRewriteSuggestions(fullText) {
-  const rewriteStart = fullText.indexOf('---REWRITES---');
-  const rewriteEnd = fullText.indexOf('---END REWRITES---');
+function buildAnalysisText(structured, userName, partnerName) {
+  const lines = [];
 
-  if (rewriteStart === -1 || rewriteEnd === -1) {
-    return { analysis: fullText, rewrites: [] };
+  // Summary
+  lines.push("**Zusammenfassung**");
+  lines.push(structured.summary);
+  lines.push("");
+
+  // Emotional Landscape
+  lines.push("**Emotionale Landschaft**");
+  lines.push(`- ${userName}: ${structured.emotional_landscape.user}`);
+  lines.push(`- ${partnerName}: ${structured.emotional_landscape.partner}`);
+  lines.push("");
+
+  // Patterns
+  lines.push("**Erkannte Muster**");
+  lines.push("");
+
+  if (structured.patterns.challenges?.length > 0) {
+    lines.push("### Herausforderungen");
+    for (const challenge of structured.patterns.challenges) {
+      lines.push(`- **${getPatternLabel(challenge.pattern)}** - ${challenge.description}`);
+    }
+    lines.push("");
   }
 
-  const analysisText = fullText.substring(0, rewriteStart).trim();
-  const rewriteJson = fullText.substring(rewriteStart + 14, rewriteEnd).trim();
-
-  let rewrites = [];
-  try {
-    rewrites = JSON.parse(rewriteJson);
-    // Validate structure
-    rewrites = rewrites.filter(r =>
-      r.original && r.rewrite && typeof r.original === 'string'
-    ).slice(0, 3); // Max 3
-  } catch (parseError) {
-    console.error("Failed to parse rewrites JSON:", parseError);
-    rewrites = [];
+  if (structured.patterns.strengths?.length > 0) {
+    lines.push("### Stärken");
+    for (const strength of structured.patterns.strengths) {
+      lines.push(`- **${getPatternLabel(strength.pattern)}** - ${strength.description}`);
+    }
+    lines.push("");
   }
 
-  return { analysis: analysisText, rewrites };
+  // User Needs
+  lines.push(`**Was ${userName} möglicherweise braucht**`);
+  for (const need of structured.user_needs) {
+    lines.push(`- ${need}`);
+  }
+  lines.push("");
+
+  // Partner Needs
+  lines.push(`**Was ${partnerName} möglicherweise braucht**`);
+  for (const need of structured.partner_needs) {
+    lines.push(`- ${need}`);
+  }
+  lines.push("");
+
+  // Recommendations
+  lines.push("**Konkrete Empfehlungen**");
+  structured.recommendations.forEach((rec, i) => {
+    lines.push(`${i + 1}. **${rec.title}**: ${rec.description}`);
+  });
+
+  return lines.join("\n");
 }
 
 /**
- * Detect Gottman patterns in analysis text
+ * Get human-readable label for pattern type
  */
-function detectPatterns(analysisText) {
-  const textLower = analysisText.toLowerCase();
-
-  const patterns = {
-    horsemen: [],
-    repairs: [],
-    dynamics: []
+function getPatternLabel(pattern) {
+  const labels = {
+    // Challenges
+    criticism: "Kritik",
+    contempt: "Verachtung",
+    defensiveness: "Defensivität",
+    stonewalling: "Mauern",
+    harsh_startup: "Harsh Startup",
+    escalation: "Eskalation",
+    // Strengths
+    humor: "Humor",
+    affection: "Zuneigung",
+    responsibility: "Verantwortung übernehmen",
+    we_language: "Wir-Sprache",
+    soft_startup: "Soft Startup",
+    understanding: "Verständnis zeigen",
+    other: "Anderes Muster"
   };
-
-  // Four Horsemen
-  const horsemenPatterns = {
-    criticism: ['kritik', 'angriff auf charakter', 'vorwurf', 'du bist immer', 'du machst nie'],
-    contempt: ['verachtung', 'sarkasmus', 'augenrollen', 'beleidigung', 'herabsetzend'],
-    defensiveness: ['defensiv', 'rechtfertigung', 'gegenangriff', 'abwehr', 'schuld abweisen'],
-    stonewalling: ['mauern', 'rückzug', 'schweigen', 'abschalten', 'ignorieren']
-  };
-
-  for (const [horseman, keywords] of Object.entries(horsemenPatterns)) {
-    if (keywords.some(kw => textLower.includes(kw))) {
-      patterns.horsemen.push(horseman);
-    }
-  }
-
-  // Repair attempts
-  const repairPatterns = {
-    humor: ['humor', 'witz', 'lachen', 'scherz'],
-    affection: ['zuneigung', 'liebe', 'zärtlich', 'umarmung'],
-    responsibility: ['verantwortung', 'entschuldigung', 'tut mir leid', 'mein fehler'],
-    we_language: ['wir', 'gemeinsam', 'zusammen', 'unser problem']
-  };
-
-  for (const [repair, keywords] of Object.entries(repairPatterns)) {
-    if (keywords.some(kw => textLower.includes(kw))) {
-      patterns.repairs.push(repair);
-    }
-  }
-
-  // Dynamics
-  const dynamicsPatterns = {
-    'harsh_startup': ['harsh startup', 'harter einstieg', 'vorwurfsvoll beginnt'],
-    'soft_startup': ['soft startup', 'sanfter einstieg', 'sanft beginnt'],
-    'pursuer_distancer': ['pursuer', 'distancer', 'verfolger', 'zurückzieher'],
-    'escalation': ['eskalation', 'eskaliert', 'hochschaukeln']
-  };
-
-  for (const [dynamic, keywords] of Object.entries(dynamicsPatterns)) {
-    if (keywords.some(kw => textLower.includes(kw))) {
-      patterns.dynamics.push(dynamic);
-    }
-  }
-
-  return patterns;
-}
-
-/**
- * Simple theme detection based on keywords
- */
-function detectThemes(text) {
-  const themeKeywords = {
-    kommunikation: ["gespräch", "reden", "sagen", "hören", "zuhören", "verstehen", "kommunikation", "streiten", "diskussion", "schreiben", "nachricht"],
-    kinder: ["kind", "kinder", "sohn", "tochter", "eltern", "erziehung", "schule", "abholen"],
-    finanzen: ["geld", "finanzen", "ausgaben", "sparen", "verdienen", "kosten", "budget", "zahlen"],
-    arbeit: ["arbeit", "job", "beruf", "chef", "kollegen", "stress", "karriere", "büro", "meeting"],
-    intimität: ["nähe", "sex", "intim", "berührung", "zärtlich", "liebe", "romantik", "date"],
-    alltag: ["haushalt", "aufgaben", "putzen", "kochen", "einkaufen", "organisieren", "termin"],
-    zeit: ["zeit", "gemeinsam", "allein", "hobbies", "freunde", "ausgehen", "wochenende"],
-    vertrauen: ["vertrauen", "ehrlich", "lüge", "geheimnis", "treue", "sicher", "versprechen"],
-    zukunft: ["zukunft", "pläne", "ziele", "träume", "heirat", "zusammenziehen", "wohnung"],
-    anerkennung: ["wertschätzung", "danke", "anerkennung", "respekt", "ignoriert", "unterstützung"],
-  };
-
-  const textLower = text.toLowerCase();
-  const detectedThemes = [];
-
-  for (const [theme, keywords] of Object.entries(themeKeywords)) {
-    for (const keyword of keywords) {
-      if (textLower.includes(keyword)) {
-        if (!detectedThemes.includes(theme)) {
-          detectedThemes.push(theme);
-        }
-        break;
-      }
-    }
-  }
-
-  return detectedThemes.slice(0, 3);
+  return labels[pattern] || pattern;
 }

@@ -91,6 +91,11 @@ function HomeContent() {
   const isTestMode = searchParams.get("testMode") === "true";
   const [showDebugPanel, setShowDebugPanel] = useState(false);
 
+  // From Analysis: ?fromAnalysis=sessionId - starts session with analysis context
+  const fromAnalysisId = searchParams.get("fromAnalysis");
+  const [analysisContext, setAnalysisContext] = useState(null);
+  const [loadingAnalysisContext, setLoadingAnalysisContext] = useState(false);
+
   const [started, setStarted] = useState(false);
   const [voiceState, setVoiceState] = useState(STATE.IDLE);
   const [sessionTime, setSessionTime] = useState(0);
@@ -139,6 +144,36 @@ function HomeContent() {
       loadPendingSuggestionsCount();
     }
   }, [user, profile?.couple_id]);
+
+  // Load analysis context if coming from message analysis
+  useEffect(() => {
+    if (fromAnalysisId && user) {
+      loadAnalysisContext(fromAnalysisId);
+    }
+  }, [fromAnalysisId, user]);
+
+  const loadAnalysisContext = async (sessionId) => {
+    setLoadingAnalysisContext(true);
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}`);
+      if (response.ok) {
+        const session = await response.json();
+        if (session.type === "message_analysis" && session.analysis) {
+          setAnalysisContext({
+            sessionId: session.id,
+            analysis: session.analysis,
+            themes: session.themes || [],
+            patterns: session.detected_patterns || {}
+          });
+          console.log("Loaded analysis context for voice session");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load analysis context:", error);
+    } finally {
+      setLoadingAnalysisContext(false);
+    }
+  };
 
   const loadPendingSuggestionsCount = async () => {
     if (!profile?.couple_id || !user?.id) return;
@@ -205,12 +240,31 @@ function HomeContent() {
           const contextData = await contextResponse.json();
           userContext = contextData.context || "";
           console.log("Memory loaded:", contextData.hasMemory ? "with context" : "no consent");
-          if (contextData.debug) {
-            console.log("Debug:", contextData.debug);
-          }
         }
       } catch (contextError) {
         console.error("Failed to load memory:", contextError);
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // ANALYSIS CONTEXT: If coming from message analysis, prepend it
+      // ═══════════════════════════════════════════════════════════
+      if (analysisContext) {
+        const analysisIntro = `
+WICHTIG - KONTEXT AUS NACHRICHTENANALYSE:
+Der User hat gerade eine Nachrichtenkonversation mit ${profile?.partner_name || 'dem Partner'} analysiert.
+Er möchte jetzt darüber sprechen.
+
+Zusammenfassung der Analyse:
+${analysisContext.analysis.substring(0, 1500)}
+
+Erkannte Themen: ${analysisContext.themes?.join(', ') || 'Keine spezifischen Themen'}
+
+Beginne das Gespräch damit, dass du auf diese Analyse Bezug nimmst.
+Frage den User wie er sich dabei fühlt und was er besprechen möchte.
+---
+`;
+        userContext = analysisIntro + userContext;
+        console.log("Added analysis context to session");
       }
 
       const session = await sessionsService.create(user.id, "solo");
@@ -219,9 +273,6 @@ function HomeContent() {
       const { Conversation } = await import("@elevenlabs/client");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream; // Save for cleanup
-
-      console.log("Context length:", userContext.length);
-      console.log("Context preview:", userContext.substring(0, 300));
 
       // UPDATED: Context limit increased to 4000 characters for Agreements
       let sanitizedContext = userContext
@@ -233,8 +284,6 @@ function HomeContent() {
       if (userContext.length > 4000) {
         sanitizedContext += "...";
       }
-
-      console.log("Sanitized context length:", sanitizedContext.length);
 
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
@@ -293,7 +342,7 @@ function HomeContent() {
       setStarted(false);
       setVoiceState(STATE.IDLE);
     }
-  }, [user, profile]);
+  }, [user, profile, analysisContext]);
 
   // ═══════════════════════════════════════════════════════════════════
   // ADAPTIVE COACHING: Calculate engagement metrics
