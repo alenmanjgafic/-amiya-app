@@ -35,6 +35,7 @@ export default function EditableText({
 }) {
   const [segments, setSegments] = useState([]);
   const [editedSegments, setEditedSegments] = useState(new Set());
+  const [pressedIndex, setPressedIndex] = useState(null);
 
   // Modal state
   const [selectedSegment, setSelectedSegment] = useState(null);
@@ -198,9 +199,15 @@ export default function EditableText({
           <span
             key={index}
             onClick={() => openModal(segment, index)}
+            onTouchStart={() => setPressedIndex(index)}
+            onTouchEnd={() => setPressedIndex(null)}
+            onMouseDown={() => setPressedIndex(index)}
+            onMouseUp={() => setPressedIndex(null)}
+            onMouseLeave={() => setPressedIndex(null)}
             style={{
               ...styles.segment,
               ...(editedSegments.has(index) ? styles.editedSegment : {}),
+              ...(pressedIndex === index ? styles.pressedSegment : {}),
               ...(readOnly ? styles.readOnlySegment : {}),
             }}
           >
@@ -364,17 +371,25 @@ const styles = {
   },
   segment: {
     cursor: "pointer",
-    padding: "2px 4px",
+    padding: "4px 6px",
     margin: "2px 0",
-    borderRadius: 4,
-    transition: "background-color 0.15s ease",
+    borderRadius: 6,
+    transition: "all 0.15s ease",
     display: "inline",
+    backgroundColor: "rgba(232, 213, 196, 0.08)",
+    borderBottom: "1px dashed rgba(232, 213, 196, 0.3)",
+    // Touch feedback via :active would need CSS, so we add visual hint
   },
   editedSegment: {
     backgroundColor: "rgba(139, 201, 139, 0.15)",
     color: "#a8e8a8",
     borderLeft: "2px solid #8bc98b",
     paddingLeft: 8,
+    borderBottom: "none",
+  },
+  pressedSegment: {
+    backgroundColor: "rgba(232, 213, 196, 0.25)",
+    transform: "scale(0.98)",
   },
   editedMarker: {
     color: "#8bc98b",
