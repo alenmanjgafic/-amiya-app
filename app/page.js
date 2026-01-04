@@ -91,10 +91,8 @@ function HomeContent() {
   const isTestMode = searchParams.get("testMode") === "true";
   const [showDebugPanel, setShowDebugPanel] = useState(false);
 
-  // From Analysis: ?fromAnalysis=sessionId - starts session with analysis context
-  const fromAnalysisId = searchParams.get("fromAnalysis");
+  // Analysis context for voice session (set via sessionStorage)
   const [analysisContext, setAnalysisContext] = useState(null);
-  const [loadingAnalysisContext, setLoadingAnalysisContext] = useState(false);
 
   const [started, setStarted] = useState(false);
   const [voiceState, setVoiceState] = useState(STATE.IDLE);
@@ -139,42 +137,6 @@ function HomeContent() {
   }, [user, profile, authLoading, router]);
 
   // Load pending suggestions count for badge
-  useEffect(() => {
-    if (user && profile?.couple_id) {
-      loadPendingSuggestionsCount();
-    }
-  }, [user, profile?.couple_id]);
-
-  // Load analysis context if coming from message analysis
-  useEffect(() => {
-    if (fromAnalysisId && user) {
-      loadAnalysisContext(fromAnalysisId);
-    }
-  }, [fromAnalysisId, user]);
-
-  const loadAnalysisContext = async (sessionId) => {
-    setLoadingAnalysisContext(true);
-    try {
-      const response = await fetch(`/api/sessions/${sessionId}`);
-      if (response.ok) {
-        const session = await response.json();
-        if (session.type === "message_analysis" && session.analysis) {
-          setAnalysisContext({
-            sessionId: session.id,
-            analysis: session.analysis,
-            themes: session.themes || [],
-            patterns: session.detected_patterns || {}
-          });
-          console.log("Loaded analysis context for voice session");
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load analysis context:", error);
-    } finally {
-      setLoadingAnalysisContext(false);
-    }
-  };
-
   const loadPendingSuggestionsCount = async () => {
     if (!profile?.couple_id || !user?.id) return;
     try {
@@ -182,12 +144,17 @@ function HomeContent() {
         `/api/agreements/suggestions?coupleId=${profile.couple_id}&userId=${user.id}`
       );
       const data = await response.json();
-      // Use totalPending which includes both suggestions AND pending_approval agreements
       setPendingSuggestionsCount(data.totalPending || 0);
     } catch (error) {
       console.error("Failed to load suggestions count:", error);
     }
   };
+
+  useEffect(() => {
+    if (user && profile?.couple_id) {
+      loadPendingSuggestionsCount();
+    }
+  }, [user, profile?.couple_id]);
 
   useEffect(() => {
     if (started && !timerRef.current) {
