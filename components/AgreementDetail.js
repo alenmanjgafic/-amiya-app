@@ -7,6 +7,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../lib/AuthContext";
 import { useTheme } from "../lib/ThemeContext";
+import { Clock, UserCheck } from "lucide-react";
 
 export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
   const { user, profile } = useAuth();
@@ -278,37 +279,56 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
         {/* Status Banner */}
         {needsMyApproval && (
           <div style={{
-            ...tokens.alerts.warning,
-            padding: "16px 20px",
-            borderRadius: 0,
-            border: "none",
+            padding: "20px",
+            background: tokens.isDarkMode ? "rgba(167, 139, 250, 0.1)" : "rgba(167, 139, 250, 0.08)",
+            borderBottom: `1px solid ${tokens.colors.bg.soft}`,
           }}>
-            <p style={{
-              ...tokens.alerts.warningText,
-              margin: "0 0 12px 0",
-              fontSize: "14px",
-            }}>
-              {profile?.partner_name || "Dein Partner"} hat diese Vereinbarung vorgeschlagen
-            </p>
             <div style={{
               display: "flex",
-              gap: "10px",
+              alignItems: "center",
+              gap: "12px",
+              marginBottom: "16px",
+            }}>
+              <div style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: tokens.radii.md,
+                background: tokens.colors.aurora.lavender,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                <UserCheck size={20} color="white" />
+              </div>
+              <p style={{
+                margin: 0,
+                fontSize: "15px",
+                fontWeight: "500",
+                color: tokens.colors.text.primary,
+              }}>
+                {profile?.partner_name || "Dein Partner"} hat diese Vereinbarung vorgeschlagen
+              </p>
+            </div>
+            <div style={{
+              display: "flex",
+              gap: "12px",
             }}>
               <button
                 onClick={handleApprove}
                 style={{
-                  ...tokens.buttons.primarySmall,
-                  background: tokens.colors.success,
+                  ...tokens.buttons.primary,
+                  flex: 1,
                 }}
                 disabled={actionLoading}
               >
-                &#10003; Zustimmen
+                Zustimmen
               </button>
               <button
                 onClick={() => handleAction("archive")}
                 style={{
-                  ...tokens.buttons.ghost,
-                  ...tokens.alerts.warningText,
+                  ...tokens.buttons.secondary,
+                  flex: 1,
                 }}
                 disabled={actionLoading}
               >
@@ -379,17 +399,19 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
           {/* Success Streak */}
           {agreement.success_streak > 0 && (
             <div style={{
-              ...tokens.alerts.warning,
               display: "flex",
               alignItems: "center",
-              gap: "10px",
+              gap: "12px",
+              padding: "14px 16px",
+              background: tokens.isDarkMode ? "rgba(251, 146, 60, 0.15)" : "rgba(251, 146, 60, 0.1)",
+              borderRadius: tokens.radii.md,
               marginBottom: "20px",
             }}>
-              <span style={{ fontSize: "24px" }}>&#128293;</span>
+              <span style={{ fontSize: "24px" }}>🔥</span>
               <span style={{
-                ...tokens.alerts.warningText,
                 fontSize: "14px",
-                fontWeight: "500",
+                fontWeight: "600",
+                color: tokens.isDarkMode ? "#fb923c" : "#ea580c",
               }}>
                 {agreement.success_streak} erfolgreiche Check-ins in Folge
               </span>
