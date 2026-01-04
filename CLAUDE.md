@@ -10,10 +10,11 @@
 
 ### Hauptfunktionen
 
-1. **Solo Sessions** - Ein Partner spricht alleine mit Amiya
-2. **Couple Sessions** - Beide Partner gemeinsam in einer moderierten Session
-3. **Agreements** - Paare können Vereinbarungen treffen und tracken
-4. **Memory System** - Kontextbewusstes Coaching über Sessions hinweg
+1. **Solo Sessions** - Ein Partner spricht alleine mit Amiya (Voice)
+2. **Couple Sessions** - Beide Partner gemeinsam in einer moderierten Session (Voice)
+3. **Nachrichtenanalyse** - Chat-Nachrichten (WhatsApp, iMessage, etc.) analysieren lassen
+4. **Agreements** - Paare können Vereinbarungen treffen und tracken
+5. **Memory System** - Kontextbewusstes Coaching über Sessions hinweg
 
 ---
 
@@ -45,24 +46,30 @@
 
 ```
 /app                      # Next.js App Router
-  /page.js               # Solo Session (Hauptseite)
+  /page.js               # Home mit Feature-Carousel
   /auth/                 # Login/Signup
   /profile/              # Benutzereinstellungen
   /onboarding/           # Ersteinrichtung (3 Schritte)
     /memory/             # Schritt 2: Memory Consent
     /analysis/           # Schritt 3: Analyse-Einstellungen
-  /history/              # Session-Verlauf
+  /history/              # Session-Verlauf (alle Session-Typen)
   /wir/                  # Paar-Features ("Wir"-Bereich)
     /connect/            # Paar-Verbindung via Code
-  /session/couple/       # Couple Session
+  /session/couple/       # Couple Session (Voice)
+  /analyze/message/      # Nachrichtenanalyse (Text)
   /api/                  # Backend API Routes
 
 /components              # React Komponenten
+  FeatureCarousel.js     # Swipeable Carousel für Home
   AgreementsList.js      # Liste aller Vereinbarungen
   AgreementDetail.js     # Einzelansicht + Check-ins
   CreateAgreement.js     # Neue Vereinbarung erstellen
   AnalysisView.js        # Session-Analyse anzeigen
   DisconnectDialog.js    # Paar-Trennung verwalten
+  /slides/               # Carousel Slides
+    SoloSessionSlide.js  # Solo Voice Session starten
+    CoupleSessionSlide.js # Couple Session starten
+    MessageAnalyzerSlide.js # Nachrichtenanalyse starten
 
 /lib                     # Shared Utilities
   AuthContext.js         # Auth State + Profile Management
@@ -261,6 +268,77 @@ Amiya folgt dem **Gottman-Modell** für Beziehungstherapie:
 - Solo: du-Form, Couple: ihr-Form
 - Max 400 Wörter (Solo), 2500 tokens (Couple)
 
+### 6. Nachrichtenanalyse (Message Analysis)
+
+Die Nachrichtenanalyse ermöglicht es Usern, Chat-Verläufe aus WhatsApp, iMessage oder anderen Messengern analysieren zu lassen.
+
+**Zugang:**
+- Via Home-Carousel (3. Slide "Nachricht analysieren")
+- Direktlink: `/analyze/message`
+
+**Flow:**
+```
+1. User kopiert Chat-Verlauf aus Messenger
+2. Fügt Text in Textarea ein
+3. Gibt optionalen Kontext/Frage ein
+4. Klickt "Analysieren"
+5. Claude analysiert die Kommunikation
+6. Ergebnis wird als Session gespeichert (type: "message_analysis")
+```
+
+**Analyse-Methodik (Gottman + NVC):**
+
+Die Analyse kombiniert zwei therapeutische Frameworks:
+
+1. **Gottman-Methode:**
+   - Erkennung der "Four Horsemen" (Kritik, Verachtung, Defensive, Mauern)
+   - Positive vs. negative Interaktionen (5:1 Ratio)
+   - Repair Attempts (Versöhnungsversuche)
+   - Soft vs. Harsh Startup
+
+2. **Gewaltfreie Kommunikation (NVC):**
+   - Beobachtung vs. Bewertung
+   - Gefühle identifizieren
+   - Bedürfnisse erkennen
+   - Bitten formulieren
+
+**Analyse-Output:**
+- Zusammenfassung des Gesprächsverlaufs
+- Erkannte Muster (positiv & problematisch)
+- Emotionale Dynamik beider Seiten
+- Konkrete Verbesserungsvorschläge
+- Alternative Formulierungen (NVC-basiert)
+
+**API Route:** `/api/analyze/message`
+- POST: Analysiert eingefügten Text
+- Speichert als Session mit `type: "message_analysis"`
+- Nutzt Claude claude-sonnet-4-20250514 für Analyse
+
+**Session-Speicherung:**
+```javascript
+{
+  type: "message_analysis",
+  user_id: userId,
+  couple_id: coupleId || null,
+  summary: originalText,        // Der eingefügte Chat
+  analysis: analysisResult,     // Die Analyse
+  themes: ["Kommunikation"],
+  status: "completed"
+}
+```
+
+**UI-Besonderheiten:**
+- Grosse Textarea für langen Chat-Text
+- Optionales Kontext-Feld ("Was beschäftigt dich?")
+- Lade-Animation während Analyse
+- Ergebnis inline angezeigt (kein Modal)
+- "Im Verlauf speichern" erfolgt automatisch
+
+**Privacy:**
+- Eingefügter Text wird NICHT im Memory gespeichert
+- Nur die Analyse (ohne Original-Chat) bleibt im Kontext
+- User kann Session jederzeit löschen
+
 ---
 
 ## DB Schema Übersicht
@@ -301,7 +379,7 @@ created_at      timestamp
 id                  uuid (PK)
 user_id             uuid (FK)         -- Wer hat gestartet
 couple_id           uuid (FK)         -- Für Couple Sessions
-type                text              -- 'solo' | 'couple'
+type                text              -- 'solo' | 'couple' | 'message_analysis'
 status              text              -- 'active' | 'completed'
 summary             text              -- Transkript (wird nach Analyse gelöscht!)
 analysis            text              -- User-facing Analyse
@@ -405,7 +483,8 @@ created_at      timestamp
 
 | Route | Methode | Beschreibung |
 |-------|---------|--------------|
-| `/api/analyze` | POST | Session-Analyse mit Claude |
+| `/api/analyze` | POST | Session-Analyse mit Claude (Voice Sessions) |
+| `/api/analyze/message` | POST | Nachrichtenanalyse (Chat-Text) |
 | `/api/check-analysis` | POST | Prüft ob Analyse sinnvoll ist |
 | `/api/debug-analyze` | POST | Debug-Endpoint für Analyse |
 
@@ -447,6 +526,7 @@ created_at      timestamp
 
 - [x] Solo Voice Sessions mit ElevenLabs
 - [x] Couple Sessions
+- [x] Nachrichtenanalyse (Chat-Text mit Gottman + NVC)
 - [x] Memory System mit Consent
 - [x] Session-Analyse mit Agreement-Detection
 - [x] Session-Viability-Check (zu kurze Sessions werden abgelehnt)
@@ -455,7 +535,8 @@ created_at      timestamp
 - [x] Agreement CRUD + Check-ins
 - [x] Paar-Verbindung via Invite-Codes
 - [x] Paar-Trennung mit Learnings-Option
-- [x] Session History
+- [x] Session History (mit visueller Unterscheidung pro Typ)
+- [x] Home-Carousel (swipeable mit Solo/Couple/Message Slides)
 - [x] Light/Dark Mode (Amiya Aurora Design System)
 - [x] Lucide Icons (statt Emojis)
 
