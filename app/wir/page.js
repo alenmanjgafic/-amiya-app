@@ -271,7 +271,7 @@ export default function WirPage() {
                 cursor: "pointer",
                 boxShadow: isDarkMode
                   ? tokens.shadows.glow(tokens.colors.aurora.lavender)
-                  : "0 4px 15px rgba(139, 92, 246, 0.3)",
+                  : "0 4px 15px rgba(124,58,237,0.3)",
                 width: "100%",
               }}
             >
@@ -419,7 +419,7 @@ export default function WirPage() {
                 cursor: "pointer",
                 boxShadow: isDarkMode
                   ? tokens.shadows.glow(tokens.colors.aurora.lavender)
-                  : "0 4px 15px rgba(139, 92, 246, 0.3)",
+                  : "0 4px 15px rgba(124,58,237,0.3)",
               }}
             >
               Verbinden
@@ -668,7 +668,7 @@ export default function WirPage() {
                 cursor: "pointer",
                 boxShadow: isDarkMode
                   ? tokens.shadows.glow(tokens.colors.aurora.lavender)
-                  : "0 4px 15px rgba(139, 92, 246, 0.3)",
+                  : "0 4px 15px rgba(124,58,237,0.3)",
                 marginBottom: "12px",
               }}
             >

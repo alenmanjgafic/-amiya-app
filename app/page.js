@@ -48,6 +48,7 @@ export default function Home() {
 }
 
 function LoadingScreen() {
+  // Statische Farben für initiales Laden (vor ThemeContext)
   return (
     <div style={{
       minHeight: "100vh",
@@ -56,17 +57,17 @@ function LoadingScreen() {
       alignItems: "center",
       justifyContent: "center",
       gap: "16px",
-      background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
+      background: "#fafaf9",
     }}>
       <div style={{
         width: "40px",
         height: "40px",
-        border: "4px solid #e5e7eb",
-        borderTopColor: "#8b5cf6",
+        border: "4px solid #e7e5e4",
+        borderTopColor: "#7c3aed",
         borderRadius: "50%",
         animation: "spin 1s linear infinite",
       }} />
-      <p style={{ color: "#6b7280" }}>Laden...</p>
+      <p style={{ color: "#57534e" }}>Laden...</p>
     </div>
   );
 }
@@ -717,7 +718,7 @@ function HomeContent() {
             justifyContent: "center",
             boxShadow: isDarkMode
               ? tokens.shadows.glow(tokens.colors.aurora.lavender)
-              : "0 10px 40px rgba(139,92,246,0.3)",
+              : `0 10px 40px ${tokens.colors.aurora.lavender}40`,
           }}><Heart size={50} color="white" fill="white" /></div>
           <h1 style={{
             fontSize: "36px",
@@ -774,7 +775,7 @@ function HomeContent() {
             cursor: "pointer",
             boxShadow: isDarkMode
               ? tokens.shadows.glow(tokens.colors.aurora.lavender)
-              : "0 4px 20px rgba(139,92,246,0.3)",
+              : `0 4px 20px ${tokens.colors.aurora.lavender}40`,
             fontFamily: tokens.fonts.body,
           }}>
             Session starten
@@ -900,7 +901,7 @@ function HomeContent() {
                 width: "50px",
                 height: "50px",
                 borderRadius: "50%",
-                background: showDebugPanel ? tokens.colors.error : "#6366f1",
+                background: showDebugPanel ? tokens.colors.error : tokens.colors.aurora.lavender,
                 color: "white",
                 border: "none",
                 cursor: "pointer",
@@ -969,7 +970,7 @@ function HomeContent() {
                     onClick={addFakeMessages}
                     style={{
                       padding: "10px",
-                      background: "#6366f1",
+                      background: tokens.colors.aurora.sky,
                       color: "white",
                       border: "none",
                       borderRadius: tokens.radii.sm,
@@ -984,7 +985,7 @@ function HomeContent() {
                     onClick={() => setShowEndDialog(true)}
                     style={{
                       padding: "10px",
-                      background: "#8b5cf6",
+                      background: tokens.colors.aurora.lavender,
                       color: "white",
                       border: "none",
                       borderRadius: tokens.radii.sm,
@@ -1095,7 +1096,7 @@ function HomeContent() {
             alignItems: "center",
             justifyContent: "center",
             transition: "all 0.3s",
-            background: getStateColor(voiceState),
+            background: getStateColor(voiceState, isDarkMode),
           }}>
             {voiceState === STATE.CONNECTING && <Loader2 size={22} color="white" style={{ animation: "spin 1s linear infinite" }} />}
             {voiceState === STATE.LISTENING && <Ear size={22} color="white" />}
@@ -1143,7 +1144,7 @@ function HomeContent() {
           alignItems: "center",
           justifyContent: "center",
           transition: "all 0.3s",
-          ...getStatusRingStyle(voiceState),
+          ...getStatusRingStyle(voiceState, isDarkMode),
         }}>
           <div style={{
             width: "150px",
@@ -1495,7 +1496,7 @@ function HomeContent() {
               width: "50px",
               height: "50px",
               borderRadius: "50%",
-              background: showDebugPanel ? tokens.colors.error : "#6366f1",
+              background: showDebugPanel ? tokens.colors.error : tokens.colors.aurora.lavender,
               color: "white",
               border: "none",
               cursor: "pointer",
@@ -1567,7 +1568,7 @@ function HomeContent() {
                   onClick={addFakeMessages}
                   style={{
                     padding: "10px",
-                    background: "#6366f1",
+                    background: tokens.colors.aurora.sky,
                     color: "white",
                     border: "none",
                     borderRadius: tokens.radii.sm,
@@ -1582,7 +1583,7 @@ function HomeContent() {
                   onClick={() => setShowEndDialog(true)}
                   style={{
                     padding: "10px",
-                    background: "#8b5cf6",
+                    background: tokens.colors.aurora.lavender,
                     color: "white",
                     border: "none",
                     borderRadius: tokens.radii.sm,
@@ -1597,7 +1598,7 @@ function HomeContent() {
                   onClick={() => setShowTooShortModal(true)}
                   style={{
                     padding: "10px",
-                    background: "#f59e0b",
+                    background: tokens.colors.warning,
                     color: "white",
                     border: "none",
                     borderRadius: tokens.radii.sm,
@@ -1661,12 +1662,17 @@ function HomeContent() {
   );
 }
 
-function getStateColor(state) {
+// Helper functions with Design System colors
+// Light Mode: lavender=#7c3aed, rose=#db2777, mint=#0d9488
+// Dark Mode: lavender=#a78bfa, rose=#f9a8d4, mint=#7dd3c0
+function getStateColor(state, isDarkMode = false) {
+  const lavender = isDarkMode ? "#a78bfa" : "#7c3aed";
+  const rose = isDarkMode ? "#f9a8d4" : "#db2777";
   const colors = {
     [STATE.CONNECTING]: "linear-gradient(135deg, #6b7280, #4b5563)",
     [STATE.LISTENING]: "linear-gradient(135deg, #22c55e, #16a34a)",
     [STATE.THINKING]: "linear-gradient(135deg, #f59e0b, #d97706)",
-    [STATE.SPEAKING]: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    [STATE.SPEAKING]: `linear-gradient(135deg, ${lavender}, ${rose})`,
     [STATE.IDLE]: "linear-gradient(135deg, #6b7280, #4b5563)"
   };
   return colors[state] || colors[STATE.IDLE];
@@ -1685,12 +1691,13 @@ function getStatusText(state) {
   return texts[state] || "";
 }
 
-function getStatusRingStyle(state) {
+function getStatusRingStyle(state, isDarkMode = false) {
+  const lavender = isDarkMode ? "#a78bfa" : "#7c3aed";
   const ringStyles = {
     [STATE.CONNECTING]: { borderColor: "#6b7280" },
     [STATE.LISTENING]: { borderColor: "#22c55e", boxShadow: "0 0 40px rgba(34,197,94,0.3)" },
     [STATE.THINKING]: { borderColor: "#f59e0b", boxShadow: "0 0 40px rgba(245,158,11,0.3)" },
-    [STATE.SPEAKING]: { borderColor: "#8b5cf6", boxShadow: "0 0 40px rgba(139,92,246,0.3)" },
+    [STATE.SPEAKING]: { borderColor: lavender, boxShadow: `0 0 40px ${lavender}50` },
     [STATE.IDLE]: { borderColor: "#6b7280" }
   };
   return ringStyles[state] || ringStyles[STATE.IDLE];

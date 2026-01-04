@@ -76,7 +76,7 @@ export default function AuthPage() {
             justifyContent: "center",
             boxShadow: isDarkMode
               ? tokens.shadows.glow(tokens.colors.aurora.lavender)
-              : "0 8px 30px rgba(139,92,246,0.3)",
+              : "0 8px 30px rgba(124,58,237,0.3)",
           }}><Heart size={35} color="white" fill="white" /></div>
           <h1 style={{
             fontSize: "28px",

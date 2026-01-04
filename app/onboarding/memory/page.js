@@ -104,7 +104,7 @@ export default function UnifiedConsentPage() {
           >
             <div style={styles.recommendedBadge}>Empfohlen</div>
             <div style={styles.optionIcon}>
-              <Sparkles size={24} color="#8b5cf6" />
+              <Sparkles size={24} color="#7c3aed" />
             </div>
             <div style={styles.optionContent}>
               <span style={styles.optionTitle}>Mit Analyse</span>
@@ -139,9 +139,9 @@ export default function UnifiedConsentPage() {
         >
           <span>Warum ist Analyse wichtig?</span>
           {showMoreInfo ? (
-            <ChevronUp size={18} color="#8b5cf6" />
+            <ChevronUp size={18} color="#7c3aed" />
           ) : (
-            <ChevronDown size={18} color="#8b5cf6" />
+            <ChevronDown size={18} color="#7c3aed" />
           )}
         </button>
 
@@ -220,7 +220,7 @@ const styles = {
     width: "40px",
     height: "40px",
     border: "4px solid #e5e7eb",
-    borderTopColor: "#8b5cf6",
+    borderTopColor: "#7c3aed",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },
@@ -238,7 +238,7 @@ const styles = {
     background: "white",
     borderRadius: "24px",
     padding: "32px",
-    boxShadow: "0 10px 40px rgba(139, 92, 246, 0.1)",
+    boxShadow: "0 10px 40px rgba(124,58,237,0.1)",
   },
   header: {
     textAlign: "center",
@@ -254,10 +254,10 @@ const styles = {
     width: "12px",
     height: "12px",
     borderRadius: "50%",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    background: "linear-gradient(135deg, #7c3aed, #db2777)",
   },
   progressDotCompleted: {
-    background: "#8b5cf6",
+    background: "#7c3aed",
   },
   progressLine: {
     width: "40px",
@@ -265,18 +265,18 @@ const styles = {
     background: "#e5e7eb",
   },
   progressLineCompleted: {
-    background: "#8b5cf6",
+    background: "#7c3aed",
   },
   logo: {
     width: "70px",
     height: "70px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    background: "linear-gradient(135deg, #7c3aed, #db2777)",
     borderRadius: "20px",
     margin: "0 auto 16px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0 8px 30px rgba(139,92,246,0.3)",
+    boxShadow: "0 8px 30px rgba(124,58,237,0.3)",
   },
   title: {
     fontSize: "22px",
@@ -304,7 +304,7 @@ const styles = {
     gap: "16px",
     padding: "18px 16px",
     background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 100%)",
-    border: "2px solid #8b5cf6",
+    border: "2px solid #7c3aed",
     borderRadius: "16px",
     cursor: "pointer",
     textAlign: "left",
@@ -330,7 +330,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-    boxShadow: "0 2px 8px rgba(139, 92, 246, 0.1)",
+    boxShadow: "0 2px 8px rgba(124,58,237,0.1)",
   },
   optionIconSecondary: {
     width: "48px",
@@ -367,13 +367,13 @@ const styles = {
     position: "absolute",
     top: "-10px",
     right: "16px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    background: "linear-gradient(135deg, #7c3aed, #db2777)",
     color: "white",
     fontSize: "11px",
     fontWeight: "600",
     padding: "4px 12px",
     borderRadius: "20px",
-    boxShadow: "0 2px 8px rgba(139, 92, 246, 0.3)",
+    boxShadow: "0 2px 8px rgba(124,58,237,0.3)",
   },
   moreInfoToggle: {
     display: "flex",
@@ -387,7 +387,7 @@ const styles = {
     cursor: "pointer",
     fontSize: "14px",
     fontWeight: "500",
-    color: "#8b5cf6",
+    color: "#7c3aed",
     marginBottom: "8px",
   },
   infoSection: {
@@ -417,7 +417,7 @@ const styles = {
     borderRadius: "12px",
     padding: "14px",
     marginTop: "8px",
-    borderLeft: "3px solid #8b5cf6",
+    borderLeft: "3px solid #7c3aed",
   },
   highlightText: {
     margin: 0,

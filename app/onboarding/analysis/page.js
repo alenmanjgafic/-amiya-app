@@ -40,7 +40,7 @@ const styles = {
     width: "40px",
     height: "40px",
     border: "4px solid #e5e7eb",
-    borderTopColor: "#8b5cf6",
+    borderTopColor: "#7c3aed",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },

@@ -23,7 +23,7 @@ const STATE = {
 
 export default function CoupleSessionPage() {
   const { user, profile, loading: authLoading, updateProfile } = useAuth();
-  const { tokens } = useTheme();
+  const { tokens, isDarkMode } = useTheme();
   const router = useRouter();
   
   const [voiceState, setVoiceState] = useState(STATE.IDLE);
@@ -491,7 +491,7 @@ export default function CoupleSessionPage() {
     <div style={styles.sessionContainer}>
       <div style={styles.header}>
         <div style={styles.headerLeft}>
-          <div style={{...styles.headerIcon, background: getStateColor(voiceState)}}>
+          <div style={{...styles.headerIcon, background: getStateColor(voiceState, isDarkMode)}}>
             {getStateEmoji(voiceState)}
           </div>
           <div>
@@ -512,7 +512,7 @@ export default function CoupleSessionPage() {
       </div>
 
       <div style={styles.voiceOnlyContainer}>
-        <div style={{...styles.statusRing, ...getStatusRingStyle(voiceState)}}>
+        <div style={{...styles.statusRing, ...getStatusRingStyle(voiceState, isDarkMode)}}>
           <div style={styles.statusInner}>
             {voiceState === STATE.CONNECTING && <div style={styles.spinnerSmall} />}
             {voiceState === STATE.LISTENING && <div style={styles.listeningPulse} />}
@@ -810,12 +810,17 @@ export default function CoupleSessionPage() {
   );
 }
 
-function getStateColor(state) {
+// Helper functions with Design System colors
+// Light Mode: lavender=#7c3aed, rose=#db2777
+// Dark Mode: lavender=#a78bfa, rose=#f9a8d4
+function getStateColor(state, isDarkMode = false) {
+  const lavender = isDarkMode ? "#a78bfa" : "#7c3aed";
+  const rose = isDarkMode ? "#f9a8d4" : "#db2777";
   const colors = {
     [STATE.CONNECTING]: "linear-gradient(135deg, #6b7280, #4b5563)",
     [STATE.LISTENING]: "linear-gradient(135deg, #22c55e, #16a34a)",
     [STATE.THINKING]: "linear-gradient(135deg, #f59e0b, #d97706)",
-    [STATE.SPEAKING]: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    [STATE.SPEAKING]: `linear-gradient(135deg, ${lavender}, ${rose})`,
     [STATE.IDLE]: "linear-gradient(135deg, #6b7280, #4b5563)"
   };
   return colors[state] || colors[STATE.IDLE];
@@ -843,17 +848,20 @@ function getStatusText(state) {
   return texts[state] || "";
 }
 
-function getStatusRingStyle(state) {
+function getStatusRingStyle(state, isDarkMode = false) {
+  const lavender = isDarkMode ? "#a78bfa" : "#7c3aed";
   const ringStyles = {
     [STATE.CONNECTING]: { borderColor: "#6b7280" },
     [STATE.LISTENING]: { borderColor: "#22c55e", boxShadow: "0 0 40px rgba(34,197,94,0.3)" },
     [STATE.THINKING]: { borderColor: "#f59e0b", boxShadow: "0 0 40px rgba(245,158,11,0.3)" },
-    [STATE.SPEAKING]: { borderColor: "#8b5cf6", boxShadow: "0 0 40px rgba(139,92,246,0.3)" },
+    [STATE.SPEAKING]: { borderColor: lavender, boxShadow: `0 0 40px ${lavender}50` },
     [STATE.IDLE]: { borderColor: "#6b7280" }
   };
   return ringStyles[state] || ringStyles[STATE.IDLE];
 }
 
+// Static styles use Light Mode Design System colors
+// lavender=#7c3aed, rose=#db2777, bg.deep=#fafaf9, bg.soft=#e7e5e4
 const styles = {
   loadingContainer: {
     minHeight: "100vh",
@@ -862,13 +870,13 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     gap: "16px",
-    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
+    background: "#fafaf9",
   },
   spinner: {
     width: "40px",
     height: "40px",
-    border: "4px solid #e5e7eb",
-    borderTopColor: "#8b5cf6",
+    border: "4px solid #e7e5e4",
+    borderTopColor: "#7c3aed",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },
@@ -993,7 +1001,7 @@ const styles = {
     width: "80px",
     height: "80px",
     borderRadius: "50%",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    background: "linear-gradient(135deg, #7c3aed, #db2777)",
     animation: "pulse 1s ease-in-out infinite",
   },
   micIcon: {
@@ -1022,8 +1030,8 @@ const styles = {
   analysisSpinner: {
     width: "60px",
     height: "60px",
-    border: "5px solid #e5e7eb",
-    borderTopColor: "#8b5cf6",
+    border: "5px solid #e7e5e4",
+    borderTopColor: "#7c3aed",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
     marginBottom: "24px",
@@ -1100,7 +1108,7 @@ const styles = {
   dialogButtonPrimary: {
     flex: 1,
     padding: "14px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    background: "linear-gradient(135deg, #7c3aed, #db2777)",
     color: "white",
     border: "none",
     borderRadius: "12px",

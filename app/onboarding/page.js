@@ -165,7 +165,7 @@ const styles = {
     width: "40px",
     height: "40px",
     border: "4px solid #e5e7eb",
-    borderTopColor: "#8b5cf6",
+    borderTopColor: "#7c3aed",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },
@@ -183,7 +183,7 @@ const styles = {
     background: "white",
     borderRadius: "24px",
     padding: "32px",
-    boxShadow: "0 10px 40px rgba(139, 92, 246, 0.1)",
+    boxShadow: "0 10px 40px rgba(124,58,237,0.1)",
   },
   header: {
     textAlign: "center",
@@ -192,14 +192,14 @@ const styles = {
   logo: {
     width: "70px",
     height: "70px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    background: "linear-gradient(135deg, #7c3aed, #db2777)",
     borderRadius: "20px",
     margin: "0 auto 16px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontSize: "35px",
-    boxShadow: "0 8px 30px rgba(139,92,246,0.3)",
+    boxShadow: "0 8px 30px rgba(124,58,237,0.3)",
   },
   title: {
     fontSize: "24px",
@@ -224,7 +224,7 @@ const styles = {
     width: "12px",
     height: "12px",
     borderRadius: "50%",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    background: "linear-gradient(135deg, #7c3aed, #db2777)",
   },
   progressDotInactive: {
     background: "#e5e7eb",
@@ -273,7 +273,7 @@ const styles = {
   },
   submitButton: {
     padding: "16px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    background: "linear-gradient(135deg, #7c3aed, #db2777)",
     color: "white",
     border: "none",
     borderRadius: "12px",

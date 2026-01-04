@@ -134,7 +134,7 @@ const styles = {
     width: "40px",
     height: "40px",
     border: "4px solid #e5e7eb",
-    borderTopColor: "#8b5cf6",
+    borderTopColor: "#7c3aed",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },
@@ -213,7 +213,7 @@ const styles = {
     justifyContent: "center",
     fontWeight: "bold",
     fontSize: "16px",
-    color: "#8b5cf6",
+    color: "#7c3aed",
     boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
   },
   subtitle: {
@@ -262,13 +262,13 @@ const styles = {
   continueButton: {
     width: "100%",
     padding: "18px",
-    background: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+    background: "linear-gradient(135deg, #7c3aed, #db2777)",
     color: "white",
     border: "none",
     borderRadius: "14px",
     fontSize: "17px",
     fontWeight: "600",
     cursor: "pointer",
-    boxShadow: "0 4px 15px rgba(139, 92, 246, 0.3)",
+    boxShadow: "0 4px 15px rgba(124,58,237,0.3)",
   },
 };
