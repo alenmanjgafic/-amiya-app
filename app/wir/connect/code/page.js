@@ -6,10 +6,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../lib/AuthContext";
+import { useTheme } from "../../../../lib/ThemeContext";
 import { supabase } from "../../../../lib/supabase";
 
 export default function CodePage() {
   const { user, profile, loading, fetchProfile } = useAuth();
+  const { tokens, isDarkMode } = useTheme();
   const router = useRouter();
   
   const [myCode, setMyCode] = useState("");
@@ -313,7 +315,7 @@ export default function CodePage() {
           </div>
 
           {error && <p style={styles.error}>{error}</p>}
-          {success && <p style={styles.success}>{success}</p>}
+          {success && <p style={{ color: tokens.colors.aurora.mint, fontSize: "14px", marginBottom: "16px" }}>{success}</p>}
 
           <button 
             onClick={handlePair}
@@ -494,9 +496,5 @@ const styles = {
     fontSize: "14px",
     marginBottom: "16px",
   },
-  success: {
-    color: "#0d9488", // aurora.mint
-    fontSize: "14px",
-    marginBottom: "16px",
-  },
+  // success now uses inline tokens.colors.aurora.mint
 };

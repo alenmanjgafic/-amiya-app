@@ -6,9 +6,11 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../lib/AuthContext";
+import { useTheme } from "../../../lib/ThemeContext";
 
 export default function ConnectPage() {
   const { user, profile, loading } = useAuth();
+  const { tokens, isDarkMode } = useTheme();
   const router = useRouter();
 
   useEffect(() => {
@@ -56,19 +58,19 @@ export default function ConnectPage() {
           <h3 style={styles.sectionTitle}>Was ihr teilt</h3>
           <ul style={styles.list}>
             <li style={styles.listItem}>
-              <span style={styles.listIcon}>✓</span>
+              <span style={{ color: tokens.colors.aurora.mint, fontWeight: "bold" }}>✓</span>
               <span>Euer Abo</span>
             </li>
             <li style={styles.listItem}>
-              <span style={styles.listIcon}>✓</span>
+              <span style={{ color: tokens.colors.aurora.mint, fontWeight: "bold" }}>✓</span>
               <span>Sparks (bald verfügbar)</span>
             </li>
             <li style={styles.listItem}>
-              <span style={styles.listIcon}>✓</span>
+              <span style={{ color: tokens.colors.aurora.mint, fontWeight: "bold" }}>✓</span>
               <span>Quiz-Ergebnisse</span>
             </li>
             <li style={styles.listItem}>
-              <span style={styles.listIcon}>✓</span>
+              <span style={{ color: tokens.colors.aurora.mint, fontWeight: "bold" }}>✓</span>
               <span>Paar-Gespräch Analysen</span>
             </li>
           </ul>
@@ -249,10 +251,7 @@ const styles = {
     fontSize: "15px",
     color: "#374151",
   },
-  listIcon: {
-    color: "#0d9488", // aurora.mint
-    fontWeight: "bold",
-  },
+  // listIcon now uses inline tokens.colors.aurora.mint
   listIconPrivate: {
     fontSize: "14px",
   },

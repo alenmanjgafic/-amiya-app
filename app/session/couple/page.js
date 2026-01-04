@@ -515,7 +515,13 @@ export default function CoupleSessionPage() {
         <div style={{...styles.statusRing, ...getStatusRingStyle(voiceState, isDarkMode)}}>
           <div style={styles.statusInner}>
             {voiceState === STATE.CONNECTING && <div style={styles.spinnerSmall} />}
-            {voiceState === STATE.LISTENING && <div style={styles.listeningPulse} />}
+            {voiceState === STATE.LISTENING && <div style={{
+              width: "80px",
+              height: "80px",
+              borderRadius: "50%",
+              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${isDarkMode ? "#5eead4" : "#0f766e"})`,
+              animation: "pulse 2s ease-in-out infinite",
+            }} />}
             {voiceState === STATE.THINKING && <div style={styles.thinkingPulse} />}
             {voiceState === STATE.SPEAKING && <div style={styles.speakingPulse} />}
             {voiceState === STATE.IDLE && <span style={styles.micIcon}>🎤</span>}
@@ -817,9 +823,10 @@ function getStateColor(state, isDarkMode = false) {
   const lavender = isDarkMode ? "#a78bfa" : "#7c3aed";
   const rose = isDarkMode ? "#f9a8d4" : "#db2777";
   const mint = isDarkMode ? "#7dd3c0" : "#0d9488";
+  const mintEnd = isDarkMode ? "#5eead4" : "#0f766e";
   const colors = {
     [STATE.CONNECTING]: "linear-gradient(135deg, #6b7280, #4b5563)",
-    [STATE.LISTENING]: `linear-gradient(135deg, ${mint}, #0f766e)`,
+    [STATE.LISTENING]: `linear-gradient(135deg, ${mint}, ${mintEnd})`,
     [STATE.THINKING]: "linear-gradient(135deg, #f59e0b, #d97706)",
     [STATE.SPEAKING]: `linear-gradient(135deg, ${lavender}, ${rose})`,
     [STATE.IDLE]: "linear-gradient(135deg, #6b7280, #4b5563)"
@@ -985,13 +992,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
   },
-  listeningPulse: {
-    width: "80px",
-    height: "80px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #0d9488, #0f766e)", // aurora.mint
-    animation: "pulse 2s ease-in-out infinite",
-  },
+  // listeningPulse now uses inline tokens.colors.aurora.mint with isDarkMode
   thinkingPulse: {
     width: "80px",
     height: "80px",
