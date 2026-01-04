@@ -1,7 +1,7 @@
 /**
  * MAIN PAGE - app/page.js
- * Hauptseite mit Solo Voice-Session
- * UPDATED: Kontext-Limit auf 4000 Zeichen erhöht für Agreements
+ * Hauptseite mit Feature Carousel (Solo, Couple, Message Analyzer)
+ * UPDATED: Carousel-based architecture for feature discovery
  * MIGRATED: Using Design System tokens from ThemeContext
  */
 "use client";
@@ -11,11 +11,14 @@ import { useAuth } from "../lib/AuthContext";
 import { useTheme } from "../lib/ThemeContext";
 import { sessionsService } from "../lib/sessions";
 import AnalysisView from "../components/AnalysisView";
+import FeatureCarousel from "../components/FeatureCarousel";
+import SoloSessionSlide from "../components/slides/SoloSessionSlide";
+import CoupleSessionSlide from "../components/slides/CoupleSessionSlide";
+import MessageAnalyzerSlide from "../components/slides/MessageAnalyzerSlide";
 import {
   Home as HomeIcon,
   Heart,
   ClipboardList,
-  User,
   Mic,
   Headphones,
   AlertTriangle,
@@ -23,7 +26,6 @@ import {
   Ear,
   MessageCircle,
   Volume2,
-  LogOut,
   BarChart2,
   Bug,
   X
@@ -133,13 +135,14 @@ function HomeContent() {
   }, [user, profile?.couple_id]);
 
   const loadPendingSuggestionsCount = async () => {
-    if (!profile?.couple_id) return;
+    if (!profile?.couple_id || !user?.id) return;
     try {
       const response = await fetch(
-        `/api/agreements/suggestions?coupleId=${profile.couple_id}`
+        `/api/agreements/suggestions?coupleId=${profile.couple_id}&userId=${user.id}`
       );
       const data = await response.json();
-      setPendingSuggestionsCount(data.suggestions?.length || 0);
+      // Use totalPending which includes both suggestions AND pending_approval agreements
+      setPendingSuggestionsCount(data.totalPending || 0);
     } catch (error) {
       console.error("Failed to load suggestions count:", error);
     }
@@ -628,141 +631,98 @@ function HomeContent() {
   }
 
   // ============================================================================
-  // START SCREEN
+  // START SCREEN - Feature Carousel
   // ============================================================================
   if (!started && !isGeneratingAnalysis) {
+    const isConnected = !!profile?.couple_id;
+
+    const handleStartCoupleSession = () => {
+      // Navigate to couple session page (prep modal handled there)
+      router.push("/session/couple");
+    };
+
     return (
       <div style={{
-        ...tokens.layout.pageCentered,
+        ...tokens.layout.page,
         paddingBottom: "100px",
+        padding: 0,
       }}>
-        <div style={{ maxWidth: "400px", textAlign: "center", width: "100%" }}>
-          {/* User Header Bar */}
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "32px",
-            padding: "8px",
-            background: tokens.colors.bg.elevated,
-            borderRadius: tokens.radii.md,
-            boxShadow: tokens.shadows.soft,
-          }}>
-            <button
-              onClick={() => router.push("/profile")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: "6px 10px",
-                borderRadius: tokens.radii.sm,
-                fontSize: "15px",
-                color: tokens.colors.text.primary,
-              }}
-            >
-              <span style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "50%",
-                background: tokens.gradients.primary,
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "14px",
-                fontWeight: "600",
-              }}>
-                {displayName.charAt(0).toUpperCase()}
-              </span>
-              <span>{displayName}</span>
-            </button>
-            <button onClick={signOut} style={{
-              ...tokens.buttons.ghost,
-              color: tokens.colors.text.muted,
-            }}>
-              Abmelden
-            </button>
-          </div>
+        {/* Header - Profile icon top right */}
+        <div style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          padding: "16px 20px 0",
+        }}>
+          <button
+            onClick={() => router.push("/profile")}
+            style={{
+              width: "40px",
+              height: "40px",
+              borderRadius: "50%",
+              background: tokens.gradients.primary,
+              border: "none",
+              cursor: "pointer",
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "16px",
+              fontWeight: "600",
+              boxShadow: tokens.shadows.soft,
+            }}
+          >
+            {displayName.charAt(0).toUpperCase()}
+          </button>
+        </div>
 
-          {/* Heart Logo */}
-          <div style={{
-            width: "100px",
-            height: "100px",
-            background: tokens.gradients.speaking,
-            borderRadius: tokens.radii.xxl,
-            margin: "0 auto 24px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: tokens.shadows.glow(tokens.colors.aurora.lavender),
-          }}><Heart size={50} color="white" fill="white" /></div>
-
-          {/* Time-based greeting */}
+        {/* Greeting */}
+        <div style={{
+          padding: "16px 20px 24px",
+          textAlign: "center",
+        }}>
           <p style={{
             ...tokens.typography.label,
             marginBottom: "4px",
-          }}>{timeGreeting.toUpperCase()}</p>
-
+          }}>
+            {timeGreeting.toUpperCase()}
+          </p>
           <h1 style={{
             ...tokens.typography.h1,
-            fontSize: "36px",
-          }}>{displayName}</h1>
-
-          <p style={{
-            ...tokens.typography.body,
-            marginBottom: "24px",
-          }}>Solo Session</p>
-
-          <p style={{
-            ...tokens.typography.body,
-            marginBottom: "32px",
-            lineHeight: "1.8",
+            fontSize: "32px",
+            margin: 0,
           }}>
-            Erzahl mir was dich beschaftigt -<br />
-            uber dich und {partnerName}.
-          </p>
-
-          {/* Analysis Error Alert */}
-          {analysisError && (
-            <div style={{
-              ...tokens.alerts.error,
-              marginBottom: "24px",
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "12px",
-              textAlign: "left",
-              border: `1px solid ${tokens.colors.error}`,
-            }}>
-              <AlertTriangle size={20} color={tokens.colors.error} style={{ flexShrink: 0 }} />
-              <p style={{
-                color: tokens.colors.error,
-                fontSize: "14px",
-                margin: 0,
-                lineHeight: "1.5",
-              }}>{analysisError}</p>
-            </div>
-          )}
-
-          {/* Start Session Button */}
-          <button onClick={startSession} style={tokens.buttons.primaryLarge}>
-            Session starten
-          </button>
-
-          {/* Headphones hint */}
-          <p style={{
-            ...tokens.typography.small,
-            marginTop: "24px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "6px",
-          }}><Headphones size={16} /> Beste Erfahrung mit Kopfhorern</p>
+            {displayName}
+          </h1>
         </div>
 
-        {/* Bottom Navigation */}
+        {/* Feature Carousel */}
+        <FeatureCarousel
+          showDots={true}
+          showHint={true}
+          storageKey="amiya-home-slide"
+        >
+          {/* Slide 1: Solo Session */}
+          <SoloSessionSlide
+            userName={displayName}
+            partnerName={partnerName}
+            onStartSession={startSession}
+            analysisError={analysisError}
+          />
+
+          {/* Slide 2: Couple Session (only if connected) */}
+          {isConnected && (
+            <CoupleSessionSlide
+              userName={displayName}
+              partnerName={partnerName}
+              onStartSession={handleStartCoupleSession}
+            />
+          )}
+
+          {/* Slide 3: Message Analyzer */}
+          <MessageAnalyzerSlide />
+        </FeatureCarousel>
+
+        {/* Bottom Navigation - 3 tabs (Profile is in header) */}
         <div style={tokens.layout.navBar}>
           <button style={tokens.buttons.nav(true)}>
             <HomeIcon size={24} color={tokens.colors.aurora.lavender} />
@@ -780,10 +740,6 @@ function HomeContent() {
           <button onClick={() => router.push("/history")} style={tokens.buttons.nav(false)}>
             <ClipboardList size={24} color={tokens.colors.text.muted} />
             <span>Verlauf</span>
-          </button>
-          <button onClick={() => router.push("/profile")} style={tokens.buttons.nav(false)}>
-            <User size={24} color={tokens.colors.text.muted} />
-            <span>Profil</span>
           </button>
         </div>
 

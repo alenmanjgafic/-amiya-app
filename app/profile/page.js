@@ -9,10 +9,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/AuthContext";
 import { useTheme } from "../../lib/ThemeContext";
-import { ArrowLeft, Sun, Moon, Check, BarChart3 } from "lucide-react";
+import { ArrowLeft, Sun, Moon, Check, BarChart3, LogOut, Users, ChevronRight } from "lucide-react";
+import DisconnectDialog from "../../components/DisconnectDialog";
 
 export default function ProfilePage() {
-  const { user, profile, loading, updateProfile } = useAuth();
+  const { user, profile, loading, updateProfile, signOut, fetchProfile } = useAuth();
   const { tokens, isDarkMode, toggleTheme } = useTheme();
   const router = useRouter();
 
@@ -22,6 +23,9 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [showDisconnect, setShowDisconnect] = useState(false);
+
+  const isConnected = !!profile?.couple_id;
 
   // Redirect if not logged in
   useEffect(() => {
@@ -275,7 +279,70 @@ export default function ProfilePage() {
             </button>
           </div>
         </div>
+
+        {/* Connection Management - Only if connected */}
+        {isConnected && (
+          <div style={tokens.layout.section}>
+            <div
+              onClick={() => setShowDisconnect(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "12px 0",
+                cursor: "pointer",
+              }}
+            >
+              <Users size={20} color={tokens.colors.text.muted} />
+              <div style={{ flex: 1 }}>
+                <p style={{
+                  ...tokens.inputs.label,
+                  marginBottom: "2px",
+                }}>Verbindung verwalten</p>
+                <p style={tokens.typography.small}>
+                  Paar-Einstellungen und Trennung
+                </p>
+              </div>
+              <ChevronRight size={20} color={tokens.colors.text.muted} />
+            </div>
+          </div>
+        )}
+
+        {/* Logout Section */}
+        <div style={{
+          ...tokens.layout.section,
+          borderTop: `1px solid ${tokens.colors.border}`,
+          paddingTop: "24px",
+          marginTop: "24px",
+        }}>
+          <button
+            onClick={signOut}
+            style={{
+              ...tokens.buttons.ghost,
+              width: "100%",
+              justifyContent: "center",
+              color: tokens.colors.error,
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <LogOut size={18} />
+            Abmelden
+          </button>
+        </div>
       </div>
+
+      {/* Disconnect Dialog */}
+      {showDisconnect && (
+        <DisconnectDialog
+          onClose={() => setShowDisconnect(false)}
+          onComplete={async () => {
+            setShowDisconnect(false);
+            await fetchProfile(user.id);
+          }}
+        />
+      )}
 
       <style jsx global>{`
         @keyframes spin {

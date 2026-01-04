@@ -7,6 +7,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../lib/AuthContext";
 import { useTheme } from "../lib/ThemeContext";
+import { Handshake } from "lucide-react";
 
 export default function AgreementsList({ onSelectAgreement, onCreateNew }) {
   const { user, profile } = useAuth();
@@ -105,39 +106,63 @@ export default function AgreementsList({ onSelectAgreement, onCreateNew }) {
 
   return (
     <div style={{ marginBottom: "24px" }}>
-      {/* Header */}
+      {/* Header - Same layout as Gemeinsame Session */}
       <div style={{
         display: "flex",
-        justifyContent: "space-between",
         alignItems: "center",
+        gap: "16px",
         marginBottom: "16px",
       }}>
-        <h3 style={tokens.typography.h3}>Eure Vereinbarungen</h3>
+        <div style={{
+          width: "48px",
+          height: "48px",
+          borderRadius: tokens.radii.lg,
+          background: tokens.colors.aurora.mint,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          <Handshake size={24} color="white" />
+        </div>
+        <div style={{ flex: 1 }}>
+          <h3 style={{
+            ...tokens.typography.h3,
+            fontSize: "16px",
+            marginBottom: "4px",
+          }}>Eure Vereinbarungen</h3>
+          <p style={{
+            ...tokens.typography.small,
+            margin: 0,
+          }}>Gemeinsame Abmachungen</p>
+        </div>
         <button onClick={onCreateNew} style={tokens.buttons.primarySmall}>
           + Neue
         </button>
       </div>
 
-      {/* Filter Tabs */}
-      <div style={{
-        display: "flex",
-        gap: "8px",
-        marginBottom: "16px",
-      }}>
-        {[
-          { key: "active", label: "Aktiv" },
-          { key: "achieved", label: "Erreicht" },
-          { key: "all", label: "Alle" }
-        ].map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setFilter(tab.key)}
-            style={tokens.buttons.tab(filter === tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* Filter Tabs - Only show when there are agreements */}
+      {agreements.length > 0 && (
+        <div style={{
+          display: "flex",
+          gap: "8px",
+          marginBottom: "16px",
+        }}>
+          {[
+            { key: "active", label: "Aktiv" },
+            { key: "achieved", label: "Erreicht" },
+            { key: "all", label: "Alle" }
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setFilter(tab.key)}
+              style={tokens.buttons.tab(filter === tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Needs Approval Section */}
       {needsApproval.length > 0 && (
@@ -184,23 +209,14 @@ export default function AgreementsList({ onSelectAgreement, onCreateNew }) {
       {otherAgreements.length === 0 && needsApproval.length === 0 ? (
         <div style={{
           textAlign: "center",
-          padding: "40px 20px",
+          padding: "16px",
+          color: tokens.colors.text.muted,
         }}>
-          <span style={{
-            fontSize: "40px",
-            display: "block",
-            marginBottom: "12px",
-          }}>&#128221;</span>
           <p style={{
-            ...tokens.typography.body,
-            marginBottom: "8px",
+            ...tokens.typography.small,
+            margin: 0,
           }}>
-            {filter === "achieved"
-              ? "Noch keine erreichten Vereinbarungen"
-              : "Noch keine Vereinbarungen"}
-          </p>
-          <p style={tokens.typography.small}>
-            Vereinbarungen entstehen am besten in einer gemeinsamen Session
+            Noch keine Vereinbarungen
           </p>
         </div>
       ) : (

@@ -115,20 +115,21 @@ export default function WirPage() {
   };
 
   const loadPendingSuggestions = async () => {
-    if (!profile?.couple_id) return;
+    if (!profile?.couple_id || !user?.id) return;
 
     setLoadingSuggestions(true);
     try {
       const response = await fetch(
-        `/api/agreements/suggestions?coupleId=${profile.couple_id}`
+        `/api/agreements/suggestions?coupleId=${profile.couple_id}&userId=${user.id}`
       );
       const data = await response.json();
 
-      if (data.suggestions) {
-        // Filter to only show suggestions where current user can act
-        // or needs to be notified
-        setPendingSuggestions(data.suggestions);
-      }
+      // Combine suggestions and pending agreements for display
+      const allPending = [
+        ...(data.suggestions || []).map(s => ({ ...s, type: 'suggestion' })),
+        ...(data.pendingAgreements || []).map(a => ({ ...a, type: 'agreement' }))
+      ];
+      setPendingSuggestions(allPending);
     } catch (error) {
       console.error("Failed to load suggestions:", error);
     } finally {
@@ -305,45 +306,47 @@ export default function WirPage() {
           </div>
         )}
 
-        {/* Couple Session Card - Only if connected */}
+        {/* Gemeinsame Session - Direct to couple session */}
         {isConnected && (
-          <div style={{
-            ...tokens.cards.elevated,
-            padding: "32px 24px",
-            textAlign: "center",
-            marginBottom: "16px",
-          }}>
+          <div
+            onClick={handleStartCoupleSession}
+            style={{
+              ...tokens.cards.interactive,
+              padding: "16px 20px",
+              marginBottom: "16px",
+              display: "flex",
+              alignItems: "center",
+              gap: "16px",
+            }}
+          >
             <div style={{
-              width: "80px",
-              height: "80px",
-              borderRadius: "50%",
+              width: "48px",
+              height: "48px",
+              borderRadius: tokens.radii.lg,
               background: tokens.gradients.primary,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              margin: "0 auto 16px",
-            }}><Users size={40} color="white" /></div>
-            <h2 style={tokens.typography.h2}>Gemeinsame Session</h2>
-            <p style={{
-              ...tokens.typography.body,
-              marginBottom: "24px",
+              flexShrink: 0,
             }}>
-              Sprecht zusammen mit Amiya über eure Beziehung.
-              Sie moderiert und hilft euch, einander besser zu verstehen.
-            </p>
-            <button
-              onClick={handleStartCoupleSession}
-              style={{
-                ...tokens.buttons.primaryLarge,
-                width: "100%",
-              }}
-            >
-              Session starten
-            </button>
+              <Users size={24} color="white" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{
+                ...tokens.typography.h3,
+                fontSize: "16px",
+                marginBottom: "4px",
+              }}>Gemeinsame Session</h3>
+              <p style={{
+                ...tokens.typography.small,
+                margin: 0,
+              }}>Sprecht zusammen mit Amiya</p>
+            </div>
+            <ChevronRight size={20} color={tokens.colors.text.muted} />
           </div>
         )}
 
-        {/* Pending Suggestions Section - Only if connected and has suggestions */}
+        {/* Pending Items Section - Suggestions + Pending Approval Agreements */}
         {isConnected && pendingSuggestions.length > 0 && (
           <div style={{
             ...tokens.alerts.warning,
@@ -368,8 +371,8 @@ export default function WirPage() {
               </p>
             </div>
 
-            {pendingSuggestions.map((suggestion) => (
-              <div key={suggestion.id} style={{
+            {pendingSuggestions.map((item) => (
+              <div key={item.id} style={{
                 ...tokens.cards.surface,
                 marginBottom: "12px",
               }}>
@@ -378,19 +381,27 @@ export default function WirPage() {
                   fontWeight: "500",
                   color: tokens.colors.text.primary,
                   margin: "0 0 8px 0",
-                }}>"{suggestion.title}"</p>
-                {suggestion.underlying_need && (
+                }}>"{item.title}"</p>
+                {item.underlying_need && (
                   <p style={{
                     ...tokens.typography.small,
                     color: tokens.colors.text.secondary,
                     marginBottom: "12px",
                     fontStyle: "italic",
                   }}>
-                    Dahinter: {suggestion.underlying_need}
+                    Dahinter: {item.underlying_need}
                   </p>
                 )}
                 <button
-                  onClick={() => router.push(`/history?session=${suggestion.session_id}`)}
+                  onClick={() => {
+                    if (item.type === 'agreement') {
+                      // Open agreement detail modal
+                      setSelectedAgreementId(item.id);
+                    } else {
+                      // Go to session history for suggestion
+                      router.push(`/history?session=${item.session_id}`);
+                    }
+                  }}
                   style={{
                     padding: "10px 20px",
                     background: tokens.colors.warning,
@@ -459,68 +470,9 @@ export default function WirPage() {
           </div>
         )}
 
-        {/* History Preview Card */}
-        <div
-          style={{
-            ...tokens.cards.interactive,
-            marginBottom: "16px",
-          }}
-          onClick={() => router.push("/history")}
-        >
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "16px",
-          }}>
-            <ClipboardList size={32} color={tokens.colors.aurora.lavender} />
-            <div>
-              <h3 style={{
-                fontSize: "16px",
-                fontWeight: "600",
-                color: tokens.colors.text.primary,
-                margin: "0 0 4px 0",
-              }}>Session-Verlauf</h3>
-              <p style={tokens.typography.small}>
-                Alle Solo- und Couple-Sessions ansehen
-              </p>
-            </div>
-            <ChevronRight size={20} color={tokens.colors.text.muted} style={{ marginLeft: "auto" }} />
-          </div>
-        </div>
-
-        {/* Settings Card - Only if connected */}
-        {isConnected && (
-          <div
-            style={{
-              ...tokens.cards.interactive,
-              marginBottom: "16px",
-            }}
-            onClick={() => setShowDisconnect(true)}
-          >
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "16px",
-            }}>
-              <Settings size={32} color={tokens.colors.text.muted} />
-              <div>
-                <h3 style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  color: tokens.colors.text.primary,
-                  margin: "0 0 4px 0",
-                }}>Verbindung verwalten</h3>
-                <p style={tokens.typography.small}>
-                  Paar-Einstellungen und Trennung
-                </p>
-              </div>
-              <ChevronRight size={20} color={tokens.colors.text.muted} style={{ marginLeft: "auto" }} />
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Bottom Navigation */}
+      {/* Bottom Navigation - 3 tabs (Profile is in header on each page) */}
       <div style={tokens.layout.navBar}>
         <button onClick={() => router.push("/")} style={tokens.buttons.nav(false)}>
           <HomeIcon size={24} />
@@ -538,10 +490,6 @@ export default function WirPage() {
         <button onClick={() => router.push("/history")} style={tokens.buttons.nav(false)}>
           <ClipboardList size={24} />
           <span style={{ fontSize: "12px" }}>Verlauf</span>
-        </button>
-        <button onClick={() => router.push("/profile")} style={tokens.buttons.nav(false)}>
-          <User size={24} />
-          <span style={{ fontSize: "12px" }}>Profil</span>
         </button>
       </div>
 

@@ -12,20 +12,24 @@ const supabase = createClient(
 );
 
 /**
- * GET /api/agreements/suggestions?coupleId=xxx
+ * GET /api/agreements/suggestions?coupleId=xxx&userId=xxx
+ * Returns both:
+ * - agreement_suggestions with status "pending"
+ * - agreements with status "pending_approval" where user hasn't approved yet
  */
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const coupleId = searchParams.get("coupleId");
     const sessionId = searchParams.get("sessionId");
+    const userId = searchParams.get("userId");
 
     if (!coupleId) {
       return Response.json({ error: "coupleId required" }, { status: 400 });
     }
 
-    // Simple query without joins
-    let query = supabase
+    // 1. Get pending suggestions
+    let suggestionsQuery = supabase
       .from("agreement_suggestions")
       .select("*")
       .eq("couple_id", coupleId)
@@ -33,17 +37,44 @@ export async function GET(request) {
       .order("created_at", { ascending: false });
 
     if (sessionId) {
-      query = query.eq("session_id", sessionId);
+      suggestionsQuery = suggestionsQuery.eq("session_id", sessionId);
     }
 
-    const { data, error } = await query;
+    const { data: suggestions, error: suggestionsError } = await suggestionsQuery;
 
-    if (error) {
-      console.error("Suggestions fetch error:", error);
-      return Response.json({ error: error.message }, { status: 500 });
+    if (suggestionsError) {
+      console.error("Suggestions fetch error:", suggestionsError);
+      return Response.json({ error: suggestionsError.message }, { status: 500 });
     }
 
-    return Response.json({ suggestions: data || [] });
+    // 2. Get agreements needing approval (if userId provided)
+    let pendingAgreements = [];
+    if (userId) {
+      const { data: agreements, error: agreementsError } = await supabase
+        .from("agreements")
+        .select("*")
+        .eq("couple_id", coupleId)
+        .eq("status", "pending_approval")
+        .order("created_at", { ascending: false });
+
+      if (agreementsError) {
+        console.error("Pending agreements fetch error:", agreementsError);
+      } else {
+        // Filter to only those where current user hasn't approved yet
+        pendingAgreements = (agreements || []).filter(a =>
+          !a.approved_by?.includes(userId)
+        );
+      }
+    }
+
+    // Calculate total pending count
+    const totalPending = (suggestions?.length || 0) + pendingAgreements.length;
+
+    return Response.json({
+      suggestions: suggestions || [],
+      pendingAgreements,
+      totalPending
+    });
 
   } catch (error) {
     console.error("Suggestions get error:", error);

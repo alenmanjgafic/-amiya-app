@@ -18,6 +18,7 @@ import {
   Users,
   LayoutList,
   MessageSquare,
+  Mic,
 } from "lucide-react";
 
 export default function HistoryPage() {
@@ -251,68 +252,104 @@ export default function HistoryPage() {
             </button>
           </div>
         ) : (
-          filteredSessions.map(session => (
-            <div
-              key={session.id}
-              style={{
-                ...tokens.cards.interactive,
-                padding: "20px",
-                marginBottom: "12px",
-              }}
-              onClick={() => setSelectedSession(session.id)}
-            >
-              <div style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "12px",
-              }}>
-                <span style={{
-                  ...tokens.typography.label,
-                  padding: "4px 10px",
-                  borderRadius: "6px",
-                  background: session.type === "couple"
-                    ? (tokens.isDarkMode ? "rgba(249, 168, 212, 0.2)" : "#fce7f3")
-                    : session.type === "message_analysis"
-                      ? (tokens.isDarkMode ? "rgba(147, 197, 253, 0.2)" : "#dbeafe")
-                      : tokens.colors.bg.surface,
-                  color: session.type === "couple"
-                    ? tokens.colors.aurora.rose
-                    : session.type === "message_analysis"
-                      ? tokens.colors.aurora.sky
-                      : tokens.colors.text.secondary,
-                }}>
-                  {session.type === "couple"
-                    ? "COUPLE SESSION"
-                    : session.type === "message_analysis"
-                      ? "NACHRICHTENANALYSE"
-                      : "SOLO SESSION"}
-                </span>
-                <span style={tokens.typography.small}>{formatDate(session.created_at)}</span>
-              </div>
-              <h3 style={{
-                fontSize: "16px",
-                fontWeight: "600",
+          filteredSessions.map(session => {
+            // Type-specific styling
+            const typeConfig = {
+              couple: {
+                Icon: Users,
                 color: tokens.colors.aurora.rose,
-                margin: "0 0 8px 0",
-                lineHeight: "1.4",
-              }}>{getSessionTitle(session)}</h3>
-              <p style={tokens.typography.body}>{getSessionPreview(session)}</p>
+                bgLight: "#fce7f3",
+                bgDark: "rgba(249, 168, 212, 0.2)",
+                label: "COUPLE SESSION",
+                borderColor: tokens.colors.aurora.rose,
+              },
+              message_analysis: {
+                Icon: MessageSquare,
+                color: tokens.colors.aurora.sky,
+                bgLight: "#dbeafe",
+                bgDark: "rgba(147, 197, 253, 0.2)",
+                label: "NACHRICHTENANALYSE",
+                borderColor: tokens.colors.aurora.sky,
+              },
+              solo: {
+                Icon: Mic,
+                color: tokens.colors.aurora.mint,
+                bgLight: "#d1fae5",
+                bgDark: "rgba(52, 211, 153, 0.2)",
+                label: "SOLO SESSION",
+                borderColor: tokens.colors.aurora.mint,
+              },
+            };
 
-              {session.themes && session.themes.length > 0 && (
+            const config = typeConfig[session.type] || typeConfig.solo;
+            const TypeIcon = config.Icon;
+
+            return (
+              <div
+                key={session.id}
+                style={{
+                  ...tokens.cards.interactive,
+                  padding: "20px",
+                  marginBottom: "12px",
+                  borderLeft: `4px solid ${config.borderColor}`,
+                }}
+                onClick={() => setSelectedSession(session.id)}
+              >
                 <div style={{
                   display: "flex",
-                  flexWrap: "wrap",
-                  gap: "6px",
-                  marginTop: "12px",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "12px",
                 }}>
-                  {session.themes.slice(0, 3).map((theme, i) => (
-                    <span key={i} style={tokens.badges.muted}>{theme}</span>
-                  ))}
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}>
+                    <div style={{
+                      width: "28px",
+                      height: "28px",
+                      borderRadius: "8px",
+                      background: tokens.isDarkMode ? config.bgDark : config.bgLight,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}>
+                      <TypeIcon size={14} color={config.color} />
+                    </div>
+                    <span style={{
+                      ...tokens.typography.label,
+                      color: config.color,
+                    }}>
+                      {config.label}
+                    </span>
+                  </div>
+                  <span style={tokens.typography.small}>{formatDate(session.created_at)}</span>
                 </div>
-              )}
-            </div>
-          ))
+                <h3 style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  color: config.color,
+                  margin: "0 0 8px 0",
+                  lineHeight: "1.4",
+                }}>{getSessionTitle(session)}</h3>
+                <p style={tokens.typography.body}>{getSessionPreview(session)}</p>
+
+                {session.themes && session.themes.length > 0 && (
+                  <div style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "6px",
+                    marginTop: "12px",
+                  }}>
+                    {session.themes.slice(0, 3).map((theme, i) => (
+                      <span key={i} style={tokens.badges.muted}>{theme}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 
