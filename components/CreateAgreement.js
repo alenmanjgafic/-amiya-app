@@ -1,6 +1,7 @@
 /**
  * CREATE AGREEMENT COMPONENT - components/CreateAgreement.js
- * Formular für manuelle Agreement-Erstellung
+ * Formular fur manuelle Agreement-Erstellung
+ * Migrated to Design System tokens
  */
 "use client";
 import { useState } from "react";
@@ -9,7 +10,7 @@ import { useTheme } from "../lib/ThemeContext";
 
 export default function CreateAgreement({ onClose, onCreated }) {
   const { user, profile } = useAuth();
-  const { tokens, isDarkMode } = useTheme();
+  const { tokens } = useTheme();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -72,7 +73,7 @@ export default function CreateAgreement({ onClose, onCreated }) {
   const typeOptions = [
     { value: "behavior", emoji: "🎯", label: "Verhalten", desc: "Eine konkrete Handlung" },
     { value: "communication", emoji: "💬", label: "Kommunikation", desc: "Wie ihr miteinander sprecht" },
-    { value: "ritual", emoji: "🔄", label: "Ritual", desc: "Regelmässiger Moment" },
+    { value: "ritual", emoji: "🔄", label: "Ritual", desc: "Regelmassiger Moment" },
     { value: "experiment", emoji: "🧪", label: "Experiment", desc: "Zeitlich begrenzt ausprobieren" },
   ];
 
@@ -83,28 +84,10 @@ export default function CreateAgreement({ onClose, onCreated }) {
   ];
 
   return (
-    <div style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: "rgba(0,0,0,0.5)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "20px",
-      zIndex: 1000,
-      overflowY: "auto",
-    }}>
+    <div style={tokens.modals.overlay}>
       <div style={{
-        background: tokens.colors.bg.elevated,
-        borderRadius: tokens.radii.xl,
-        maxWidth: "500px",
-        width: "100%",
-        maxHeight: "90vh",
-        overflowY: "auto",
-        boxShadow: tokens.shadows.large,
+        ...tokens.modals.container,
+        padding: 0,
       }}>
         {/* Header */}
         <div style={{
@@ -113,133 +96,64 @@ export default function CreateAgreement({ onClose, onCreated }) {
           alignItems: "center",
           padding: "16px 20px",
         }}>
-          <button onClick={onClose} style={{
-            background: "none",
-            border: "none",
-            fontSize: "16px",
-            color: tokens.colors.text.muted,
-            cursor: "pointer",
-            fontFamily: tokens.fonts.body,
-          }}>← Zurück</button>
-          <span style={{
-            fontSize: "13px",
-            color: tokens.colors.text.muted,
-          }}>Schritt {step} von 3</span>
+          <button onClick={onClose} style={tokens.buttons.ghost}>
+            ← Zuruck
+          </button>
+          <span style={tokens.typography.small}>
+            Schritt {step} von 3
+          </span>
         </div>
 
         {/* Progress */}
-        <div style={{
-          height: "4px",
-          background: tokens.colors.bg.soft,
-        }}>
-          <div style={{
-            height: "100%",
-            background: `linear-gradient(90deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-            width: `${(step / 3) * 100}%`,
-            transition: "width 0.3s ease",
-          }} />
+        <div style={tokens.progress.track}>
+          <div style={tokens.progress.bar((step / 3) * 100)} />
         </div>
 
         <div style={{ padding: "24px 20px 32px" }}>
           {/* Step 1: What */}
           {step === 1 && (
             <>
-              <h2 style={{
-                fontSize: "22px",
-                fontWeight: "bold",
-                color: tokens.colors.text.primary,
-                margin: "0 0 8px 0",
-                fontFamily: tokens.fonts.display,
-              }}>Was vereinbart ihr?</h2>
+              <h2 style={tokens.typography.h2}>Was vereinbart ihr?</h2>
               <p style={{
+                ...tokens.typography.body,
                 color: tokens.colors.text.muted,
-                fontSize: "15px",
-                margin: "0 0 24px 0",
+                marginBottom: "24px",
               }}>
                 Beschreibe die Vereinbarung konkret und positiv.
               </p>
 
               <div style={{ marginBottom: "20px" }}>
-                <label style={{
-                  display: "block",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  color: tokens.colors.text.primary,
-                  marginBottom: "8px",
-                }}>Vereinbarung</label>
+                <label style={tokens.inputs.label}>Vereinbarung</label>
                 <textarea
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  style={{
-                    width: "100%",
-                    padding: "14px",
-                    borderRadius: tokens.radii.md,
-                    border: `2px solid ${tokens.colors.bg.soft}`,
-                    fontSize: "16px",
-                    minHeight: "100px",
-                    resize: "vertical",
-                    outline: "none",
-                    transition: "border-color 0.2s",
-                    background: tokens.colors.bg.surface,
-                    color: tokens.colors.text.primary,
-                    fontFamily: tokens.fonts.body,
-                    boxSizing: "border-box",
-                  }}
-                  placeholder="z.B. Ich rufe an wenn ich mehr als 30 Minuten später komme"
+                  style={tokens.inputs.textarea}
+                  placeholder="z.B. Ich rufe an wenn ich mehr als 30 Minuten spater komme"
                   autoFocus
                 />
               </div>
 
               <div style={{ marginBottom: "20px" }}>
-                <label style={{
-                  display: "block",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  color: tokens.colors.text.primary,
-                  marginBottom: "8px",
-                }}>Warum ist das wichtig? (optional)</label>
+                <label style={tokens.inputs.label}>Warum ist das wichtig? (optional)</label>
                 <textarea
                   value={formData.underlyingNeed}
                   onChange={(e) => setFormData({ ...formData, underlyingNeed: e.target.value })}
                   style={{
-                    width: "100%",
-                    padding: "14px",
-                    borderRadius: tokens.radii.md,
-                    border: `2px solid ${tokens.colors.bg.soft}`,
-                    fontSize: "16px",
+                    ...tokens.inputs.textarea,
                     minHeight: "80px",
-                    resize: "vertical",
-                    outline: "none",
-                    transition: "border-color 0.2s",
-                    background: tokens.colors.bg.surface,
-                    color: tokens.colors.text.primary,
-                    fontFamily: tokens.fonts.body,
-                    boxSizing: "border-box",
                   }}
-                  placeholder="z.B. Damit du dich sicher fühlst und dir keine Sorgen machst"
+                  placeholder="z.B. Damit du dich sicher fuhlst und dir keine Sorgen machst"
                 />
-                <p style={{
-                  fontSize: "13px",
-                  color: tokens.colors.text.muted,
-                  marginTop: "8px",
-                }}>
-                  Das Bedürfnis dahinter hilft, die Vereinbarung bedeutsam zu machen
+                <p style={tokens.inputs.hint}>
+                  Das Bedurfnis dahinter hilft, die Vereinbarung bedeutsam zu machen
                 </p>
               </div>
 
               <button
                 onClick={() => formData.title.trim() && setStep(2)}
                 style={{
+                  ...tokens.buttons.primary,
                   width: "100%",
-                  padding: "16px",
-                  background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-                  color: "white",
-                  border: "none",
-                  borderRadius: tokens.radii.md,
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  fontFamily: tokens.fonts.body,
                   opacity: formData.title.trim() ? 1 : 0.5,
                 }}
                 disabled={!formData.title.trim()}
@@ -252,13 +166,7 @@ export default function CreateAgreement({ onClose, onCreated }) {
           {/* Step 2: Type & Who */}
           {step === 2 && (
             <>
-              <h2 style={{
-                fontSize: "22px",
-                fontWeight: "bold",
-                color: tokens.colors.text.primary,
-                margin: "0 0 16px 0",
-                fontFamily: tokens.fonts.display,
-              }}>Um was geht es?</h2>
+              <h2 style={tokens.typography.h2}>Um was geht es?</h2>
 
               <div style={{
                 display: "grid",
@@ -271,16 +179,9 @@ export default function CreateAgreement({ onClose, onCreated }) {
                     key={option.value}
                     onClick={() => setFormData({ ...formData, type: option.value })}
                     style={{
-                      display: "flex",
+                      ...tokens.inputs.selection(formData.type === option.value),
                       flexDirection: "column",
                       alignItems: "center",
-                      padding: "16px",
-                      background: formData.type === option.value
-                        ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
-                        : tokens.colors.bg.surface,
-                      border: `2px solid ${formData.type === option.value ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
-                      borderRadius: tokens.radii.md,
-                      cursor: "pointer",
                       textAlign: "center",
                     }}
                   >
@@ -293,8 +194,7 @@ export default function CreateAgreement({ onClose, onCreated }) {
                       marginTop: "8px",
                     }}>{option.label}</span>
                     <span style={{
-                      fontSize: "12px",
-                      color: tokens.colors.text.muted,
+                      ...tokens.typography.small,
                       marginTop: "4px",
                     }}>{option.desc}</span>
                   </button>
@@ -302,10 +202,9 @@ export default function CreateAgreement({ onClose, onCreated }) {
               </div>
 
               <h3 style={{
-                fontSize: "16px",
-                fontWeight: "600",
-                color: tokens.colors.text.primary,
-                margin: "24px 0 12px 0",
+                ...tokens.typography.h3,
+                marginTop: "24px",
+                marginBottom: "12px",
               }}>Wer ist verantwortlich?</h3>
 
               <div style={{
@@ -318,17 +217,8 @@ export default function CreateAgreement({ onClose, onCreated }) {
                     key={option.value}
                     onClick={() => setFormData({ ...formData, responsible: option.value })}
                     style={{
-                      display: "flex",
+                      ...tokens.inputs.selection(formData.responsible === option.value),
                       alignItems: "center",
-                      gap: "12px",
-                      padding: "14px",
-                      background: formData.responsible === option.value
-                        ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
-                        : tokens.colors.bg.surface,
-                      border: `2px solid ${formData.responsible === option.value ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
-                      borderRadius: tokens.radii.md,
-                      cursor: "pointer",
-                      textAlign: "left",
                     }}
                   >
                     <span style={{ fontSize: "24px" }}>{option.emoji}</span>
@@ -339,51 +229,29 @@ export default function CreateAgreement({ onClose, onCreated }) {
                         color: tokens.colors.text.primary,
                         fontSize: "15px",
                       }}>{option.label}</span>
-                      <span style={{
-                        fontSize: "12px",
-                        color: tokens.colors.text.muted,
-                      }}>{option.desc}</span>
+                      <span style={tokens.typography.small}>{option.desc}</span>
                     </div>
                     {formData.responsible === option.value && (
                       <span style={{
                         color: tokens.colors.aurora.lavender,
                         fontWeight: "bold",
                         fontSize: "18px",
-                      }}>✓</span>
+                      }}>&#10003;</span>
                     )}
                   </button>
                 ))}
               </div>
 
-              <div style={{
-                display: "flex",
-                gap: "12px",
-                marginTop: "24px",
-              }}>
+              <div style={tokens.modals.buttonGroup}>
                 <button onClick={() => setStep(1)} style={{
+                  ...tokens.buttons.secondary,
                   flex: 1,
-                  padding: "16px",
-                  background: tokens.colors.bg.surface,
-                  color: tokens.colors.text.primary,
-                  border: "none",
-                  borderRadius: tokens.radii.md,
-                  fontSize: "16px",
-                  cursor: "pointer",
-                  fontFamily: tokens.fonts.body,
                 }}>
-                  Zurück
+                  Zuruck
                 </button>
                 <button onClick={() => setStep(3)} style={{
+                  ...tokens.buttons.primary,
                   flex: 2,
-                  padding: "16px",
-                  background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-                  color: "white",
-                  border: "none",
-                  borderRadius: tokens.radii.md,
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  fontFamily: tokens.fonts.body,
                 }}>
                   Weiter
                 </button>
@@ -394,19 +262,13 @@ export default function CreateAgreement({ onClose, onCreated }) {
           {/* Step 3: Check-in */}
           {step === 3 && (
             <>
-              <h2 style={{
-                fontSize: "22px",
-                fontWeight: "bold",
-                color: tokens.colors.text.primary,
-                margin: "0 0 8px 0",
-                fontFamily: tokens.fonts.display,
-              }}>Wann wollt ihr darüber sprechen?</h2>
+              <h2 style={tokens.typography.h2}>Wann wollt ihr daruber sprechen?</h2>
               <p style={{
+                ...tokens.typography.body,
                 color: tokens.colors.text.muted,
-                fontSize: "15px",
-                margin: "0 0 24px 0",
+                marginBottom: "24px",
               }}>
-                Regelmässige Check-ins helfen, dranzubleiben.
+                Regelmassige Check-ins helfen, dranzubleiben.
               </p>
 
               <div style={{
@@ -425,17 +287,13 @@ export default function CreateAgreement({ onClose, onCreated }) {
                     key={option.value}
                     onClick={() => setFormData({ ...formData, checkInDays: option.value })}
                     style={{
+                      ...tokens.inputs.selection(formData.checkInDays === option.value),
+                      justifyContent: "center",
                       padding: "16px",
-                      background: formData.checkInDays === option.value
-                        ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
-                        : tokens.colors.bg.surface,
-                      border: `2px solid ${formData.checkInDays === option.value ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
-                      borderRadius: tokens.radii.md,
-                      cursor: "pointer",
-                      fontSize: "15px",
+                      color: formData.checkInDays === option.value
+                        ? tokens.colors.aurora.lavender
+                        : tokens.colors.text.primary,
                       fontWeight: "500",
-                      color: formData.checkInDays === option.value ? tokens.colors.aurora.lavender : tokens.colors.text.primary,
-                      fontFamily: tokens.fonts.body,
                     }}
                   >
                     {option.label}
@@ -444,12 +302,7 @@ export default function CreateAgreement({ onClose, onCreated }) {
               </div>
 
               {/* Summary */}
-              <div style={{
-                background: tokens.colors.bg.surface,
-                borderRadius: tokens.radii.md,
-                padding: "16px",
-                marginBottom: "24px",
-              }}>
+              <div style={tokens.cards.surface}>
                 <h4 style={{
                   fontSize: "14px",
                   fontWeight: "600",
@@ -457,28 +310,25 @@ export default function CreateAgreement({ onClose, onCreated }) {
                   margin: "0 0 12px 0",
                 }}>Zusammenfassung</h4>
                 <p style={{
-                  fontSize: "14px",
+                  ...tokens.typography.body,
                   color: tokens.colors.text.primary,
-                  margin: "0 0 8px 0",
-                  lineHeight: "1.5",
+                  marginBottom: "8px",
                 }}>
                   <strong>Vereinbarung:</strong> {formData.title}
                 </p>
                 {formData.underlyingNeed && (
                   <p style={{
-                    fontSize: "14px",
+                    ...tokens.typography.body,
                     color: tokens.colors.text.primary,
-                    margin: "0 0 8px 0",
-                    lineHeight: "1.5",
+                    marginBottom: "8px",
                   }}>
                     <strong>Dahinter:</strong> {formData.underlyingNeed}
                   </p>
                 )}
                 <p style={{
-                  fontSize: "14px",
+                  ...tokens.typography.body,
                   color: tokens.colors.text.primary,
-                  margin: "0 0 8px 0",
-                  lineHeight: "1.5",
+                  marginBottom: "8px",
                 }}>
                   <strong>Verantwortlich:</strong>{" "}
                   {formData.responsible === "both" ? "Beide" :
@@ -486,10 +336,9 @@ export default function CreateAgreement({ onClose, onCreated }) {
                       profile?.partner_name}
                 </p>
                 <p style={{
-                  fontSize: "14px",
+                  ...tokens.typography.body,
                   color: tokens.colors.text.primary,
                   margin: 0,
-                  lineHeight: "1.5",
                 }}>
                   <strong>Check-in:</strong> In {formData.checkInDays} Tagen
                 </p>
@@ -497,45 +346,24 @@ export default function CreateAgreement({ onClose, onCreated }) {
 
               {error && (
                 <p style={{
-                  color: tokens.colors.error,
-                  fontSize: "14px",
-                  background: isDarkMode ? "rgba(248, 113, 113, 0.15)" : "#fef2f2",
-                  padding: "12px",
-                  borderRadius: tokens.radii.sm,
-                  marginBottom: "16px",
+                  ...tokens.alerts.error,
+                  marginTop: "16px",
                 }}>{error}</p>
               )}
 
-              <div style={{
-                display: "flex",
-                gap: "12px",
-              }}>
+              <div style={tokens.modals.buttonGroup}>
                 <button onClick={() => setStep(2)} style={{
+                  ...tokens.buttons.secondary,
                   flex: 1,
-                  padding: "16px",
-                  background: tokens.colors.bg.surface,
-                  color: tokens.colors.text.primary,
-                  border: "none",
-                  borderRadius: tokens.radii.md,
-                  fontSize: "16px",
-                  cursor: "pointer",
-                  fontFamily: tokens.fonts.body,
                 }}>
-                  Zurück
+                  Zuruck
                 </button>
                 <button
                   onClick={handleSubmit}
                   style={{
+                    ...tokens.buttons.primary,
                     flex: 2,
-                    padding: "16px",
-                    background: `linear-gradient(135deg, ${tokens.colors.success}, #059669)`,
-                    color: "white",
-                    border: "none",
-                    borderRadius: tokens.radii.md,
-                    fontSize: "16px",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                    fontFamily: tokens.fonts.body,
+                    background: tokens.gradients.success,
                     opacity: saving ? 0.7 : 1,
                   }}
                   disabled={saving}
@@ -546,12 +374,11 @@ export default function CreateAgreement({ onClose, onCreated }) {
 
               {formData.responsible !== "me" && (
                 <p style={{
-                  fontSize: "13px",
-                  color: tokens.colors.text.muted,
+                  ...tokens.typography.small,
                   textAlign: "center",
                   marginTop: "16px",
                 }}>
-                  ℹ️ {formData.responsible === "both" ? "Ihr müsst beide" : profile?.partner_name + " muss"} zustimmen,
+                  &#8505;&#65039; {formData.responsible === "both" ? "Ihr musst beide" : profile?.partner_name + " muss"} zustimmen,
                   damit die Vereinbarung aktiv wird.
                 </p>
               )}

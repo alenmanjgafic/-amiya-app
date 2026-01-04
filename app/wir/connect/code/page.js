@@ -1,6 +1,7 @@
 /**
  * CODE PAGE - app/wir/connect/code/page.js
  * Einladungscode teilen oder eingeben
+ * Migrated to Design System tokens
  */
 "use client";
 import { useState, useEffect, useRef } from "react";
@@ -11,16 +12,16 @@ import { supabase } from "../../../../lib/supabase";
 
 export default function CodePage() {
   const { user, profile, loading, fetchProfile } = useAuth();
-  const { tokens, isDarkMode } = useTheme();
+  const { tokens } = useTheme();
   const router = useRouter();
-  
+
   const [myCode, setMyCode] = useState("");
   const [loadingCode, setLoadingCode] = useState(true);
   const [partnerCode, setPartnerCode] = useState(["", "", "", "", "", ""]);
   const [pairing, setPairing] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  
+
   const inputRefs = useRef([]);
 
   useEffect(() => {
@@ -87,7 +88,7 @@ export default function CodePage() {
 
   const handleShare = async () => {
     const shareText = `Verbinde dich mit mir auf Amiya! Mein Code: ${myCode}`;
-    
+
     if (navigator.share) {
       try {
         await navigator.share({
@@ -108,7 +109,7 @@ export default function CodePage() {
   const handleCodeInput = (index, value) => {
     // Only allow alphanumeric
     const cleaned = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-    
+
     if (cleaned.length <= 1) {
       const newCode = [...partnerCode];
       newCode[index] = cleaned;
@@ -137,7 +138,7 @@ export default function CodePage() {
       if (i < 6) newCode[i] = char;
     });
     setPartnerCode(newCode);
-    
+
     // Focus last filled or next empty
     const lastIndex = Math.min(chars.length, 5);
     inputRefs.current[lastIndex]?.focus();
@@ -145,9 +146,9 @@ export default function CodePage() {
 
   const handlePair = async () => {
     const code = partnerCode.join("");
-    
+
     if (code.length !== 6) {
-      setError("Bitte gib den vollständigen Code ein");
+      setError("Bitte gib den vollstaendigen Code ein");
       return;
     }
 
@@ -170,7 +171,7 @@ export default function CodePage() {
         .single();
 
       if (findError || !inviteCode) {
-        setError("Code ungültig oder abgelaufen");
+        setError("Code ungueltig oder abgelaufen");
         setPairing(false);
         return;
       }
@@ -196,9 +197,9 @@ export default function CodePage() {
       // Update both profiles with couple_id and partner_id
       const { error: updateAError } = await supabase
         .from("profiles")
-        .update({ 
+        .update({
           couple_id: couple.id,
-          partner_id: user.id 
+          partner_id: user.id
         })
         .eq("id", inviteCode.user_id);
 
@@ -208,9 +209,9 @@ export default function CodePage() {
 
       const { error: updateBError } = await supabase
         .from("profiles")
-        .update({ 
+        .update({
           couple_id: couple.id,
-          partner_id: inviteCode.user_id 
+          partner_id: inviteCode.user_id
         })
         .eq("id", user.id);
 
@@ -221,7 +222,7 @@ export default function CodePage() {
       // Mark code as used
       await supabase
         .from("invite_codes")
-        .update({ 
+        .update({
           used_by: user.id,
           used_at: new Date().toISOString()
         })
@@ -230,7 +231,7 @@ export default function CodePage() {
       // Refresh profile
       await fetchProfile(user.id);
 
-      setSuccess("Verbunden! 🎉");
+      setSuccess("Verbunden!");
       setTimeout(() => {
         router.push("/wir");
       }, 1500);
@@ -244,8 +245,14 @@ export default function CodePage() {
 
   if (loading || !profile) {
     return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.spinner} />
+      <div style={tokens.layout.pageCentered}>
+        <div style={tokens.loaders.spinner(40)} />
+        <style jsx global>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -253,52 +260,158 @@ export default function CodePage() {
   const partnerName = profile?.partner_name || "Partner";
   const isCodeComplete = partnerCode.every(c => c !== "");
 
+  // Custom styles for code sections using token colors
+  const codeSectionPink = {
+    background: `linear-gradient(135deg, ${tokens.colors.aurora.rose}20 0%, ${tokens.colors.aurora.lavender}25 100%)`,
+    borderRadius: tokens.radii.xl,
+    padding: "24px",
+    textAlign: "center",
+  };
+
+  const codeSectionBlue = {
+    background: `linear-gradient(135deg, ${tokens.colors.aurora.sky}20 0%, ${tokens.colors.aurora.lavender}25 100%)`,
+    borderRadius: tokens.radii.xl,
+    padding: "24px",
+    textAlign: "center",
+  };
+
+  const codeCharStyle = {
+    width: "44px",
+    height: "52px",
+    background: tokens.colors.bg.elevated,
+    borderRadius: tokens.radii.sm,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "22px",
+    fontWeight: "bold",
+    color: tokens.colors.text.primary,
+    boxShadow: tokens.shadows.soft,
+  };
+
+  const codeInputStyle = {
+    width: "44px",
+    height: "52px",
+    background: tokens.colors.bg.elevated,
+    border: `2px solid ${tokens.colors.bg.soft}`,
+    borderRadius: tokens.radii.sm,
+    textAlign: "center",
+    fontSize: "22px",
+    fontWeight: "bold",
+    color: tokens.colors.text.primary,
+    outline: "none",
+    textTransform: "uppercase",
+    fontFamily: tokens.fonts.body,
+  };
+
   return (
-    <div style={styles.container}>
+    <div style={{ ...tokens.layout.page, padding: 0 }}>
       {/* Header */}
-      <div style={styles.header}>
-        <button onClick={() => router.push("/wir/connect")} style={styles.backButton}>
-          ←
+      <div style={{ padding: "16px 20px" }}>
+        <button
+          onClick={() => router.push("/wir/connect")}
+          style={{
+            ...tokens.buttons.icon,
+            width: "40px",
+            height: "40px",
+            borderRadius: "50%",
+            background: tokens.colors.bg.elevated,
+            boxShadow: tokens.shadows.soft,
+          }}
+        >
+          <span style={{ fontSize: "20px" }}>&#8592;</span>
         </button>
       </div>
 
-      <div style={styles.content}>
-        <h1 style={styles.title}>
+      <div style={{ padding: "0 24px 40px 24px" }}>
+        <h1 style={{
+          ...tokens.typography.h1,
+          textAlign: "center",
+          marginBottom: "12px",
+          lineHeight: "1.3",
+        }}>
           Verbinde dich mit {partnerName}
         </h1>
-        <p style={styles.subtitle}>
+        <p style={{
+          ...tokens.typography.body,
+          textAlign: "center",
+          lineHeight: "1.5",
+          marginBottom: "32px",
+        }}>
           Ein Abo, zwei Accounts.<br/>
-          Füge {partnerName} hinzu oder tritt ihrem Abo bei.
+          Fuege {partnerName} hinzu oder tritt ihrem Abo bei.
         </p>
 
         {/* My Code Section */}
-        <div style={styles.codeSection}>
-          <p style={styles.codeSectionTitle}>{partnerName} einladen</p>
-          
-          <div style={styles.codeDisplay}>
+        <div style={codeSectionPink}>
+          <p style={{
+            ...tokens.typography.body,
+            marginBottom: "20px",
+          }}>
+            {partnerName} einladen
+          </p>
+
+          <div style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "8px",
+            marginBottom: "20px",
+          }}>
             {loadingCode ? (
-              <div style={styles.spinnerSmall} />
+              <div style={tokens.loaders.spinner(24)} />
             ) : (
               myCode.split("").map((char, i) => (
-                <div key={i} style={styles.codeChar}>{char}</div>
+                <div key={i} style={codeCharStyle}>{char}</div>
               ))
             )}
           </div>
 
-          <button onClick={handleShare} style={styles.shareButton}>
+          <button
+            onClick={handleShare}
+            style={{
+              ...tokens.buttons.secondary,
+              width: "100%",
+              padding: "16px",
+              background: tokens.colors.text.primary,
+              color: tokens.colors.bg.deep,
+              borderRadius: tokens.radii.md,
+              fontSize: "16px",
+              fontWeight: "600",
+            }}
+          >
             Code mit {partnerName} teilen
           </button>
         </div>
 
-        <div style={styles.divider}>
-          <span style={styles.dividerText}>ODER</span>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          margin: "24px 0",
+        }}>
+          <span style={{
+            ...tokens.typography.label,
+            letterSpacing: "1px",
+          }}>
+            ODER
+          </span>
         </div>
 
         {/* Enter Partner Code Section */}
-        <div style={styles.codeSectionAlt}>
-          <p style={styles.codeSectionTitle}>{partnerName}s Code eingeben</p>
-          
-          <div style={styles.codeInputContainer}>
+        <div style={codeSectionBlue}>
+          <p style={{
+            ...tokens.typography.body,
+            marginBottom: "20px",
+          }}>
+            {partnerName}s Code eingeben
+          </p>
+
+          <div style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "8px",
+            marginBottom: "20px",
+          }}>
             {partnerCode.map((char, i) => (
               <input
                 key={i}
@@ -308,20 +421,36 @@ export default function CodePage() {
                 onChange={(e) => handleCodeInput(i, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(i, e)}
                 onPaste={i === 0 ? handlePaste : undefined}
-                style={styles.codeInput}
+                style={codeInputStyle}
                 maxLength={1}
               />
             ))}
           </div>
 
-          {error && <p style={styles.error}>{error}</p>}
-          {success && <p style={{ color: tokens.colors.aurora.mint, fontSize: "14px", marginBottom: "16px" }}>{success}</p>}
+          {error && (
+            <p style={{ ...tokens.alerts.error, marginBottom: "16px", background: "transparent", padding: 0 }}>
+              {error}
+            </p>
+          )}
+          {success && (
+            <p style={{ ...tokens.alerts.success, marginBottom: "16px", background: "transparent", padding: 0 }}>
+              {success}
+            </p>
+          )}
 
-          <button 
+          <button
             onClick={handlePair}
             style={{
-              ...styles.pairButton,
+              ...tokens.buttons.secondary,
+              width: "100%",
+              padding: "16px",
+              background: tokens.colors.bg.soft,
+              color: tokens.colors.text.muted,
+              borderRadius: tokens.radii.md,
+              fontSize: "16px",
+              fontWeight: "600",
               opacity: isCodeComplete && !pairing ? 1 : 0.5,
+              cursor: isCodeComplete && !pairing ? "pointer" : "default",
             }}
             disabled={!isCodeComplete || pairing}
           >
@@ -339,162 +468,3 @@ export default function CodePage() {
     </div>
   );
 }
-
-const styles = {
-  loadingContainer: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "linear-gradient(135deg, #fef3f8 0%, #fdf4ff 50%, #f5f3ff 100%)",
-  },
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: "4px solid #e5e7eb",
-    borderTopColor: "#7c3aed",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  spinnerSmall: {
-    width: "24px",
-    height: "24px",
-    border: "3px solid #e5e7eb",
-    borderTopColor: "#7c3aed",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  container: {
-    minHeight: "100vh",
-    background: "linear-gradient(135deg, #fef3f8 0%, #fdf4ff 50%, #f5f3ff 100%)",
-  },
-  header: {
-    padding: "16px 20px",
-  },
-  backButton: {
-    width: "40px",
-    height: "40px",
-    borderRadius: "50%",
-    background: "white",
-    border: "none",
-    fontSize: "20px",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-  },
-  content: {
-    padding: "0 24px 40px 24px",
-  },
-  title: {
-    fontSize: "28px",
-    fontWeight: "bold",
-    color: "#1f2937",
-    textAlign: "center",
-    margin: "0 0 12px 0",
-    lineHeight: "1.3",
-  },
-  subtitle: {
-    fontSize: "15px",
-    color: "#6b7280",
-    textAlign: "center",
-    lineHeight: "1.5",
-    margin: "0 0 32px 0",
-  },
-  codeSection: {
-    background: "linear-gradient(135deg, #fce7f3 0%, #f5d0fe 100%)",
-    borderRadius: "20px",
-    padding: "24px",
-    textAlign: "center",
-  },
-  codeSectionAlt: {
-    background: "linear-gradient(135deg, #e0f2fe 0%, #ddd6fe 100%)",
-    borderRadius: "20px",
-    padding: "24px",
-    textAlign: "center",
-  },
-  codeSectionTitle: {
-    fontSize: "15px",
-    color: "#374151",
-    margin: "0 0 20px 0",
-  },
-  codeDisplay: {
-    display: "flex",
-    justifyContent: "center",
-    gap: "8px",
-    marginBottom: "20px",
-  },
-  codeChar: {
-    width: "44px",
-    height: "52px",
-    background: "white",
-    borderRadius: "10px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "22px",
-    fontWeight: "bold",
-    color: "#1f2937",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-  },
-  shareButton: {
-    width: "100%",
-    padding: "16px",
-    background: "#1f2937",
-    color: "white",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "16px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-  divider: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    margin: "24px 0",
-  },
-  dividerText: {
-    fontSize: "13px",
-    fontWeight: "600",
-    color: "#9ca3af",
-    letterSpacing: "1px",
-  },
-  codeInputContainer: {
-    display: "flex",
-    justifyContent: "center",
-    gap: "8px",
-    marginBottom: "20px",
-  },
-  codeInput: {
-    width: "44px",
-    height: "52px",
-    background: "white",
-    border: "2px solid #e5e7eb",
-    borderRadius: "10px",
-    textAlign: "center",
-    fontSize: "22px",
-    fontWeight: "bold",
-    color: "#1f2937",
-    outline: "none",
-    textTransform: "uppercase",
-  },
-  pairButton: {
-    width: "100%",
-    padding: "16px",
-    background: "#e5e7eb",
-    color: "#6b7280",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "16px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-  error: {
-    color: "#dc2626",
-    fontSize: "14px",
-    marginBottom: "16px",
-  },
-  // success now uses inline tokens.colors.aurora.mint
-};

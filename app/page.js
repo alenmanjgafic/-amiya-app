@@ -2,6 +2,7 @@
  * MAIN PAGE - app/page.js
  * Hauptseite mit Solo Voice-Session
  * UPDATED: Kontext-Limit auf 4000 Zeichen erhöht für Agreements
+ * MIGRATED: Using Design System tokens from ThemeContext
  */
 "use client";
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
@@ -38,7 +39,7 @@ const STATE = {
   SPEAKING: "speaking"
 };
 
-// Wrapper für Suspense (useSearchParams braucht das)
+// Wrapper for Suspense (useSearchParams requires it)
 export default function Home() {
   return (
     <Suspense fallback={<LoadingScreen />}>
@@ -48,7 +49,7 @@ export default function Home() {
 }
 
 function LoadingScreen() {
-  // Statische Farben für initiales Laden (vor ThemeContext)
+  // Static colors for initial load (before ThemeContext)
   return (
     <div style={{
       minHeight: "100vh",
@@ -74,11 +75,11 @@ function LoadingScreen() {
 
 function HomeContent() {
   const { user, profile, loading: authLoading, signOut, updateProfile } = useAuth();
-  const { tokens, isDarkMode } = useTheme();
+  const { tokens } = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Test-Modus: ?testMode=true in URL
+  // Test mode: ?testMode=true in URL
   const isTestMode = searchParams.get("testMode") === "true";
   const [showDebugPanel, setShowDebugPanel] = useState(false);
 
@@ -98,7 +99,7 @@ function HomeContent() {
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
-  const mediaStreamRef = useRef(null); // Für Mikrofon-Cleanup
+  const mediaStreamRef = useRef(null); // For microphone cleanup
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -170,7 +171,7 @@ function HomeContent() {
 
   const startSession = useCallback(async () => {
     if (!user) return;
-    
+
     setStarted(true);
     setVoiceState(STATE.CONNECTING);
     messagesRef.current = [];
@@ -178,19 +179,19 @@ function HomeContent() {
     setAnalysisError(null);
 
     try {
-      // Lade Kontext aus Memory System
+      // Load context from Memory System
       let userContext = "";
       try {
         const contextResponse = await fetch("/api/memory/get", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             userId: user.id,
             coupleId: profile?.couple_id || null,
             sessionType: "solo"
           }),
         });
-        
+
         if (contextResponse.ok) {
           const contextData = await contextResponse.json();
           userContext = contextData.context || "";
@@ -208,22 +209,22 @@ function HomeContent() {
 
       const { Conversation } = await import("@elevenlabs/client");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream; // Speichern für Cleanup
+      mediaStreamRef.current = stream; // Save for cleanup
 
       console.log("Context length:", userContext.length);
       console.log("Context preview:", userContext.substring(0, 300));
 
-      // UPDATED: Kontext-Limit auf 4000 Zeichen erhöht für Agreements
+      // UPDATED: Context limit increased to 4000 characters for Agreements
       let sanitizedContext = userContext
         .replace(/\n/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
         .substring(0, 4000);
-      
+
       if (userContext.length > 4000) {
         sanitizedContext += "...";
       }
-      
+
       console.log("Sanitized context length:", sanitizedContext.length);
 
       const conversation = await Conversation.startSession({
@@ -232,7 +233,7 @@ function HomeContent() {
         dynamicVariables: {
           user_name: profile?.name || "User",
           partner_name: profile?.partner_name || "Partner",
-          user_context: sanitizedContext || "Keine früheren Gespräche vorhanden.",
+          user_context: sanitizedContext || "Keine fruheren Gesprache vorhanden.",
         },
         onConnect: () => {
           console.log("Connected to ElevenLabs");
@@ -254,7 +255,7 @@ function HomeContent() {
           if (message.source && message.message) {
             const role = message.source === "user" ? "user" : "assistant";
             const content = message.message;
-            
+
             const lastMsg = messagesRef.current[messagesRef.current.length - 1];
             if (!(lastMsg && lastMsg.role === role && lastMsg.content === content)) {
               messagesRef.current.push({ role, content });
@@ -286,16 +287,16 @@ function HomeContent() {
   }, [user, profile]);
 
   // ═══════════════════════════════════════════════════════════════════
-  // ADAPTIVE COACHING: Engagement-Metriken berechnen
+  // ADAPTIVE COACHING: Calculate engagement metrics
   // ═══════════════════════════════════════════════════════════════════
 
   /**
-   * Berechnet Engagement-Metriken für die aktuelle Session
-   * Diese Daten werden gespeichert und für personalisiertes Coaching verwendet
+   * Calculates engagement metrics for the current session
+   * This data is saved and used for personalized coaching
    *
-   * @param {Array} messages - Array von {role, content} Objekten
-   * @param {number} durationSec - Session-Dauer in Sekunden
-   * @returns {Object} Engagement-Metriken
+   * @param {Array} messages - Array of {role, content} objects
+   * @param {number} durationSec - Session duration in seconds
+   * @returns {Object} Engagement metrics
    */
   const calculateEngagementMetrics = useCallback((messages, durationSec) => {
     const userMsgs = messages.filter(m => m.role === "user");
@@ -305,7 +306,7 @@ function HomeContent() {
     const aiChars = aiMsgs.reduce((sum, m) => sum + m.content.length, 0);
     const totalChars = userChars + aiChars;
 
-    // Trend: Vergleiche erste Hälfte mit zweiter Hälfte der User-Nachrichten
+    // Trend: Compare first half with second half of user messages
     let trend = "consistent";
     if (userMsgs.length >= 4) {
       const midpoint = Math.floor(userMsgs.length / 2);
@@ -326,8 +327,6 @@ function HomeContent() {
       trend
     };
   }, []);
-
-  // quickViabilityCheck entfernt: Unified Consent Model braucht keinen lokalen Check mehr
 
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
@@ -375,18 +374,18 @@ function HomeContent() {
     const sessionIdToAnalyze = currentSessionId;
     const currentMessages = messagesRef.current;
     const hasMessages = currentMessages.length > 0;
-    const currentDuration = sessionTime; // Session-Dauer in Sekunden
+    const currentDuration = sessionTime;
 
     setAnalysisError(null);
 
-    // SOFORT Loading-State setzen wenn Analyse gewünscht
+    // Set loading state immediately if analysis is requested
     if (requestAnalysis && hasMessages) {
       setIsGeneratingAnalysis(true);
     }
 
     if (currentSessionId && hasMessages) {
       try {
-        // Engagement-Metriken berechnen (Adaptive Coaching)
+        // Calculate engagement metrics (Adaptive Coaching)
         const engagementMetrics = calculateEngagementMetrics(currentMessages, currentDuration);
         console.log("Engagement metrics:", engagementMetrics);
 
@@ -398,10 +397,10 @@ function HomeContent() {
           .map(m => `${m.role === "user" ? (profile?.name || "User") : "Amiya"}: ${m.content}`)
           .join("\n");
 
-        // Session beenden MIT Engagement-Metriken
+        // End session WITH engagement metrics
         await sessionsService.end(currentSessionId, summary, [], engagementMetrics);
 
-        // Coaching-Profil aktualisieren (wenn memory_consent gegeben)
+        // Update coaching profile (if memory_consent given)
         if (profile?.memory_consent) {
           try {
             await fetch("/api/coaching-profile/update", {
@@ -416,16 +415,15 @@ function HomeContent() {
             console.log("Coaching profile updated");
           } catch (coachingError) {
             console.error("Coaching profile update failed:", coachingError);
-            // Non-blocking - Session geht trotzdem weiter
           }
         }
 
         if (requestAnalysis) {
-          
+
           const viability = await checkAnalysisViability();
-          
+
           if (!viability.viable) {
-            // Session löschen wenn nicht genug Inhalt
+            // Delete session if not enough content
             try {
               await sessionsService.delete(sessionIdToAnalyze);
               console.log("Session deleted - not enough content");
@@ -438,10 +436,10 @@ function HomeContent() {
             setShowTooShortModal(true);
             return;
           }
-          
+
           try {
             const analysisResult = await sessionsService.requestAnalysis(currentSessionId);
-            
+
             try {
               await fetch("/api/memory/update", {
                 method: "POST",
@@ -458,14 +456,14 @@ function HomeContent() {
             } catch (memoryError) {
               console.error("Memory update failed:", memoryError);
             }
-            
+
             setIsGeneratingAnalysis(false);
             setAnalysisSessionId(sessionIdToAnalyze);
             setShowAnalysis(true);
           } catch (analysisErr) {
             console.error("Analysis failed:", analysisErr);
             setIsGeneratingAnalysis(false);
-            setAnalysisError("Analyse konnte nicht erstellt werden. Bitte versuche es später erneut.");
+            setAnalysisError("Analyse konnte nicht erstellt werden. Bitte versuche es spater erneut.");
             setTimeout(() => {
               resetSession();
             }, 3000);
@@ -480,21 +478,19 @@ function HomeContent() {
       setShowTooShortModal(true);
       return;
     }
-
-    // Unified Consent Model: resetSession() wird jetzt direkt in handleEndClick aufgerufen
   }, [currentSessionId, profile, checkAnalysisViability, resetSession, user, sessionTime, calculateEngagementMetrics]);
 
   const handleEndClick = useCallback(async () => {
-    // SOFORT visuelles Feedback geben
+    // Give immediate visual feedback
     setVoiceState(STATE.IDLE);
 
-    // Timer stoppen
+    // Stop timer
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
 
-    // ElevenLabs Session beenden
+    // End ElevenLabs session
     if (conversationRef.current) {
       try {
         await conversationRef.current.endSession();
@@ -504,7 +500,7 @@ function HomeContent() {
       conversationRef.current = null;
     }
 
-    // WICHTIG: Mikrofon explizit freigeben (Fix für Safari)
+    // IMPORTANT: Explicitly release microphone (Fix for Safari)
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(track => {
         track.stop();
@@ -514,16 +510,16 @@ function HomeContent() {
     }
 
     /**
-     * Session-Ende Logik:
-     * - auto_analyze=true → Automatisch analysieren
-     * - auto_analyze=false → Dialog zeigen (Erinnerung an Vorteile)
+     * Session end logic:
+     * - auto_analyze=true -> Automatically analyze
+     * - auto_analyze=false -> Show dialog (reminder of benefits)
      */
     if (profile?.auto_analyze) {
-      // Mit Analyse: automatisch analysieren
+      // With analysis: automatically analyze
       endSession(true);
     } else {
-      // Dialog zeigen - User kann pro Session entscheiden
-      // Bei "Mit Analyse" wird Consent dauerhaft aktiviert
+      // Show dialog - User can decide per session
+      // With "Mit Analyse" consent is permanently activated
       setShowEndDialog(true);
     }
   }, [profile?.auto_analyze, endSession]);
@@ -536,13 +532,13 @@ function HomeContent() {
   };
 
   /**
-   * User wählt "Mit Analyse" im Dialog
-   * → Consent dauerhaft aktivieren + Session analysieren
+   * User chooses "Mit Analyse" in dialog
+   * -> Permanently activate consent + analyze session
    */
   const handleDialogAnalyze = async () => {
     setShowEndDialog(false);
 
-    // Consent dauerhaft aktivieren
+    // Permanently activate consent
     try {
       await updateProfile({
         memory_consent: true,
@@ -554,13 +550,13 @@ function HomeContent() {
       console.error("Failed to update consent:", err);
     }
 
-    // Session analysieren
+    // Analyze session
     endSession(true);
   };
 
   /**
-   * User wählt "Ohne Analyse" im Dialog
-   * → Session beenden ohne Analyse
+   * User chooses "Ohne Analyse" in dialog
+   * -> End session without analysis
    */
   const handleDialogSkip = async () => {
     setShowEndDialog(false);
@@ -571,22 +567,22 @@ function HomeContent() {
   // ============ TEST MODE HELPERS ============
   const addFakeMessages = () => {
     const fakeMessages = [
-      { role: "assistant", content: "Hallo! Schön, dass du da bist. Was beschäftigt dich heute?" },
-      { role: "user", content: "Ich habe das Gefühl, dass mein Partner und ich aneinander vorbeireden." },
+      { role: "assistant", content: "Hallo! Schon, dass du da bist. Was beschaftigt dich heute?" },
+      { role: "user", content: "Ich habe das Gefuhl, dass mein Partner und ich aneinander vorbeireden." },
       { role: "assistant", content: "Das klingt belastend. Kannst du mir ein konkretes Beispiel nennen?" },
-      { role: "user", content: "Gestern wollte ich über unsere Wochenendpläne sprechen, aber er hat nur auf sein Handy geschaut." },
-      { role: "assistant", content: "Ich verstehe. Wie hast du dich in dem Moment gefühlt?" },
-      { role: "user", content: "Ignoriert und unwichtig. Als ob meine Bedürfnisse keine Rolle spielen." },
+      { role: "user", content: "Gestern wollte ich uber unsere Wochenendplane sprechen, aber er hat nur auf sein Handy geschaut." },
+      { role: "assistant", content: "Ich verstehe. Wie hast du dich in dem Moment gefuhlt?" },
+      { role: "user", content: "Ignoriert und unwichtig. Als ob meine Bedurfnisse keine Rolle spielen." },
     ];
     messagesRef.current = fakeMessages;
     setMessageCount(fakeMessages.length);
     setStarted(true);
-    setSessionTime(180); // 3 Minuten
+    setSessionTime(180); // 3 minutes
   };
 
   useEffect(() => {
     return () => {
-      // Cleanup beim Verlassen der Seite
+      // Cleanup when leaving the page
       if (conversationRef.current) {
         conversationRef.current.endSession();
         conversationRef.current = null;
@@ -595,7 +591,7 @@ function HomeContent() {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-      // Mikrofon freigeben
+      // Release microphone
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach(track => track.stop());
         mediaStreamRef.current = null;
@@ -603,26 +599,18 @@ function HomeContent() {
     };
   }, []);
 
+  // ============================================================================
+  // LOADING STATE
+  // ============================================================================
   if (authLoading) {
     return (
       <div style={{
-        minHeight: "100vh",
-        display: "flex",
+        ...tokens.layout.pageCentered,
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
         gap: "16px",
-        background: tokens.colors.bg.deep,
       }}>
-        <div style={{
-          width: "40px",
-          height: "40px",
-          border: `4px solid ${tokens.colors.bg.soft}`,
-          borderTopColor: tokens.colors.aurora.lavender,
-          borderRadius: "50%",
-          animation: "spin 1s linear infinite",
-        }} />
-        <p style={{ color: tokens.colors.text.secondary }}>Laden...</p>
+        <div style={tokens.loaders.spinner(40)} />
+        <p style={tokens.typography.body}>Laden...</p>
       </div>
     );
   }
@@ -630,40 +618,26 @@ function HomeContent() {
   if (!user || !profile?.name || !profile?.partner_name) {
     return (
       <div style={{
-        minHeight: "100vh",
-        display: "flex",
+        ...tokens.layout.pageCentered,
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
         gap: "16px",
-        background: tokens.colors.bg.deep,
       }}>
-        <div style={{
-          width: "40px",
-          height: "40px",
-          border: `4px solid ${tokens.colors.bg.soft}`,
-          borderTopColor: tokens.colors.aurora.lavender,
-          borderRadius: "50%",
-          animation: "spin 1s linear infinite",
-        }} />
+        <div style={tokens.loaders.spinner(40)} />
       </div>
     );
   }
 
+  // ============================================================================
   // START SCREEN
+  // ============================================================================
   if (!started && !isGeneratingAnalysis) {
     return (
       <div style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "20px",
+        ...tokens.layout.pageCentered,
         paddingBottom: "100px",
-        background: tokens.colors.bg.deep,
-        transition: "background 0.3s ease",
       }}>
         <div style={{ maxWidth: "400px", textAlign: "center", width: "100%" }}>
+          {/* User Header Bar */}
           <div style={{
             display: "flex",
             justifyContent: "space-between",
@@ -693,7 +667,7 @@ function HomeContent() {
                 width: "32px",
                 height: "32px",
                 borderRadius: "50%",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
+                background: tokens.gradients.primary,
                 color: "white",
                 display: "flex",
                 alignItems: "center",
@@ -706,72 +680,61 @@ function HomeContent() {
               <span>{displayName}</span>
             </button>
             <button onClick={signOut} style={{
-              background: "none",
-              border: "none",
+              ...tokens.buttons.ghost,
               color: tokens.colors.text.muted,
-              cursor: "pointer",
-              fontSize: "14px",
-              padding: "8px 12px",
             }}>
               Abmelden
             </button>
           </div>
 
+          {/* Heart Logo */}
           <div style={{
             width: "100px",
             height: "100px",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+            background: tokens.gradients.speaking,
             borderRadius: tokens.radii.xxl,
             margin: "0 auto 24px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: isDarkMode
-              ? tokens.shadows.glow(tokens.colors.aurora.lavender)
-              : `0 10px 40px ${tokens.colors.aurora.lavender}40`,
+            boxShadow: tokens.shadows.glow(tokens.colors.aurora.lavender),
           }}><Heart size={50} color="white" fill="white" /></div>
+
           {/* Time-based greeting */}
           <p style={{
-            fontSize: "13px",
-            fontWeight: "600",
-            color: tokens.colors.text.muted,
-            textTransform: "uppercase",
-            letterSpacing: "1.5px",
+            ...tokens.typography.label,
             marginBottom: "4px",
           }}>{timeGreeting.toUpperCase()}</p>
+
           <h1 style={{
+            ...tokens.typography.h1,
             fontSize: "36px",
-            fontWeight: "bold",
-            color: tokens.colors.text.primary,
-            marginBottom: "8px",
-            fontFamily: tokens.fonts.display,
           }}>{displayName}</h1>
+
           <p style={{
-            color: tokens.colors.text.secondary,
-            fontSize: "16px",
+            ...tokens.typography.body,
             marginBottom: "24px",
           }}>Solo Session</p>
 
           <p style={{
-            color: tokens.colors.text.secondary,
+            ...tokens.typography.body,
             marginBottom: "32px",
             lineHeight: "1.8",
           }}>
-            Erzähl mir was dich beschäftigt –<br />
-            über dich und {partnerName}.
+            Erzahl mir was dich beschaftigt -<br />
+            uber dich und {partnerName}.
           </p>
 
+          {/* Analysis Error Alert */}
           {analysisError && (
             <div style={{
-              background: isDarkMode ? "rgba(248, 113, 113, 0.1)" : "#fef2f2",
-              border: `1px solid ${tokens.colors.error}`,
-              borderRadius: tokens.radii.md,
-              padding: "16px",
+              ...tokens.alerts.error,
               marginBottom: "24px",
               display: "flex",
               alignItems: "flex-start",
               gap: "12px",
               textAlign: "left",
+              border: `1px solid ${tokens.colors.error}`,
             }}>
               <AlertTriangle size={20} color={tokens.colors.error} style={{ flexShrink: 0 }} />
               <p style={{
@@ -783,120 +746,44 @@ function HomeContent() {
             </div>
           )}
 
-          <button onClick={startSession} style={{
-            padding: "18px 40px",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-            color: "white",
-            fontWeight: "600",
-            fontSize: "18px",
-            border: "none",
-            borderRadius: tokens.radii.lg,
-            cursor: "pointer",
-            boxShadow: isDarkMode
-              ? tokens.shadows.glow(tokens.colors.aurora.mint)
-              : `0 4px 20px ${tokens.colors.aurora.mint}20`,
-            fontFamily: tokens.fonts.body,
-          }}>
+          {/* Start Session Button */}
+          <button onClick={startSession} style={tokens.buttons.primaryLarge}>
             Session starten
           </button>
 
+          {/* Headphones hint */}
           <p style={{
+            ...tokens.typography.small,
             marginTop: "24px",
-            fontSize: "13px",
-            color: tokens.colors.text.muted,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             gap: "6px",
-          }}><Headphones size={16} /> Beste Erfahrung mit Kopfhörern</p>
+          }}><Headphones size={16} /> Beste Erfahrung mit Kopfhorern</p>
         </div>
 
-        <div style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: tokens.colors.bg.elevated,
-          borderTop: `1px solid ${tokens.colors.bg.soft}`,
-          display: "flex",
-          justifyContent: "space-around",
-          padding: "12px 0 24px 0",
-        }}>
-          <button style={{
-            background: "none",
-            border: "none",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "4px",
-            cursor: "pointer",
-            padding: "8px 16px",
-          }}>
+        {/* Bottom Navigation */}
+        <div style={tokens.layout.navBar}>
+          <button style={tokens.buttons.nav(true)}>
             <HomeIcon size={24} color={tokens.colors.aurora.lavender} />
-            <span style={{
-              fontSize: "12px",
-              color: tokens.colors.aurora.lavender,
-              fontWeight: "600",
-            }}>Home</span>
+            <span style={{ color: tokens.colors.aurora.lavender, fontWeight: "600" }}>Home</span>
           </button>
-          <button onClick={() => router.push("/wir")} style={{
-            background: "none",
-            border: "none",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "4px",
-            cursor: "pointer",
-            padding: "8px 16px",
-          }}>
+          <button onClick={() => router.push("/wir")} style={tokens.buttons.nav(false)}>
             <div style={{ position: "relative", display: "inline-block" }}>
               <Heart size={24} color={tokens.colors.text.muted} />
               {pendingSuggestionsCount > 0 && (
-                <span style={{
-                  position: "absolute",
-                  top: "-6px",
-                  right: "-10px",
-                  background: tokens.colors.error,
-                  color: "white",
-                  fontSize: "11px",
-                  fontWeight: "bold",
-                  minWidth: "18px",
-                  height: "18px",
-                  borderRadius: "9px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "0 4px",
-                }}>{pendingSuggestionsCount}</span>
+                <span style={tokens.badges.notification}>{pendingSuggestionsCount}</span>
               )}
             </div>
-            <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Wir</span>
+            <span>Wir</span>
           </button>
-          <button onClick={() => router.push("/history")} style={{
-            background: "none",
-            border: "none",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "4px",
-            cursor: "pointer",
-            padding: "8px 16px",
-          }}>
+          <button onClick={() => router.push("/history")} style={tokens.buttons.nav(false)}>
             <ClipboardList size={24} color={tokens.colors.text.muted} />
-            <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Verlauf</span>
+            <span>Verlauf</span>
           </button>
-          <button onClick={() => router.push("/profile")} style={{
-            background: "none",
-            border: "none",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "4px",
-            cursor: "pointer",
-            padding: "8px 16px",
-          }}>
+          <button onClick={() => router.push("/profile")} style={tokens.buttons.nav(false)}>
             <User size={24} color={tokens.colors.text.muted} />
-            <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Profil</span>
+            <span>Profil</span>
           </button>
         </div>
 
@@ -907,13 +794,14 @@ function HomeContent() {
           />
         )}
 
-        {/* ============ DEBUG PANEL auf START SCREEN ============ */}
+        {/* ============ DEBUG PANEL on START SCREEN ============ */}
         {isTestMode && (
           <>
             {/* Floating Debug Button */}
             <button
               onClick={() => setShowDebugPanel(!showDebugPanel)}
               style={{
+                ...tokens.buttons.icon,
                 position: "fixed",
                 bottom: "100px",
                 right: "20px",
@@ -922,12 +810,7 @@ function HomeContent() {
                 borderRadius: "50%",
                 background: showDebugPanel ? tokens.colors.error : tokens.colors.aurora.lavender,
                 color: "white",
-                border: "none",
-                cursor: "pointer",
                 boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
                 zIndex: 9999,
               }}
             >
@@ -937,21 +820,17 @@ function HomeContent() {
             {/* Debug Panel */}
             {showDebugPanel && (
               <div style={{
+                ...tokens.cards.elevated,
                 position: "fixed",
                 bottom: "160px",
                 right: "20px",
                 width: "300px",
-                background: tokens.colors.bg.elevated,
-                borderRadius: tokens.radii.lg,
-                boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
-                padding: "16px",
                 zIndex: 9998,
                 border: `1px solid ${tokens.colors.bg.soft}`,
               }}>
                 <h4 style={{
-                  color: tokens.colors.text.primary,
+                  ...tokens.typography.h3,
                   fontSize: "14px",
-                  fontWeight: "bold",
                   marginBottom: "12px",
                   display: "flex",
                   alignItems: "center",
@@ -962,9 +841,7 @@ function HomeContent() {
 
                 {/* Profile Status */}
                 <div style={{
-                  background: tokens.colors.bg.surface,
-                  borderRadius: tokens.radii.sm,
-                  padding: "10px",
+                  ...tokens.cards.surface,
                   marginBottom: "12px",
                   fontSize: "12px",
                 }}>
@@ -988,14 +865,8 @@ function HomeContent() {
                   <button
                     onClick={addFakeMessages}
                     style={{
-                      padding: "10px",
+                      ...tokens.buttons.primarySmall,
                       background: tokens.colors.aurora.sky,
-                      color: "white",
-                      border: "none",
-                      borderRadius: tokens.radii.sm,
-                      fontSize: "13px",
-                      cursor: "pointer",
-                      fontWeight: "500",
                     }}
                   >
                     Fake-Session starten
@@ -1003,14 +874,8 @@ function HomeContent() {
                   <button
                     onClick={() => setShowEndDialog(true)}
                     style={{
-                      padding: "10px",
+                      ...tokens.buttons.primarySmall,
                       background: tokens.colors.aurora.lavender,
-                      color: "white",
-                      border: "none",
-                      borderRadius: tokens.radii.sm,
-                      fontSize: "13px",
-                      cursor: "pointer",
-                      fontWeight: "500",
                     }}
                   >
                     Ende-Dialog anzeigen
@@ -1019,8 +884,7 @@ function HomeContent() {
 
                 {/* Info */}
                 <p style={{
-                  color: tokens.colors.text.muted,
-                  fontSize: "11px",
+                  ...tokens.typography.small,
                   marginTop: "12px",
                   marginBottom: 0,
                   lineHeight: "1.4",
@@ -1035,14 +899,16 @@ function HomeContent() {
     );
   }
 
+  // ============================================================================
   // ANALYSIS GENERATING SCREEN
+  // ============================================================================
   if (isGeneratingAnalysis) {
     return (
       <div style={{
-        minHeight: "100vh",
+        ...tokens.layout.page,
         display: "flex",
         flexDirection: "column",
-        background: tokens.colors.bg.deep,
+        padding: 0,
       }}>
         <div style={{
           flex: 1,
@@ -1052,29 +918,17 @@ function HomeContent() {
           justifyContent: "center",
           padding: "40px 20px",
         }}>
-          <div style={{
-            width: "60px",
-            height: "60px",
-            border: `5px solid ${tokens.colors.bg.soft}`,
-            borderTopColor: tokens.colors.aurora.lavender,
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-            marginBottom: "24px",
-          }} />
+          <div style={tokens.loaders.spinner(60)} />
           <h2 style={{
-            fontSize: "22px",
-            fontWeight: "bold",
-            color: tokens.colors.text.primary,
+            ...tokens.typography.h2,
+            marginTop: "24px",
             marginBottom: "12px",
-            fontFamily: tokens.fonts.display,
           }}>Analyse wird erstellt...</h2>
           <p style={{
-            color: tokens.colors.text.secondary,
-            fontSize: "15px",
+            ...tokens.typography.body,
             textAlign: "center",
-            lineHeight: "1.6",
           }}>
-            Amiya wertet euer Gespräch aus.<br />
+            Amiya wertet euer Gesprach aus.<br />
             Das dauert einen Moment.
           </p>
         </div>
@@ -1089,23 +943,18 @@ function HomeContent() {
     );
   }
 
+  // ============================================================================
   // SESSION SCREEN
+  // ============================================================================
   return (
     <div style={{
-      minHeight: "100vh",
+      ...tokens.layout.page,
       display: "flex",
       flexDirection: "column",
-      background: tokens.colors.bg.deep,
+      padding: 0,
     }}>
-      <div style={{
-        background: isDarkMode ? "rgba(37, 41, 49, 0.9)" : "rgba(255,255,255,0.9)",
-        backdropFilter: "blur(10px)",
-        borderBottom: `1px solid ${tokens.colors.bg.soft}`,
-        padding: "12px 20px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}>
+      {/* Session Header */}
+      <div style={tokens.layout.header}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div style={{
             width: "44px",
@@ -1115,7 +964,7 @@ function HomeContent() {
             alignItems: "center",
             justifyContent: "center",
             transition: "all 0.3s",
-            background: getStateColor(voiceState, isDarkMode),
+            ...getStateStyle(voiceState, tokens),
           }}>
             {voiceState === STATE.CONNECTING && <Loader2 size={22} color="white" style={{ animation: "spin 1s linear infinite" }} />}
             {voiceState === STATE.LISTENING && <Ear size={22} color="white" />}
@@ -1135,17 +984,10 @@ function HomeContent() {
             }}>{formatTime(sessionTime)}</div>
           </div>
         </div>
-        <button onClick={handleEndClick} style={{
-          padding: "8px 16px",
-          background: isDarkMode ? "rgba(248, 113, 113, 0.2)" : "#fee2e2",
-          color: tokens.colors.error,
-          border: "none",
-          borderRadius: tokens.radii.sm,
-          cursor: "pointer",
-          fontWeight: "500",
-        }}>Beenden</button>
+        <button onClick={handleEndClick} style={tokens.buttons.danger}>Beenden</button>
       </div>
 
+      {/* Session Main Content */}
       <div style={{
         flex: 1,
         display: "flex",
@@ -1154,6 +996,7 @@ function HomeContent() {
         justifyContent: "center",
         padding: "40px 20px",
       }}>
+        {/* Status Ring */}
         <div style={{
           width: "180px",
           height: "180px",
@@ -1163,7 +1006,7 @@ function HomeContent() {
           alignItems: "center",
           justifyContent: "center",
           transition: "all 0.3s",
-          ...getStatusRingStyle(voiceState, isDarkMode),
+          ...getStatusRingStyle(voiceState, tokens),
         }}>
           <div style={{
             width: "150px",
@@ -1175,39 +1018,18 @@ function HomeContent() {
             justifyContent: "center",
           }}>
             {voiceState === STATE.CONNECTING && (
-              <div style={{
-                width: "40px",
-                height: "40px",
-                border: `4px solid ${tokens.colors.bg.soft}`,
-                borderTopColor: tokens.colors.text.muted,
-                borderRadius: "50%",
-                animation: "spin 1s linear infinite",
-              }} />
+              <div style={tokens.loaders.spinner(40)} />
             )}
             {voiceState === STATE.LISTENING && (
-              <div style={{
-                width: "80px",
-                height: "80px",
-                borderRadius: "50%",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-                animation: "pulse 2s ease-in-out infinite",
-              }} />
+              <div style={tokens.loaders.pulse} />
             )}
             {voiceState === STATE.THINKING && (
-              <div style={{
-                width: "80px",
-                height: "80px",
-                borderRadius: "50%",
-                background: `linear-gradient(135deg, ${tokens.colors.warning}, #d97706)`,
-                animation: "breathe 1.5s ease-in-out infinite",
-              }} />
+              <div style={tokens.loaders.breathe} />
             )}
             {voiceState === STATE.SPEAKING && (
               <div style={{
-                width: "80px",
-                height: "80px",
-                borderRadius: "50%",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                ...tokens.loaders.pulse,
+                background: tokens.gradients.speaking,
                 animation: "pulse 1s ease-in-out infinite",
               }} />
             )}
@@ -1216,15 +1038,13 @@ function HomeContent() {
         </div>
 
         <p style={{
-          color: tokens.colors.text.primary,
-          fontSize: "20px",
-          fontWeight: "600",
+          ...tokens.typography.h3,
           marginTop: "32px",
+          fontSize: "20px",
         }}>{getStatusText(voiceState)}</p>
 
         <p style={{
-          color: tokens.colors.text.muted,
-          fontSize: "14px",
+          ...tokens.typography.small,
           marginTop: "12px",
           minHeight: "20px",
         }}>
@@ -1234,34 +1054,19 @@ function HomeContent() {
         </p>
       </div>
 
-      {/* Session-Ende Dialog mit Analyse-Empfehlung */}
+      {/* Session End Dialog with Analysis Recommendation */}
       {showEndDialog && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "rgba(0,0,0,0.6)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "20px",
-          zIndex: 1000,
-        }}>
+        <div style={tokens.modals.overlay}>
           <div style={{
-            background: tokens.colors.bg.elevated,
-            borderRadius: tokens.radii.xl,
-            padding: "28px",
-            maxWidth: "400px",
-            width: "100%",
+            ...tokens.modals.containerSmall,
             textAlign: "center",
+            padding: "28px",
           }}>
             {/* Header */}
             <div style={{
               width: "56px",
               height: "56px",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
+              background: tokens.gradients.primary,
               borderRadius: "16px",
               display: "flex",
               alignItems: "center",
@@ -1272,27 +1077,21 @@ function HomeContent() {
             </div>
 
             <h3 style={{
-              fontSize: "20px",
-              fontWeight: "bold",
-              color: tokens.colors.text.primary,
+              ...tokens.modals.title,
               marginBottom: "8px",
-              fontFamily: tokens.fonts.display,
+              fontSize: "20px",
             }}>Session beenden</h3>
 
             <p style={{
-              color: tokens.colors.text.secondary,
+              ...tokens.typography.body,
               marginBottom: "20px",
-              lineHeight: "1.5",
-              fontSize: "15px",
             }}>
-              Möchtest du eine Analyse dieser Session?
+              Mochtest du eine Analyse dieser Session?
             </p>
 
-            {/* Vorteile Box */}
+            {/* Benefits Box */}
             <div style={{
-              background: tokens.colors.bg.surface,
-              borderRadius: tokens.radii.md,
-              padding: "16px",
+              ...tokens.cards.surface,
               marginBottom: "20px",
               textAlign: "left",
             }}>
@@ -1304,19 +1103,19 @@ function HomeContent() {
               }}>Mit Analyse kannst du:</p>
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "16px" }}>📈</span>
+                  <span style={{ fontSize: "16px" }}>:</span>
                   <span style={{ color: tokens.colors.text.secondary, fontSize: "14px" }}>
                     Muster in eurer Kommunikation sehen
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "16px" }}>🎯</span>
+                  <span style={{ fontSize: "16px" }}>:</span>
                   <span style={{ color: tokens.colors.text.secondary, fontSize: "14px" }}>
-                    Konkrete nächste Schritte erhalten
+                    Konkrete nachste Schritte erhalten
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "16px" }}>🧠</span>
+                  <span style={{ fontSize: "16px" }}>:</span>
                   <span style={{ color: tokens.colors.text.secondary, fontSize: "14px" }}>
                     Amiya lernt euch besser kennen
                   </span>
@@ -1325,23 +1124,12 @@ function HomeContent() {
             </div>
 
             {/* Buttons */}
-            <div style={{
-              display: "flex",
-              gap: "12px",
-              marginBottom: "16px",
-            }}>
+            <div style={tokens.modals.buttonGroup}>
               <button
                 onClick={handleDialogSkip}
                 style={{
+                  ...tokens.buttons.secondary,
                   flex: 1,
-                  padding: "14px",
-                  background: tokens.colors.bg.surface,
-                  color: tokens.colors.text.secondary,
-                  border: "none",
-                  borderRadius: tokens.radii.md,
-                  fontSize: "15px",
-                  fontWeight: "500",
-                  cursor: "pointer",
                 }}
               >
                 Ohne Analyse
@@ -1349,29 +1137,18 @@ function HomeContent() {
               <button
                 onClick={handleDialogAnalyze}
                 style={{
+                  ...tokens.buttons.primary,
                   flex: 1,
-                  padding: "14px",
-                  background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-                  color: "white",
-                  border: "none",
-                  borderRadius: tokens.radii.md,
-                  fontSize: "15px",
-                  fontWeight: "600",
-                  cursor: "pointer",
                   position: "relative",
                 }}
               >
                 Mit Analyse
                 <span style={{
+                  ...tokens.badges.primary,
                   position: "absolute",
                   top: "-10px",
                   right: "-4px",
                   background: tokens.colors.aurora.mint,
-                  color: "white",
-                  fontSize: "11px",
-                  fontWeight: "600",
-                  padding: "4px 8px",
-                  borderRadius: "12px",
                   boxShadow: `0 2px 8px ${tokens.colors.aurora.mint}66`,
                 }}>
                   Empfohlen
@@ -1379,15 +1156,15 @@ function HomeContent() {
               </button>
             </div>
 
-            {/* Hinweis */}
+            {/* Hint */}
             <p style={{
-              color: tokens.colors.text.muted,
-              fontSize: "12px",
+              ...tokens.typography.small,
+              marginTop: "16px",
+              marginBottom: 0,
               lineHeight: "1.5",
-              margin: 0,
             }}>
               Mit "Mit Analyse" aktivierst du das Memory-System dauerhaft.
-              Du kannst das jederzeit in den Einstellungen ändern.
+              Du kannst das jederzeit in den Einstellungen andern.
             </p>
           </div>
         </div>
@@ -1402,26 +1179,11 @@ function HomeContent() {
 
       {/* Too Short Modal - Friendly message when session was too short */}
       {showTooShortModal && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "rgba(0,0,0,0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "20px",
-          zIndex: 1000,
-        }}>
+        <div style={tokens.modals.overlay}>
           <div style={{
-            background: tokens.colors.bg.elevated,
-            borderRadius: tokens.radii.xl,
-            padding: "32px",
-            maxWidth: "400px",
-            width: "100%",
+            ...tokens.modals.containerSmall,
             textAlign: "center",
+            padding: "32px",
           }}>
             <div style={{
               width: "64px",
@@ -1436,24 +1198,18 @@ function HomeContent() {
               <MessageCircle size={32} color={tokens.colors.aurora.lavender} />
             </div>
             <h3 style={{
-              fontSize: "20px",
-              fontWeight: "bold",
-              color: tokens.colors.text.primary,
+              ...tokens.modals.title,
               marginBottom: "12px",
-              fontFamily: tokens.fonts.display,
+              fontSize: "20px",
             }}>Session zu kurz</h3>
             <p style={{
-              color: tokens.colors.text.secondary,
+              ...tokens.typography.body,
               marginBottom: "16px",
-              lineHeight: "1.6",
-              fontSize: "15px",
             }}>
-              Für eine hilfreiche Analyse brauche ich etwas mehr Kontext von dir.
+              Fur eine hilfreiche Analyse brauche ich etwas mehr Kontext von dir.
             </p>
             <div style={{
-              background: tokens.colors.bg.surface,
-              borderRadius: tokens.radii.md,
-              padding: "16px",
+              ...tokens.cards.surface,
               marginBottom: "24px",
               textAlign: "left",
             }}>
@@ -1462,19 +1218,18 @@ function HomeContent() {
                 fontSize: "13px",
                 margin: "0 0 8px 0",
                 fontWeight: "600",
-              }}>Tipp für nächstes Mal:</p>
+              }}>Tipp fur nachstes Mal:</p>
               <p style={{
                 color: tokens.colors.text.secondary,
                 fontSize: "14px",
                 margin: 0,
                 lineHeight: "1.5",
               }}>
-                Erzähl mir einfach, was dich beschäftigt – auch wenn es nur ein Gefühl oder eine Situation ist.
+                Erzahl mir einfach, was dich beschaftigt - auch wenn es nur ein Gefuhl oder eine Situation ist.
               </p>
             </div>
             <p style={{
-              color: tokens.colors.text.muted,
-              fontSize: "13px",
+              ...tokens.typography.small,
               marginBottom: "20px",
             }}>
               Diese Session wurde nicht gespeichert.
@@ -1485,15 +1240,8 @@ function HomeContent() {
                 resetSession();
               }}
               style={{
+                ...tokens.buttons.primary,
                 width: "100%",
-                padding: "14px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-                color: "white",
-                border: "none",
-                borderRadius: tokens.radii.md,
-                fontSize: "15px",
-                fontWeight: "600",
-                cursor: "pointer",
               }}
             >
               Verstanden
@@ -1502,13 +1250,14 @@ function HomeContent() {
         </div>
       )}
 
-      {/* ============ DEBUG PANEL (nur im Test-Modus) ============ */}
+      {/* ============ DEBUG PANEL (only in test mode) ============ */}
       {isTestMode && (
         <>
           {/* Floating Debug Button */}
           <button
             onClick={() => setShowDebugPanel(!showDebugPanel)}
             style={{
+              ...tokens.buttons.icon,
               position: "fixed",
               bottom: "20px",
               right: "20px",
@@ -1517,12 +1266,7 @@ function HomeContent() {
               borderRadius: "50%",
               background: showDebugPanel ? tokens.colors.error : tokens.colors.aurora.lavender,
               color: "white",
-              border: "none",
-              cursor: "pointer",
               boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
               zIndex: 9999,
             }}
           >
@@ -1532,21 +1276,17 @@ function HomeContent() {
           {/* Debug Panel */}
           {showDebugPanel && (
             <div style={{
+              ...tokens.cards.elevated,
               position: "fixed",
               bottom: "80px",
               right: "20px",
               width: "300px",
-              background: tokens.colors.bg.elevated,
-              borderRadius: tokens.radii.lg,
-              boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
-              padding: "16px",
               zIndex: 9998,
               border: `1px solid ${tokens.colors.bg.soft}`,
             }}>
               <h4 style={{
-                color: tokens.colors.text.primary,
+                ...tokens.typography.h3,
                 fontSize: "14px",
-                fontWeight: "bold",
                 marginBottom: "12px",
                 display: "flex",
                 alignItems: "center",
@@ -1557,9 +1297,7 @@ function HomeContent() {
 
               {/* Profile Status */}
               <div style={{
-                background: tokens.colors.bg.surface,
-                borderRadius: tokens.radii.sm,
-                padding: "10px",
+                ...tokens.cards.surface,
                 marginBottom: "12px",
                 fontSize: "12px",
               }}>
@@ -1586,29 +1324,17 @@ function HomeContent() {
                 <button
                   onClick={addFakeMessages}
                   style={{
-                    padding: "10px",
+                    ...tokens.buttons.primarySmall,
                     background: tokens.colors.aurora.sky,
-                    color: "white",
-                    border: "none",
-                    borderRadius: tokens.radii.sm,
-                    fontSize: "13px",
-                    cursor: "pointer",
-                    fontWeight: "500",
                   }}
                 >
-                  Fake-Nachrichten hinzufügen
+                  Fake-Nachrichten hinzufugen
                 </button>
                 <button
                   onClick={() => setShowEndDialog(true)}
                   style={{
-                    padding: "10px",
+                    ...tokens.buttons.primarySmall,
                     background: tokens.colors.aurora.lavender,
-                    color: "white",
-                    border: "none",
-                    borderRadius: tokens.radii.sm,
-                    fontSize: "13px",
-                    cursor: "pointer",
-                    fontWeight: "500",
                   }}
                 >
                   Ende-Dialog anzeigen
@@ -1616,14 +1342,8 @@ function HomeContent() {
                 <button
                   onClick={() => setShowTooShortModal(true)}
                   style={{
-                    padding: "10px",
+                    ...tokens.buttons.primarySmall,
                     background: tokens.colors.warning,
-                    color: "white",
-                    border: "none",
-                    borderRadius: tokens.radii.sm,
-                    fontSize: "13px",
-                    cursor: "pointer",
-                    fontWeight: "500",
                   }}
                 >
                   "Zu kurz" Modal anzeigen
@@ -1634,14 +1354,8 @@ function HomeContent() {
                     setTimeout(() => setIsGeneratingAnalysis(false), 3000);
                   }}
                   style={{
-                    padding: "10px",
+                    ...tokens.buttons.primarySmall,
                     background: tokens.colors.aurora.mint,
-                    color: "white",
-                    border: "none",
-                    borderRadius: tokens.radii.sm,
-                    fontSize: "13px",
-                    cursor: "pointer",
-                    fontWeight: "500",
                   }}
                 >
                   Analyse-Ladescreen (3s)
@@ -1650,8 +1364,7 @@ function HomeContent() {
 
               {/* Info */}
               <p style={{
-                color: tokens.colors.text.muted,
-                fontSize: "11px",
+                ...tokens.typography.small,
                 marginTop: "12px",
                 marginBottom: 0,
                 lineHeight: "1.4",
@@ -1664,13 +1377,13 @@ function HomeContent() {
       )}
 
       <style jsx global>{`
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.15); opacity: 0.7; }
-        }
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.15); opacity: 0.7; }
         }
         @keyframes breathe {
           0%, 100% { transform: scale(1); }
@@ -1681,29 +1394,31 @@ function HomeContent() {
   );
 }
 
-// Helper functions with Design System colors
-// Light Mode: lavender=#7c3aed, rose=#db2777, mint=#0d9488
-// Dark Mode: lavender=#a78bfa, rose=#f9a8d4, mint=#7dd3c0
-function getStateColor(state, isDarkMode = false) {
-  const lavender = isDarkMode ? "#a78bfa" : "#7c3aed";
-  const rose = isDarkMode ? "#f9a8d4" : "#db2777";
-  const mint = isDarkMode ? "#7dd3c0" : "#0d9488";
-  const colors = {
-    [STATE.CONNECTING]: "linear-gradient(135deg, #6b7280, #4b5563)",
-    [STATE.LISTENING]: `linear-gradient(135deg, ${mint}, ${lavender})`,
-    [STATE.THINKING]: "linear-gradient(135deg, #f59e0b, #d97706)",
-    [STATE.SPEAKING]: `linear-gradient(135deg, ${lavender}, ${rose})`,
-    [STATE.IDLE]: "linear-gradient(135deg, #6b7280, #4b5563)"
+// ============================================================================
+// HELPER FUNCTIONS - Using Design System tokens
+// ============================================================================
+
+/**
+ * Returns the background style for the state indicator
+ */
+function getStateStyle(state, tokens) {
+  const styles = {
+    [STATE.CONNECTING]: { background: tokens.gradients.connecting },
+    [STATE.LISTENING]: { background: tokens.gradients.primary },
+    [STATE.THINKING]: { background: tokens.gradients.thinking },
+    [STATE.SPEAKING]: { background: tokens.gradients.speaking },
+    [STATE.IDLE]: { background: tokens.gradients.connecting }
   };
-  return colors[state] || colors[STATE.IDLE];
+  return styles[state] || styles[STATE.IDLE];
 }
 
-// getStateEmoji removed - using inline Lucide icons instead
-
+/**
+ * Returns the status text for the current state
+ */
 function getStatusText(state) {
   const texts = {
     [STATE.CONNECTING]: "Verbinde...",
-    [STATE.LISTENING]: "Ich höre zu",
+    [STATE.LISTENING]: "Ich hore zu",
     [STATE.THINKING]: "Ich denke nach",
     [STATE.SPEAKING]: "Amiya spricht",
     [STATE.IDLE]: "Bereit"
@@ -1711,26 +1426,25 @@ function getStatusText(state) {
   return texts[state] || "";
 }
 
-function getStatusRingStyle(state, isDarkMode = false) {
-  const lavender = isDarkMode ? "#a78bfa" : "#7c3aed";
-  const mint = isDarkMode ? "#7dd3c0" : "#0d9488";
+/**
+ * Returns the ring style for the status indicator
+ */
+function getStatusRingStyle(state, tokens) {
   const ringStyles = {
     [STATE.CONNECTING]: { borderColor: "#6b7280" },
     [STATE.LISTENING]: {
-      borderColor: mint,
-      boxShadow: isDarkMode ? `0 0 40px ${mint}30` : `0 4px 20px ${mint}20`
+      borderColor: tokens.colors.aurora.mint,
+      boxShadow: tokens.shadows.glow(tokens.colors.aurora.mint),
     },
     [STATE.THINKING]: {
       borderColor: "#f59e0b",
-      boxShadow: isDarkMode ? "0 0 40px rgba(245,158,11,0.3)" : "0 4px 20px rgba(245,158,11,0.2)"
+      boxShadow: tokens.shadows.glow("#f59e0b"),
     },
     [STATE.SPEAKING]: {
-      borderColor: lavender,
-      boxShadow: isDarkMode ? `0 0 40px ${lavender}30` : `0 4px 20px ${lavender}20`
+      borderColor: tokens.colors.aurora.lavender,
+      boxShadow: tokens.shadows.glow(tokens.colors.aurora.lavender),
     },
     [STATE.IDLE]: { borderColor: "#6b7280" }
   };
   return ringStyles[state] || ringStyles[STATE.IDLE];
 }
-
-// All styles now use theme tokens inline

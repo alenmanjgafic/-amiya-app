@@ -2,15 +2,18 @@
  * ANALYSIS PREFERENCES PAGE - app/onboarding/analysis/page.js
  * DEPRECATED: Wird nicht mehr separat verwendet.
  * Unified Consent Model: Memory + Analyse werden gemeinsam in /onboarding/memory entschieden.
+ * Migrated to Design System tokens
  *
  * Diese Seite redirected nun direkt zur Startseite.
  */
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "../../../lib/ThemeContext";
 
 export default function AnalysisPreferencesPage() {
   const router = useRouter();
+  const { tokens } = useTheme();
 
   useEffect(() => {
     // Unified Consent Model: Diese Seite wird nicht mehr gebraucht
@@ -19,29 +22,17 @@ export default function AnalysisPreferencesPage() {
   }, [router]);
 
   return (
-    <div style={styles.loadingContainer}>
-      <div style={styles.spinner} />
-      <p>Weiterleitung...</p>
+    <div style={tokens.layout.pageCentered}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+        <div style={tokens.loaders.spinner(40)} />
+        <p style={tokens.typography.body}>Weiterleitung...</p>
+      </div>
+      <style jsx global>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
-
-const styles = {
-  loadingContainer: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "16px",
-    background: "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 50%, #fdf4ff 100%)",
-  },
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: "4px solid #e5e7eb",
-    borderTopColor: "#7c3aed",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-};

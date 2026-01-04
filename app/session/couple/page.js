@@ -1,7 +1,7 @@
 /**
  * COUPLE SESSION PAGE - app/session/couple/page.js
- * Gemeinsame Session für beide Partner
- * UPDATED: Kontext-Limit auf 4000 Zeichen erhöht für Agreements
+ * Gemeinsame Session fur beide Partner
+ * UPDATED: Migrated to use centralized Design System tokens
  */
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -25,7 +25,7 @@ export default function CoupleSessionPage() {
   const { user, profile, loading: authLoading, updateProfile } = useAuth();
   const { tokens, isDarkMode } = useTheme();
   const router = useRouter();
-  
+
   const [voiceState, setVoiceState] = useState(STATE.IDLE);
   const [sessionTime, setSessionTime] = useState(0);
   const [currentSessionId, setCurrentSessionId] = useState(null);
@@ -75,9 +75,43 @@ export default function CoupleSessionPage() {
   const userName = profile?.name || "du";
   const partnerName = profile?.partner_name || "Partner";
 
+  // Helper function for state colors using Design System tokens
+  const getStateColor = useCallback((state) => {
+    const stateColors = {
+      [STATE.CONNECTING]: tokens.gradients.connecting,
+      [STATE.LISTENING]: tokens.gradients.primary,
+      [STATE.THINKING]: tokens.gradients.thinking,
+      [STATE.SPEAKING]: tokens.gradients.speaking,
+      [STATE.IDLE]: tokens.gradients.connecting
+    };
+    return stateColors[state] || stateColors[STATE.IDLE];
+  }, [tokens]);
+
+  // Helper function for status ring styles using Design System tokens
+  const getStatusRingStyle = useCallback((state) => {
+    const { mint, lavender } = tokens.colors.aurora;
+    const ringStyles = {
+      [STATE.CONNECTING]: { borderColor: "#6b7280" },
+      [STATE.LISTENING]: {
+        borderColor: mint,
+        boxShadow: isDarkMode ? `0 0 40px ${mint}30` : `0 4px 20px ${mint}20`
+      },
+      [STATE.THINKING]: {
+        borderColor: "#f59e0b",
+        boxShadow: isDarkMode ? "0 0 40px rgba(245,158,11,0.3)" : "0 4px 20px rgba(245,158,11,0.2)"
+      },
+      [STATE.SPEAKING]: {
+        borderColor: lavender,
+        boxShadow: isDarkMode ? `0 0 40px ${lavender}30` : `0 4px 20px ${lavender}20`
+      },
+      [STATE.IDLE]: { borderColor: "#6b7280" }
+    };
+    return ringStyles[state] || ringStyles[STATE.IDLE];
+  }, [tokens, isDarkMode]);
+
   const startSession = useCallback(async () => {
     if (!user || !profile) return;
-    
+
     setIsStarted(true);
     setVoiceState(STATE.CONNECTING);
     messagesRef.current = [];
@@ -90,13 +124,13 @@ export default function CoupleSessionPage() {
         const contextResponse = await fetch("/api/memory/get", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             userId: user.id,
             coupleId: profile.couple_id,
             sessionType: "couple"
           }),
         });
-        
+
         if (contextResponse.ok) {
           const contextData = await contextResponse.json();
           userContext = contextData.context || "";
@@ -114,13 +148,13 @@ export default function CoupleSessionPage() {
 
       console.log("Couple context length:", userContext.length);
 
-      // UPDATED: Kontext-Limit auf 4000 Zeichen erhöht für Agreements
+      // UPDATED: Kontext-Limit auf 4000 Zeichen erhoht fur Agreements
       let sanitizedContext = userContext
         .replace(/\n/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
         .substring(0, 4000);
-      
+
       if (userContext.length > 4000) {
         sanitizedContext += "...";
       }
@@ -145,7 +179,7 @@ export default function CoupleSessionPage() {
           if (message.source && message.message) {
             const role = message.source === "user" ? "user" : "assistant";
             const content = message.message;
-            
+
             const lastMsg = messagesRef.current[messagesRef.current.length - 1];
             if (!(lastMsg && lastMsg.role === role && lastMsg.content === content)) {
               messagesRef.current.push({ role, content });
@@ -270,22 +304,22 @@ export default function CoupleSessionPage() {
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
     if (messages.length === 0) return { viable: false, reason: "empty" };
-    
+
     const transcript = messages
       .map(m => `${m.role === "user" ? "Paar" : "Amiya"}: ${m.content}`)
       .join("\n");
-    
+
     try {
       const response = await fetch("/api/check-analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ transcript }),
       });
-      
+
       if (!response.ok) {
         return { viable: true, reason: null };
       }
-      
+
       const data = await response.json();
       return { viable: data.viable, reason: data.reason };
     } catch (error) {
@@ -302,7 +336,7 @@ export default function CoupleSessionPage() {
     setSessionTime(0);
     setCurrentSessionId(null);
     setIsGeneratingAnalysis(false);
-    
+
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
@@ -313,9 +347,9 @@ export default function CoupleSessionPage() {
     const sessionIdToAnalyze = currentSessionId;
     const currentMessages = messagesRef.current;
     const hasMessages = currentMessages.length > 0;
-    
+
     setAnalysisError(null);
-    
+
     if (currentSessionId && hasMessages) {
       try {
         let summary = "";
@@ -323,17 +357,17 @@ export default function CoupleSessionPage() {
         summary += currentMessages
           .map(m => `${m.role === "user" ? "Paar" : "Amiya"}: ${m.content}`)
           .join("\n");
-        
+
         await sessionsService.end(currentSessionId, summary, []);
-        
+
         if (requestAnalysis) {
           setIsGeneratingAnalysis(true);
           setShowEndDialog(false);
 
           const viability = await checkAnalysisViability();
-          
+
           if (!viability.viable) {
-            // Session löschen wenn nicht genug Inhalt
+            // Session loschen wenn nicht genug Inhalt
             try {
               await sessionsService.delete(sessionIdToAnalyze);
               console.log("Couple session deleted - not enough content");
@@ -346,10 +380,10 @@ export default function CoupleSessionPage() {
             setShowTooShortModal(true);
             return;
           }
-          
+
           try {
             const analysisResult = await sessionsService.requestAnalysis(currentSessionId);
-            
+
             try {
               await fetch("/api/memory/update", {
                 method: "POST",
@@ -366,13 +400,13 @@ export default function CoupleSessionPage() {
             } catch (memoryError) {
               console.error("Memory update failed:", memoryError);
             }
-            
+
             setIsGeneratingAnalysis(false);
             router.push(`/history?session=${sessionIdToAnalyze}`);
           } catch (analysisErr) {
             console.error("Analysis failed:", analysisErr);
             setIsGeneratingAnalysis(false);
-            setAnalysisError("Analyse konnte nicht erstellt werden. Bitte versuche es später erneut.");
+            setAnalysisError("Analyse konnte nicht erstellt werden. Bitte versuche es spater erneut.");
             setTimeout(() => {
               router.push("/wir");
             }, 3000);
@@ -383,7 +417,7 @@ export default function CoupleSessionPage() {
         console.error("Failed to save session:", error);
       }
     } else if (requestAnalysis && !hasMessages) {
-      setAnalysisError("Keine Analyse möglich – es wurden keine Gespräche aufgezeichnet.");
+      setAnalysisError("Keine Analyse moglich - es wurden keine Gesprache aufgezeichnet.");
       setShowEndDialog(false);
       setTimeout(() => {
         router.push("/wir");
@@ -399,8 +433,8 @@ export default function CoupleSessionPage() {
   }, [currentSessionId, userName, partnerName, router, checkAnalysisViability, resetSession, user, profile]);
 
   /**
-   * User wählt "Mit Analyse" im Dialog
-   * → Consent dauerhaft aktivieren + Session analysieren
+   * User wahlt "Mit Analyse" im Dialog
+   * -> Consent dauerhaft aktivieren + Session analysieren
    */
   const handleDialogAnalyze = async () => {
     setShowEndDialog(false);
@@ -422,8 +456,8 @@ export default function CoupleSessionPage() {
   };
 
   /**
-   * User wählt "Ohne Analyse" im Dialog
-   * → Session beenden ohne Analyse
+   * User wahlt "Ohne Analyse" im Dialog
+   * -> Session beenden ohne Analyse
    */
   const handleDialogSkip = async () => {
     setShowEndDialog(false);
@@ -443,11 +477,14 @@ export default function CoupleSessionPage() {
 
   const timeWarning = sessionTime >= 50 * 60 && sessionTime < 50 * 60 + 5;
 
+  // Build dynamic styles using Design System tokens
+  const styles = buildStyles(tokens, isDarkMode);
+
   if (authLoading || !profile) {
     return (
       <div style={styles.loadingContainer}>
-        <div style={styles.spinner} />
-        <p>Laden...</p>
+        <div style={tokens.loaders.spinner(40)} />
+        <p style={tokens.typography.body}>Laden...</p>
       </div>
     );
   }
@@ -456,10 +493,10 @@ export default function CoupleSessionPage() {
     return (
       <div style={styles.sessionContainer}>
         <div style={styles.analysisLoadingContainer}>
-          <div style={styles.analysisSpinner} />
-          <h2 style={styles.analysisLoadingTitle}>Analyse wird erstellt...</h2>
-          <p style={styles.analysisLoadingText}>
-            Amiya wertet euer gemeinsames Gespräch aus.<br/>
+          <div style={tokens.loaders.spinner(60)} />
+          <h2 style={{ ...tokens.typography.h2, marginTop: '24px' }}>Analyse wird erstellt...</h2>
+          <p style={{ ...tokens.typography.body, textAlign: 'center' }}>
+            Amiya wertet euer gemeinsames Gesprach aus.<br/>
             Das dauert einen Moment.
           </p>
         </div>
@@ -478,10 +515,10 @@ export default function CoupleSessionPage() {
     return (
       <div style={styles.sessionContainer}>
         <div style={styles.analysisLoadingContainer}>
-          <div style={styles.errorIconLarge}>⚠️</div>
-          <h2 style={styles.analysisLoadingTitle}>Hinweis</h2>
-          <p style={styles.analysisLoadingText}>{analysisError}</p>
-          <p style={styles.redirectText}>Weiterleitung...</p>
+          <div style={styles.errorIconLarge}>!</div>
+          <h2 style={{ ...tokens.typography.h2, marginTop: '16px' }}>Hinweis</h2>
+          <p style={tokens.typography.body}>{analysisError}</p>
+          <p style={{ ...tokens.typography.small, marginTop: '16px' }}>Weiterleitung...</p>
         </div>
       </div>
     );
@@ -491,45 +528,46 @@ export default function CoupleSessionPage() {
     <div style={styles.sessionContainer}>
       <div style={styles.header}>
         <div style={styles.headerLeft}>
-          <div style={{...styles.headerIcon, background: getStateColor(voiceState, isDarkMode)}}>
+          <div style={{...styles.headerIcon, background: getStateColor(voiceState)}}>
             {getStateEmoji(voiceState)}
           </div>
           <div>
             <div style={styles.headerTitle}>Couple Session</div>
             <div style={styles.headerSubtitle}>
               {formatTime(sessionTime)} / 60:00
-              {timeWarning && <span style={styles.timeWarning}> ⚠️ 10 Min übrig</span>}
+              {timeWarning && <span style={styles.timeWarning}> 10 Min ubrig</span>}
             </div>
           </div>
         </div>
-        <button onClick={handleEndClick} style={styles.endButton}>Beenden</button>
+        <button onClick={handleEndClick} style={tokens.buttons.danger}>Beenden</button>
       </div>
 
       <div style={styles.coupleIndicator}>
         <span style={styles.coupleName}>{userName}</span>
-        <span style={styles.coupleHeart}>💜</span>
+        <span style={styles.coupleHeart}>&#128156;</span>
         <span style={styles.coupleName}>{partnerName}</span>
       </div>
 
       <div style={styles.voiceOnlyContainer}>
-        <div style={{...styles.statusRing, ...getStatusRingStyle(voiceState, isDarkMode)}}>
+        <div style={{...styles.statusRing, ...getStatusRingStyle(voiceState)}}>
           <div style={styles.statusInner}>
-            {voiceState === STATE.CONNECTING && <div style={styles.spinnerSmall} />}
+            {voiceState === STATE.CONNECTING && <div style={tokens.loaders.spinner(40)} />}
             {voiceState === STATE.LISTENING && <div style={{
-              width: "80px",
-              height: "80px",
-              borderRadius: "50%",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-              animation: "pulse 2s ease-in-out infinite",
+              ...tokens.loaders.pulse,
+              background: tokens.gradients.primary,
             }} />}
-            {voiceState === STATE.THINKING && <div style={styles.thinkingPulse} />}
-            {voiceState === STATE.SPEAKING && <div style={styles.speakingPulse} />}
-            {voiceState === STATE.IDLE && <span style={styles.micIcon}>🎤</span>}
+            {voiceState === STATE.THINKING && <div style={tokens.loaders.breathe} />}
+            {voiceState === STATE.SPEAKING && <div style={{
+              ...tokens.loaders.pulse,
+              background: tokens.gradients.speaking,
+              animation: 'pulse 1s ease-in-out infinite',
+            }} />}
+            {voiceState === STATE.IDLE && <span style={styles.micIcon}>&#127908;</span>}
           </div>
         </div>
 
         <p style={styles.statusText}>{getStatusText(voiceState)}</p>
-        
+
         <p style={styles.tipText}>
           {voiceState === STATE.LISTENING && "Sprecht abwechselnd..."}
           {voiceState === STATE.SPEAKING && "Amiya moderiert..."}
@@ -539,88 +577,52 @@ export default function CoupleSessionPage() {
 
       {/* Session-Ende Dialog mit Analyse-Empfehlung */}
       {showEndDialog && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "rgba(0,0,0,0.6)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "20px",
-          zIndex: 1000,
-        }}>
-          <div style={{
-            background: tokens.colors.bg.elevated,
-            borderRadius: tokens.radii.xl,
-            padding: "28px",
-            maxWidth: "400px",
-            width: "100%",
-            textAlign: "center",
-          }}>
+        <div style={tokens.modals.overlay}>
+          <div style={{ ...tokens.modals.container, maxWidth: '400px', textAlign: 'center' }}>
             {/* Header */}
             <div style={{
-              width: "56px",
-              height: "56px",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-              borderRadius: "16px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 16px",
+              width: '56px',
+              height: '56px',
+              background: tokens.gradients.primary,
+              borderRadius: tokens.radii.lg,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
             }}>
               <BarChart2 size={28} color="white" />
             </div>
 
-            <h3 style={{
-              fontSize: "20px",
-              fontWeight: "bold",
-              color: tokens.colors.text.primary,
-              marginBottom: "8px",
-              fontFamily: tokens.fonts.display,
-            }}>Session beenden</h3>
+            <h3 style={{ ...tokens.modals.title, marginBottom: '8px' }}>Session beenden</h3>
 
-            <p style={{
-              color: tokens.colors.text.secondary,
-              marginBottom: "20px",
-              lineHeight: "1.5",
-              fontSize: "15px",
-            }}>
-              Möchtet ihr eine Analyse dieser Session?
+            <p style={{ ...tokens.typography.body, marginBottom: '20px' }}>
+              Mochtet ihr eine Analyse dieser Session?
             </p>
 
             {/* Vorteile Box */}
-            <div style={{
-              background: tokens.colors.bg.surface,
-              borderRadius: tokens.radii.md,
-              padding: "16px",
-              marginBottom: "20px",
-              textAlign: "left",
-            }}>
+            <div style={{ ...tokens.cards.surface, marginBottom: '20px', textAlign: 'left' }}>
               <p style={{
+                ...tokens.typography.body,
+                fontWeight: '600',
                 color: tokens.colors.text.primary,
-                fontSize: "14px",
-                fontWeight: "600",
-                margin: "0 0 12px 0",
-              }}>Mit Analyse könnt ihr:</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "16px" }}>📈</span>
-                  <span style={{ color: tokens.colors.text.secondary, fontSize: "14px" }}>
+                margin: '0 0 12px 0',
+              }}>Mit Analyse konnt ihr:</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '16px' }}>&#128200;</span>
+                  <span style={tokens.typography.body}>
                     Muster in eurer Kommunikation sehen
                   </span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "16px" }}>🎯</span>
-                  <span style={{ color: tokens.colors.text.secondary, fontSize: "14px" }}>
-                    Konkrete nächste Schritte erhalten
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '16px' }}>&#127919;</span>
+                  <span style={tokens.typography.body}>
+                    Konkrete nachste Schritte erhalten
                   </span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "16px" }}>🧠</span>
-                  <span style={{ color: tokens.colors.text.secondary, fontSize: "14px" }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '16px' }}>&#129504;</span>
+                  <span style={tokens.typography.body}>
                     Amiya lernt euch besser kennen
                   </span>
                 </div>
@@ -628,53 +630,28 @@ export default function CoupleSessionPage() {
             </div>
 
             {/* Buttons */}
-            <div style={{
-              display: "flex",
-              gap: "12px",
-              marginBottom: "16px",
-            }}>
+            <div style={tokens.modals.buttonGroup}>
               <button
                 onClick={handleDialogSkip}
-                style={{
-                  flex: 1,
-                  padding: "14px",
-                  background: tokens.colors.bg.surface,
-                  color: tokens.colors.text.secondary,
-                  border: "none",
-                  borderRadius: tokens.radii.md,
-                  fontSize: "15px",
-                  fontWeight: "500",
-                  cursor: "pointer",
-                }}
+                style={{ ...tokens.buttons.secondary, flex: 1 }}
               >
                 Ohne Analyse
               </button>
               <button
                 onClick={handleDialogAnalyze}
-                style={{
-                  flex: 1,
-                  padding: "14px",
-                  background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-                  color: "white",
-                  border: "none",
-                  borderRadius: tokens.radii.md,
-                  fontSize: "15px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  position: "relative",
-                }}
+                style={{ ...tokens.buttons.primary, flex: 1, position: 'relative' }}
               >
                 Mit Analyse
                 <span style={{
-                  position: "absolute",
-                  top: "-10px",
-                  right: "-4px",
+                  position: 'absolute',
+                  top: '-10px',
+                  right: '-4px',
                   background: tokens.colors.aurora.mint,
-                  color: "white",
-                  fontSize: "11px",
-                  fontWeight: "600",
-                  padding: "4px 8px",
-                  borderRadius: "12px",
+                  color: 'white',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  padding: '4px 8px',
+                  borderRadius: '12px',
                   boxShadow: `0 2px 8px ${tokens.colors.aurora.mint}66`,
                 }}>
                   Empfohlen
@@ -683,14 +660,9 @@ export default function CoupleSessionPage() {
             </div>
 
             {/* Hinweis */}
-            <p style={{
-              color: tokens.colors.text.muted,
-              fontSize: "12px",
-              lineHeight: "1.5",
-              margin: 0,
-            }}>
+            <p style={{ ...tokens.typography.small, marginTop: '16px' }}>
               Mit "Mit Analyse" aktiviert ihr das Memory-System dauerhaft.
-              Ihr könnt das jederzeit in den Einstellungen ändern.
+              Ihr konnt das jederzeit in den Einstellungen andern.
             </p>
           </div>
         </div>
@@ -698,81 +670,35 @@ export default function CoupleSessionPage() {
 
       {/* Too Short Modal - Friendly message when session was too short */}
       {showTooShortModal && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "rgba(0,0,0,0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "20px",
-          zIndex: 1000,
-        }}>
-          <div style={{
-            background: tokens.colors.bg.elevated,
-            borderRadius: tokens.radii.xl,
-            padding: "32px",
-            maxWidth: "400px",
-            width: "100%",
-            textAlign: "center",
-          }}>
+        <div style={tokens.modals.overlay}>
+          <div style={{ ...tokens.modals.container, maxWidth: '400px', textAlign: 'center' }}>
             <div style={{
-              width: "64px",
-              height: "64px",
+              width: '64px',
+              height: '64px',
               background: tokens.colors.bg.surface,
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 20px",
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 20px',
             }}>
               <MessageCircle size={32} color={tokens.colors.aurora.lavender} />
             </div>
-            <h3 style={{
-              fontSize: "20px",
-              fontWeight: "bold",
-              color: tokens.colors.text.primary,
-              marginBottom: "12px",
-              fontFamily: tokens.fonts.display,
-            }}>Session zu kurz</h3>
-            <p style={{
-              color: tokens.colors.text.secondary,
-              marginBottom: "16px",
-              lineHeight: "1.6",
-              fontSize: "15px",
-            }}>
-              Für eine hilfreiche Analyse brauche ich etwas mehr Kontext von euch.
+            <h3 style={{ ...tokens.modals.title, marginBottom: '12px' }}>Session zu kurz</h3>
+            <p style={{ ...tokens.typography.body, marginBottom: '16px' }}>
+              Fur eine hilfreiche Analyse brauche ich etwas mehr Kontext von euch.
             </p>
-            <div style={{
-              background: tokens.colors.bg.surface,
-              borderRadius: tokens.radii.md,
-              padding: "16px",
-              marginBottom: "24px",
-              textAlign: "left",
-            }}>
+            <div style={{ ...tokens.cards.surface, marginBottom: '24px', textAlign: 'left' }}>
               <p style={{
-                color: tokens.colors.text.muted,
-                fontSize: "13px",
-                margin: "0 0 8px 0",
-                fontWeight: "600",
-              }}>Tipp für nächstes Mal:</p>
-              <p style={{
-                color: tokens.colors.text.secondary,
-                fontSize: "14px",
-                margin: 0,
-                lineHeight: "1.5",
-              }}>
-                Erzählt mir einfach, was euch beschäftigt – auch wenn es nur ein Gefühl oder eine Situation ist.
+                ...tokens.typography.small,
+                fontWeight: '600',
+                margin: '0 0 8px 0',
+              }}>Tipp fur nachstes Mal:</p>
+              <p style={{ ...tokens.typography.body, margin: 0 }}>
+                Erzahlt mir einfach, was euch beschaftigt - auch wenn es nur ein Gefuhl oder eine Situation ist.
               </p>
             </div>
-            <p style={{
-              color: tokens.colors.text.muted,
-              fontSize: "13px",
-              marginBottom: "20px",
-            }}>
+            <p style={{ ...tokens.typography.small, marginBottom: '20px' }}>
               Diese Session wurde nicht gespeichert.
             </p>
             <button
@@ -780,17 +706,7 @@ export default function CoupleSessionPage() {
                 setShowTooShortModal(false);
                 router.push("/wir");
               }}
-              style={{
-                width: "100%",
-                padding: "14px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-                color: "white",
-                border: "none",
-                borderRadius: tokens.radii.md,
-                fontSize: "15px",
-                fontWeight: "600",
-                cursor: "pointer",
-              }}
+              style={{ ...tokens.buttons.primary, width: '100%' }}
             >
               Verstanden
             </button>
@@ -799,13 +715,13 @@ export default function CoupleSessionPage() {
       )}
 
       <style jsx global>{`
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.15); opacity: 0.7; }
-        }
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.15); opacity: 0.7; }
         }
         @keyframes breathe {
           0%, 100% { transform: scale(1); }
@@ -816,38 +732,23 @@ export default function CoupleSessionPage() {
   );
 }
 
-// Helper functions with Design System colors
-// Light Mode: lavender=#7c3aed, rose=#db2777, mint=#0d9488
-// Dark Mode: lavender=#a78bfa, rose=#f9a8d4, mint=#7dd3c0
-function getStateColor(state, isDarkMode = false) {
-  const lavender = isDarkMode ? "#a78bfa" : "#7c3aed";
-  const rose = isDarkMode ? "#f9a8d4" : "#db2777";
-  const mint = isDarkMode ? "#7dd3c0" : "#0d9488";
-  const colors = {
-    [STATE.CONNECTING]: "linear-gradient(135deg, #6b7280, #4b5563)",
-    [STATE.LISTENING]: `linear-gradient(135deg, ${mint}, ${lavender})`,
-    [STATE.THINKING]: "linear-gradient(135deg, #f59e0b, #d97706)",
-    [STATE.SPEAKING]: `linear-gradient(135deg, ${lavender}, ${rose})`,
-    [STATE.IDLE]: "linear-gradient(135deg, #6b7280, #4b5563)"
-  };
-  return colors[state] || colors[STATE.IDLE];
-}
-
+// Helper function for state emoji
 function getStateEmoji(state) {
   const emojis = {
-    [STATE.CONNECTING]: "⏳",
-    [STATE.LISTENING]: "👂",
-    [STATE.THINKING]: "💭",
-    [STATE.SPEAKING]: "🗣️",
-    [STATE.IDLE]: "💜"
+    [STATE.CONNECTING]: "\u23F3",
+    [STATE.LISTENING]: "\uD83D\uDC42",
+    [STATE.THINKING]: "\uD83D\uDCAD",
+    [STATE.SPEAKING]: "\uD83D\uDDE3\uFE0F",
+    [STATE.IDLE]: "\uD83D\uDC9C"
   };
-  return emojis[state] || "💜";
+  return emojis[state] || "\uD83D\uDC9C";
 }
 
+// Helper function for status text
 function getStatusText(state) {
   const texts = {
     [STATE.CONNECTING]: "Verbinde...",
-    [STATE.LISTENING]: "Amiya hört zu",
+    [STATE.LISTENING]: "Amiya hort zu",
     [STATE.THINKING]: "Amiya denkt nach",
     [STATE.SPEAKING]: "Amiya spricht",
     [STATE.IDLE]: "Bereit"
@@ -855,276 +756,128 @@ function getStatusText(state) {
   return texts[state] || "";
 }
 
-function getStatusRingStyle(state, isDarkMode = false) {
-  const lavender = isDarkMode ? "#a78bfa" : "#7c3aed";
-  const mint = isDarkMode ? "#7dd3c0" : "#0d9488";
-  const ringStyles = {
-    [STATE.CONNECTING]: { borderColor: "#6b7280" },
-    [STATE.LISTENING]: {
-      borderColor: mint,
-      boxShadow: isDarkMode ? `0 0 40px ${mint}30` : `0 4px 20px ${mint}20`
+// Build dynamic styles using Design System tokens
+function buildStyles(tokens, isDarkMode) {
+  return {
+    loadingContainer: {
+      ...tokens.layout.pageCentered,
+      flexDirection: 'column',
+      gap: tokens.spacing.md,
     },
-    [STATE.THINKING]: {
-      borderColor: "#f59e0b",
-      boxShadow: isDarkMode ? "0 0 40px rgba(245,158,11,0.3)" : "0 4px 20px rgba(245,158,11,0.2)"
+    sessionContainer: {
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      background: isDarkMode
+        ? tokens.colors.bg.deep
+        : `linear-gradient(135deg, #fce7f3 0%, #f5f3ff 50%, #fdf4ff 100%)`,
     },
-    [STATE.SPEAKING]: {
-      borderColor: lavender,
-      boxShadow: isDarkMode ? `0 0 40px ${lavender}30` : `0 4px 20px ${lavender}20`
+    header: {
+      ...tokens.layout.header,
+      borderBottom: `1px solid ${tokens.colors.aurora.rose}40`,
     },
-    [STATE.IDLE]: { borderColor: "#6b7280" }
+    headerLeft: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: tokens.spacing.md,
+    },
+    headerIcon: {
+      width: '44px',
+      height: '44px',
+      borderRadius: tokens.radii.md,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '22px',
+      transition: tokens.transitions.slow,
+    },
+    headerTitle: {
+      fontWeight: '600',
+      color: tokens.colors.text.primary,
+      fontSize: '17px',
+    },
+    headerSubtitle: {
+      fontSize: '13px',
+      color: tokens.colors.text.secondary,
+    },
+    timeWarning: {
+      color: tokens.colors.warning,
+      fontWeight: '600',
+    },
+    coupleIndicator: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: tokens.spacing.md,
+      padding: tokens.spacing.md,
+      background: isDarkMode ? tokens.colors.bg.surface : 'rgba(255,255,255,0.6)',
+    },
+    coupleName: {
+      fontSize: '16px',
+      fontWeight: '600',
+      color: tokens.colors.text.secondary,
+    },
+    coupleHeart: {
+      fontSize: '20px',
+    },
+    voiceOnlyContainer: {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: `${tokens.spacing.xl} ${tokens.spacing.lg}`,
+    },
+    statusRing: {
+      width: '180px',
+      height: '180px',
+      borderRadius: '50%',
+      border: '6px solid #6b7280',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transition: tokens.transitions.slow,
+    },
+    statusInner: {
+      width: '150px',
+      height: '150px',
+      borderRadius: '50%',
+      background: isDarkMode ? tokens.colors.bg.elevated : 'rgba(255,255,255,0.9)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    micIcon: {
+      fontSize: '60px',
+    },
+    statusText: {
+      ...tokens.typography.h3,
+      marginTop: tokens.spacing.xl,
+    },
+    tipText: {
+      ...tokens.typography.small,
+      marginTop: tokens.spacing.md,
+      minHeight: '20px',
+    },
+    analysisLoadingContainer: {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: `${tokens.spacing.xl} ${tokens.spacing.lg}`,
+    },
+    errorIconLarge: {
+      width: '64px',
+      height: '64px',
+      borderRadius: '50%',
+      background: tokens.colors.warning,
+      color: 'white',
+      fontSize: '32px',
+      fontWeight: 'bold',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
   };
-  return ringStyles[state] || ringStyles[STATE.IDLE];
 }
-
-// Static styles use Light Mode Design System colors
-// lavender=#7c3aed, rose=#db2777, bg.deep=#fafaf9, bg.soft=#e7e5e4
-const styles = {
-  loadingContainer: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "16px",
-    background: "#fafaf9",
-  },
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: "4px solid #e7e5e4",
-    borderTopColor: "#7c3aed",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  spinnerSmall: {
-    width: "40px",
-    height: "40px",
-    border: "4px solid #e5e7eb",
-    borderTopColor: "#6b7280",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  sessionContainer: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    background: "linear-gradient(135deg, #fce7f3 0%, #f5f3ff 50%, #fdf4ff 100%)",
-  },
-  header: {
-    background: "rgba(255,255,255,0.9)",
-    backdropFilter: "blur(10px)",
-    borderBottom: "1px solid #f9a8d4",
-    padding: "12px 20px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  headerLeft: { 
-    display: "flex", 
-    alignItems: "center", 
-    gap: "12px" 
-  },
-  headerIcon: {
-    width: "44px",
-    height: "44px",
-    borderRadius: "12px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "22px",
-    transition: "all 0.3s",
-  },
-  headerTitle: { 
-    fontWeight: "600", 
-    color: "#1f2937", 
-    fontSize: "17px" 
-  },
-  headerSubtitle: { 
-    fontSize: "13px", 
-    color: "#6b7280" 
-  },
-  timeWarning: {
-    color: "#f59e0b",
-    fontWeight: "600",
-  },
-  endButton: {
-    padding: "8px 16px",
-    background: "#fee2e2",
-    color: "#dc2626",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: "500",
-  },
-  coupleIndicator: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "12px",
-    padding: "16px",
-    background: "rgba(255,255,255,0.6)",
-  },
-  coupleName: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#6b7280",
-  },
-  coupleHeart: {
-    fontSize: "20px",
-  },
-  voiceOnlyContainer: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "40px 20px",
-  },
-  statusRing: {
-    width: "180px",
-    height: "180px",
-    borderRadius: "50%",
-    border: "6px solid #6b7280",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "all 0.3s",
-  },
-  statusInner: {
-    width: "150px",
-    height: "150px",
-    borderRadius: "50%",
-    background: "rgba(255,255,255,0.9)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // listeningPulse now uses inline tokens.colors.aurora.mint with isDarkMode
-  thinkingPulse: {
-    width: "80px",
-    height: "80px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #f59e0b, #d97706)",
-    animation: "breathe 1.5s ease-in-out infinite",
-  },
-  speakingPulse: {
-    width: "80px",
-    height: "80px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #7c3aed, #db2777)",
-    animation: "pulse 1s ease-in-out infinite",
-  },
-  micIcon: {
-    fontSize: "60px",
-  },
-  statusText: { 
-    color: "#374151", 
-    fontSize: "20px", 
-    fontWeight: "600",
-    marginTop: "32px" 
-  },
-  tipText: {
-    color: "#9ca3af",
-    fontSize: "14px",
-    marginTop: "12px",
-    minHeight: "20px",
-  },
-  analysisLoadingContainer: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "40px 20px",
-  },
-  analysisSpinner: {
-    width: "60px",
-    height: "60px",
-    border: "5px solid #e7e5e4",
-    borderTopColor: "#7c3aed",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-    marginBottom: "24px",
-  },
-  analysisLoadingTitle: {
-    fontSize: "22px",
-    fontWeight: "bold",
-    color: "#1f2937",
-    marginBottom: "12px",
-  },
-  analysisLoadingText: {
-    color: "#6b7280",
-    fontSize: "15px",
-    textAlign: "center",
-    lineHeight: "1.6",
-  },
-  errorIconLarge: {
-    fontSize: "48px",
-    marginBottom: "16px",
-  },
-  redirectText: {
-    color: "#9ca3af",
-    fontSize: "13px",
-    marginTop: "16px",
-  },
-  dialogOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(0,0,0,0.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "20px",
-    zIndex: 1000,
-  },
-  dialog: {
-    background: "white",
-    borderRadius: "24px",
-    padding: "32px",
-    maxWidth: "400px",
-    width: "100%",
-    textAlign: "center",
-  },
-  dialogTitle: {
-    fontSize: "20px",
-    fontWeight: "bold",
-    color: "#1f2937",
-    marginBottom: "12px",
-  },
-  dialogText: {
-    color: "#6b7280",
-    marginBottom: "24px",
-    lineHeight: "1.5",
-  },
-  dialogButtons: {
-    display: "flex",
-    gap: "12px",
-    marginBottom: "16px",
-  },
-  dialogButtonSecondary: {
-    flex: 1,
-    padding: "14px",
-    background: "#f3f4f6",
-    color: "#374151",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "15px",
-    fontWeight: "500",
-    cursor: "pointer",
-  },
-  dialogButtonPrimary: {
-    flex: 1,
-    padding: "14px",
-    background: "linear-gradient(135deg, #7c3aed, #db2777)",
-    color: "white",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "15px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-};

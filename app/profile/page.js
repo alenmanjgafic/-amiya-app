@@ -1,6 +1,8 @@
 /**
  * PROFILE PAGE - app/profile/page.js
  * Profil-Einstellungen (Name + Partner-Name ändern)
+ *
+ * Migrated to Design System tokens from ThemeContext
  */
 "use client";
 import { useState, useEffect } from "react";
@@ -72,23 +74,12 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div style={{
-        minHeight: "100vh",
-        display: "flex",
+        ...tokens.layout.pageCentered,
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
         gap: "16px",
-        background: tokens.colors.bg.deep,
       }}>
-        <div style={{
-          width: "40px",
-          height: "40px",
-          border: `4px solid ${tokens.colors.bg.soft}`,
-          borderTopColor: tokens.colors.aurora.lavender,
-          borderRadius: "50%",
-          animation: "spin 1s linear infinite",
-        }} />
-        <p style={{ color: tokens.colors.text.secondary }}>Laden...</p>
+        <div style={tokens.loaders.spinner(40)} />
+        <p style={tokens.typography.small}>Laden...</p>
       </div>
     );
   }
@@ -98,20 +89,10 @@ export default function ProfilePage() {
   }
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      padding: "20px",
-      background: tokens.colors.bg.deep,
-      transition: "background 0.3s ease",
-    }}>
+    <div style={tokens.layout.page}>
       <div style={{
-        maxWidth: "500px",
-        margin: "0 auto",
-        background: tokens.colors.bg.elevated,
-        borderRadius: tokens.radii.xl,
-        padding: "24px",
-        boxShadow: tokens.shadows.medium,
-        transition: "all 0.3s ease",
+        ...tokens.cards.elevated,
+        ...tokens.layout.container,
       }}>
         {/* Header */}
         <div style={{
@@ -123,25 +104,18 @@ export default function ProfilePage() {
           <button
             onClick={() => router.push("/")}
             style={{
-              background: "none",
-              border: "none",
-              color: tokens.colors.text.secondary,
-              fontSize: "16px",
-              cursor: "pointer",
-              padding: "8px 0",
+              ...tokens.buttons.ghost,
               display: "flex",
               alignItems: "center",
               gap: "8px",
             }}
           >
-            <ArrowLeft size={20} /> Zurück
+            <ArrowLeft size={20} /> Zuruck
           </button>
           <h1 style={{
+            ...tokens.typography.h1,
             fontSize: "24px",
-            fontWeight: "bold",
-            color: tokens.colors.text.primary,
-            margin: 0,
-            fontFamily: tokens.fonts.display,
+            marginBottom: 0,
           }}>Profil</h1>
         </div>
 
@@ -155,7 +129,7 @@ export default function ProfilePage() {
             width: "80px",
             height: "80px",
             borderRadius: "50%",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
+            background: tokens.gradients.primary,
             color: "white",
             display: "flex",
             alignItems: "center",
@@ -179,33 +153,15 @@ export default function ProfilePage() {
             flexDirection: "column",
             gap: "8px",
           }}>
-            <label style={{
-              fontSize: "14px",
-              fontWeight: "600",
-              color: tokens.colors.text.primary,
-            }}>Dein Name</label>
+            <label style={tokens.inputs.label}>Dein Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Wie heisst du?"
-              style={{
-                padding: "14px 16px",
-                borderRadius: tokens.radii.md,
-                border: `2px solid ${tokens.colors.bg.soft}`,
-                fontSize: "16px",
-                outline: "none",
-                transition: "border-color 0.2s",
-                background: tokens.colors.bg.surface,
-                color: tokens.colors.text.primary,
-                fontFamily: tokens.fonts.body,
-              }}
+              style={tokens.inputs.text}
             />
-            <p style={{
-              fontSize: "13px",
-              color: tokens.colors.text.muted,
-              margin: 0,
-            }}>So wird Amiya dich ansprechen</p>
+            <p style={tokens.inputs.hint}>So wird Amiya dich ansprechen</p>
           </div>
 
           <div style={{
@@ -213,72 +169,40 @@ export default function ProfilePage() {
             flexDirection: "column",
             gap: "8px",
           }}>
-            <label style={{
-              fontSize: "14px",
-              fontWeight: "600",
-              color: tokens.colors.text.primary,
-            }}>Name deines Partners / deiner Partnerin</label>
+            <label style={tokens.inputs.label}>Name deines Partners / deiner Partnerin</label>
             <input
               type="text"
               value={partnerName}
               onChange={(e) => setPartnerName(e.target.value)}
               placeholder="Wie heisst dein/e Partner/in?"
-              style={{
-                padding: "14px 16px",
-                borderRadius: tokens.radii.md,
-                border: `2px solid ${tokens.colors.bg.soft}`,
-                fontSize: "16px",
-                outline: "none",
-                transition: "border-color 0.2s",
-                background: tokens.colors.bg.surface,
-                color: tokens.colors.text.primary,
-                fontFamily: tokens.fonts.body,
-              }}
+              style={tokens.inputs.text}
             />
-            <p style={{
-              fontSize: "13px",
-              color: tokens.colors.text.muted,
-              margin: 0,
-            }}>Für personalisierte Gespräche und Analysen</p>
+            <p style={tokens.inputs.hint}>Fur personalisierte Gesprache und Analysen</p>
           </div>
 
-          {error && <p style={{
-            color: tokens.colors.error,
-            fontSize: "14px",
-            background: isDarkMode ? "rgba(248, 113, 113, 0.1)" : "#fef2f2",
-            padding: "12px",
-            borderRadius: tokens.radii.sm,
-            margin: 0,
-          }}>{error}</p>}
+          {error && (
+            <p style={tokens.alerts.error}>{error}</p>
+          )}
 
-          {saved && <p style={{
-            color: tokens.colors.success,
-            fontSize: "14px",
-            background: isDarkMode ? "rgba(52, 211, 153, 0.1)" : "#f0fdf4",
-            padding: "12px",
-            borderRadius: tokens.radii.sm,
-            margin: 0,
-            textAlign: "center",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "6px",
-          }}><Check size={16} /> Gespeichert</p>}
+          {saved && (
+            <p style={{
+              ...tokens.alerts.success,
+              textAlign: "center",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+            }}>
+              <Check size={16} /> Gespeichert
+            </p>
+          )}
 
           <button
             type="submit"
             style={{
-              padding: "16px",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-              color: "white",
-              border: "none",
-              borderRadius: tokens.radii.md,
-              fontSize: "16px",
-              fontWeight: "600",
-              cursor: "pointer",
+              ...tokens.buttons.primary,
+              width: "100%",
               marginTop: "8px",
-              fontFamily: tokens.fonts.body,
-              transition: "transform 0.2s ease, box-shadow 0.2s ease",
             }}
             disabled={saving}
           >
@@ -287,29 +211,16 @@ export default function ProfilePage() {
         </form>
 
         {/* Email info */}
-        <div style={{
-          marginTop: "32px",
-          paddingTop: "24px",
-          borderTop: `1px solid ${tokens.colors.bg.soft}`,
-        }}>
+        <div style={tokens.layout.section}>
+          <p style={tokens.typography.small}>E-Mail</p>
           <p style={{
-            fontSize: "13px",
-            color: tokens.colors.text.muted,
-            margin: "0 0 4px 0",
-          }}>E-Mail</p>
-          <p style={{
-            fontSize: "15px",
-            color: tokens.colors.text.secondary,
-            margin: 0,
+            ...tokens.typography.body,
+            marginTop: "4px",
           }}>{user?.email}</p>
         </div>
 
         {/* Theme Toggle Section */}
-        <div style={{
-          marginTop: "24px",
-          paddingTop: "24px",
-          borderTop: `1px solid ${tokens.colors.bg.soft}`,
-        }}>
+        <div style={tokens.layout.section}>
           <div style={{
             display: "flex",
             justifyContent: "space-between",
@@ -317,38 +228,16 @@ export default function ProfilePage() {
           }}>
             <div>
               <p style={{
-                fontSize: "14px",
-                fontWeight: "600",
-                color: tokens.colors.text.primary,
-                margin: "0 0 4px 0",
+                ...tokens.inputs.label,
+                marginBottom: "4px",
               }}>Erscheinungsbild</p>
-              <p style={{
-                fontSize: "13px",
-                color: tokens.colors.text.muted,
-                margin: 0,
-              }}>
+              <p style={tokens.typography.small}>
                 {isDarkMode ? "Dunkler Modus aktiv" : "Heller Modus aktiv"}
               </p>
             </div>
             <button
               onClick={toggleTheme}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                padding: "10px 16px",
-                background: isDarkMode
-                  ? `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`
-                  : tokens.colors.bg.surface,
-                border: isDarkMode ? "none" : `2px solid ${tokens.colors.bg.soft}`,
-                borderRadius: tokens.radii.pill,
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                color: isDarkMode ? "#fff" : tokens.colors.text.secondary,
-                fontSize: "14px",
-                fontWeight: "500",
-              }}
+              style={tokens.buttons.toggle(isDarkMode)}
             >
               {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
               {isDarkMode ? "Hell" : "Dunkel"}
@@ -357,11 +246,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Analysis Preference Section */}
-        <div style={{
-          marginTop: "24px",
-          paddingTop: "24px",
-          borderTop: `1px solid ${tokens.colors.bg.soft}`,
-        }}>
+        <div style={tokens.layout.section}>
           <div style={{
             display: "flex",
             justifyContent: "space-between",
@@ -369,10 +254,8 @@ export default function ProfilePage() {
           }}>
             <div>
               <p style={{
-                fontSize: "14px",
-                fontWeight: "600",
-                color: tokens.colors.text.primary,
-                margin: "0 0 4px 0",
+                ...tokens.inputs.label,
+                marginBottom: "4px",
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
@@ -380,33 +263,13 @@ export default function ProfilePage() {
                 <BarChart3 size={16} />
                 Session-Analysen
               </p>
-              <p style={{
-                fontSize: "13px",
-                color: tokens.colors.text.muted,
-                margin: 0,
-              }}>
+              <p style={tokens.typography.small}>
                 {autoAnalyze ? "Automatisch nach jeder Session" : "Jedes Mal fragen"}
               </p>
             </div>
             <button
               onClick={toggleAutoAnalyze}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                padding: "10px 16px",
-                background: autoAnalyze
-                  ? `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`
-                  : tokens.colors.bg.surface,
-                border: autoAnalyze ? "none" : `2px solid ${tokens.colors.bg.soft}`,
-                borderRadius: tokens.radii.pill,
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                color: autoAnalyze ? "#fff" : tokens.colors.text.secondary,
-                fontSize: "14px",
-                fontWeight: "500",
-              }}
+              style={tokens.buttons.toggle(autoAnalyze)}
             >
               {autoAnalyze ? "Auto" : "Manuell"}
             </button>
@@ -423,5 +286,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-// All styles now use theme tokens inline

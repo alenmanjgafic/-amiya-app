@@ -1,6 +1,7 @@
 /**
  * HISTORY PAGE - app/history/page.js
  * Session-Verlauf mit Filter für Solo und Couple Sessions
+ * Migrated to use Design System tokens from ThemeContext
  */
 "use client";
 import { useState, useEffect } from "react";
@@ -16,12 +17,11 @@ import {
   User,
   Users,
   LayoutList,
-  Plus
 } from "lucide-react";
 
 export default function HistoryPage() {
   const { user, profile, loading: authLoading } = useAuth();
-  const { tokens, isDarkMode } = useTheme();
+  const { tokens } = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -148,33 +148,27 @@ export default function HistoryPage() {
   if (authLoading || loading) {
     return (
       <div style={{
-        minHeight: "100vh",
-        display: "flex",
+        ...tokens.layout.pageCentered,
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
         gap: "16px",
-        background: tokens.colors.bg.deep,
       }}>
-        <div style={{
-          width: "40px",
-          height: "40px",
-          border: `4px solid ${tokens.colors.bg.soft}`,
-          borderTopColor: tokens.colors.aurora.lavender,
-          borderRadius: "50%",
-          animation: "spin 1s linear infinite",
-        }} />
-        <p style={{ color: tokens.colors.text.secondary }}>Laden...</p>
+        <div style={tokens.loaders.spinner(40)} />
+        <p style={tokens.typography.body}>Laden...</p>
+        <style jsx global>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
 
   return (
     <div style={{
-      minHeight: "100vh",
-      background: tokens.colors.bg.deep,
+      ...tokens.layout.page,
       paddingBottom: "100px",
-      transition: "background 0.3s ease",
+      padding: 0,
     }}>
       {/* Header */}
       <div style={{
@@ -182,11 +176,8 @@ export default function HistoryPage() {
         textAlign: "center",
       }}>
         <h1 style={{
-          fontSize: "28px",
-          fontWeight: "bold",
-          color: tokens.colors.text.primary,
+          ...tokens.typography.h1,
           margin: 0,
-          fontFamily: tokens.fonts.display,
         }}>Verlauf</h1>
       </div>
 
@@ -206,21 +197,12 @@ export default function HistoryPage() {
             key={key}
             onClick={() => setFilter(key)}
             style={{
+              ...tokens.buttons.tab(filter === key),
               display: "flex",
               alignItems: "center",
               gap: "6px",
               padding: "10px 16px",
-              background: filter === key
-                ? tokens.colors.text.primary
-                : tokens.colors.bg.elevated,
-              border: `2px solid ${filter === key ? tokens.colors.text.primary : tokens.colors.bg.soft}`,
-              borderRadius: tokens.radii.pill,
-              fontSize: "14px",
-              fontWeight: "500",
-              color: filter === key ? (isDarkMode ? "#1a1d23" : "white") : tokens.colors.text.secondary,
-              cursor: "pointer",
               whiteSpace: "nowrap",
-              transition: "all 0.2s ease",
             }}
           >
             <Icon size={16} />
@@ -237,6 +219,7 @@ export default function HistoryPage() {
             padding: "60px 20px",
           }}>
             <p style={{
+              ...tokens.typography.body,
               color: tokens.colors.text.muted,
               fontSize: "16px",
               marginBottom: "20px",
@@ -250,19 +233,7 @@ export default function HistoryPage() {
             </p>
             <button
               onClick={() => router.push(filter === "couple" ? "/wir" : "/")}
-              style={{
-                padding: "14px 28px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-                color: "white",
-                border: "none",
-                borderRadius: tokens.radii.md,
-                fontSize: "15px",
-                fontWeight: "600",
-                cursor: "pointer",
-                boxShadow: isDarkMode
-                  ? tokens.shadows.glow(tokens.colors.aurora.mint)
-                  : `0 4px 15px ${tokens.colors.aurora.mint}20`,
-              }}
+              style={tokens.buttons.primary}
             >
               {filter === "couple" ? "Couple Session starten" : "Session starten"}
             </button>
@@ -272,13 +243,9 @@ export default function HistoryPage() {
             <div
               key={session.id}
               style={{
-                background: tokens.colors.bg.elevated,
-                borderRadius: tokens.radii.lg,
+                ...tokens.cards.interactive,
                 padding: "20px",
                 marginBottom: "12px",
-                boxShadow: tokens.shadows.soft,
-                cursor: "pointer",
-                transition: "transform 0.2s, box-shadow 0.2s",
               }}
               onClick={() => setSelectedSession(session.id)}
             >
@@ -289,13 +256,11 @@ export default function HistoryPage() {
                 marginBottom: "12px",
               }}>
                 <span style={{
-                  fontSize: "11px",
-                  fontWeight: "600",
+                  ...tokens.typography.label,
                   padding: "4px 10px",
                   borderRadius: "6px",
-                  letterSpacing: "0.5px",
                   background: session.type === "couple"
-                    ? (isDarkMode ? "rgba(249, 168, 212, 0.2)" : "#fce7f3")
+                    ? (tokens.isDarkMode ? "rgba(249, 168, 212, 0.2)" : "#fce7f3")
                     : tokens.colors.bg.surface,
                   color: session.type === "couple"
                     ? tokens.colors.aurora.rose
@@ -303,10 +268,7 @@ export default function HistoryPage() {
                 }}>
                   {session.type === "couple" ? "COUPLE SESSION" : "SOLO SESSION"}
                 </span>
-                <span style={{
-                  fontSize: "12px",
-                  color: tokens.colors.text.muted,
-                }}>{formatDate(session.created_at)}</span>
+                <span style={tokens.typography.small}>{formatDate(session.created_at)}</span>
               </div>
               <h3 style={{
                 fontSize: "16px",
@@ -315,12 +277,7 @@ export default function HistoryPage() {
                 margin: "0 0 8px 0",
                 lineHeight: "1.4",
               }}>{getSessionTitle(session)}</h3>
-              <p style={{
-                fontSize: "14px",
-                color: tokens.colors.text.secondary,
-                margin: 0,
-                lineHeight: "1.5",
-              }}>{getSessionPreview(session)}</p>
+              <p style={tokens.typography.body}>{getSessionPreview(session)}</p>
 
               {session.themes && session.themes.length > 0 && (
                 <div style={{
@@ -330,13 +287,7 @@ export default function HistoryPage() {
                   marginTop: "12px",
                 }}>
                   {session.themes.slice(0, 3).map((theme, i) => (
-                    <span key={i} style={{
-                      fontSize: "12px",
-                      background: tokens.colors.bg.surface,
-                      color: tokens.colors.text.secondary,
-                      padding: "4px 10px",
-                      borderRadius: "12px",
-                    }}>{theme}</span>
+                    <span key={i} style={tokens.badges.muted}>{theme}</span>
                   ))}
                 </div>
               )}
@@ -346,72 +297,22 @@ export default function HistoryPage() {
       </div>
 
       {/* Bottom Navigation */}
-      <div style={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        background: tokens.colors.bg.elevated,
-        borderTop: `1px solid ${tokens.colors.bg.soft}`,
-        display: "flex",
-        justifyContent: "space-around",
-        padding: "12px 0 24px 0",
-      }}>
-        <button onClick={() => router.push("/")} style={{
-          background: "none",
-          border: "none",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "4px",
-          cursor: "pointer",
-          padding: "8px 16px",
-        }}>
-          <HomeIcon size={24} color={tokens.colors.text.muted} />
-          <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Home</span>
+      <div style={tokens.layout.navBar}>
+        <button onClick={() => router.push("/")} style={tokens.buttons.nav(false)}>
+          <HomeIcon size={24} />
+          <span>Home</span>
         </button>
-        <button onClick={() => router.push("/wir")} style={{
-          background: "none",
-          border: "none",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "4px",
-          cursor: "pointer",
-          padding: "8px 16px",
-        }}>
-          <Heart size={24} color={tokens.colors.text.muted} />
-          <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Wir</span>
+        <button onClick={() => router.push("/wir")} style={tokens.buttons.nav(false)}>
+          <Heart size={24} />
+          <span>Wir</span>
         </button>
-        <button style={{
-          background: "none",
-          border: "none",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "4px",
-          cursor: "pointer",
-          padding: "8px 16px",
-        }}>
-          <ClipboardList size={24} color={tokens.colors.aurora.lavender} />
-          <span style={{
-            fontSize: "12px",
-            color: tokens.colors.aurora.lavender,
-            fontWeight: "600",
-          }}>Verlauf</span>
+        <button style={tokens.buttons.nav(true)}>
+          <ClipboardList size={24} />
+          <span>Verlauf</span>
         </button>
-        <button onClick={() => router.push("/profile")} style={{
-          background: "none",
-          border: "none",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "4px",
-          cursor: "pointer",
-          padding: "8px 16px",
-        }}>
-          <User size={24} color={tokens.colors.text.muted} />
-          <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Profil</span>
+        <button onClick={() => router.push("/profile")} style={tokens.buttons.nav(false)}>
+          <User size={24} />
+          <span>Profil</span>
         </button>
       </div>
 
@@ -436,5 +337,3 @@ export default function HistoryPage() {
     </div>
   );
 }
-
-// All styles now use theme tokens inline

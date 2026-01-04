@@ -1,6 +1,7 @@
 /**
  * WIR PAGE - app/wir/page.js
  * Übersichtsseite für Paar-Features mit Agreements Integration
+ * Migrated to Design System tokens
  */
 "use client";
 import { useState, useEffect } from "react";
@@ -29,7 +30,7 @@ import {
 
 export default function WirPage() {
   const { user, profile, loading, fetchProfile } = useAuth();
-  const { tokens, isDarkMode } = useTheme();
+  const { tokens } = useTheme();
   const router = useRouter();
   const [showPrepModal, setShowPrepModal] = useState(false);
   const [selectedAgreementId, setSelectedAgreementId] = useState(null);
@@ -160,20 +161,10 @@ export default function WirPage() {
   if (loading || !profile) {
     return (
       <div style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: tokens.colors.bg.deep,
+        ...tokens.layout.pageCentered,
+        padding: 0,
       }}>
-        <div style={{
-          width: "40px",
-          height: "40px",
-          border: `4px solid ${tokens.colors.bg.soft}`,
-          borderTopColor: tokens.colors.aurora.lavender,
-          borderRadius: "50%",
-          animation: "spin 1s linear infinite",
-        }} />
+        <div style={tokens.loaders.spinner(40)} />
       </div>
     );
   }
@@ -204,19 +195,14 @@ export default function WirPage() {
         textAlign: "center",
       }}>
         <p style={{
-          fontSize: "12px",
-          fontWeight: "600",
-          color: tokens.colors.text.muted,
-          textTransform: "uppercase",
+          ...tokens.typography.label,
           letterSpacing: "2px",
-          margin: "0 0 4px 0",
+          marginBottom: "4px",
         }}>ZUSAMMEN</p>
         <h1 style={{
+          ...tokens.typography.h1,
           fontSize: "26px",
-          fontWeight: "bold",
-          color: tokens.colors.text.primary,
-          margin: "0 0 4px 0",
-          fontFamily: tokens.fonts.display,
+          marginBottom: "4px",
         }}>{userName} & {partnerName}</h1>
         {memberSince && (
           <p style={{
@@ -236,11 +222,10 @@ export default function WirPage() {
             marginTop: "8px",
           }}>
             <div style={{
-              background: tokens.colors.bg.elevated,
-              borderRadius: tokens.radii.lg,
+              ...tokens.cards.elevated,
               padding: "12px 24px",
               minWidth: "100px",
-              boxShadow: tokens.shadows.soft,
+              borderRadius: tokens.radii.lg,
             }}>
               <p style={{
                 fontSize: "24px",
@@ -249,20 +234,15 @@ export default function WirPage() {
                 margin: 0,
               }}>{sessionCount}</p>
               <p style={{
-                fontSize: "11px",
-                fontWeight: "600",
-                color: tokens.colors.text.muted,
-                textTransform: "uppercase",
+                ...tokens.typography.label,
                 letterSpacing: "0.5px",
-                margin: 0,
               }}>SESSIONS</p>
             </div>
             <div style={{
-              background: tokens.colors.bg.elevated,
-              borderRadius: tokens.radii.lg,
+              ...tokens.cards.elevated,
               padding: "12px 24px",
               minWidth: "100px",
-              boxShadow: tokens.shadows.soft,
+              borderRadius: tokens.radii.lg,
             }}>
               <p style={{
                 fontSize: "24px",
@@ -271,13 +251,9 @@ export default function WirPage() {
                 margin: 0,
               }}>{pendingSuggestions.length || 0}</p>
               <p style={{
-                fontSize: "11px",
-                fontWeight: "600",
-                color: tokens.colors.text.muted,
-                textTransform: "uppercase",
+                ...tokens.typography.label,
                 letterSpacing: "0.5px",
-                margin: 0,
-              }}>STÄRKEN</p>
+              }}>VORSCHLAGE</p>
             </div>
           </div>
         )}
@@ -287,9 +263,7 @@ export default function WirPage() {
         {/* Pending Dissolution Banner */}
         {pendingDissolution && (
           <div style={{
-            background: isDarkMode ? "rgba(251, 191, 36, 0.2)" : "#fef3c7",
-            borderRadius: tokens.radii.lg,
-            padding: "16px",
+            ...tokens.alerts.warning,
             marginBottom: "16px",
             display: "flex",
             alignItems: "flex-start",
@@ -300,15 +274,14 @@ export default function WirPage() {
               <p style={{
                 margin: "0 0 4px 0",
                 fontWeight: "600",
-                color: tokens.colors.warning,
+                ...tokens.alerts.warningText,
                 fontSize: "15px",
               }}>
                 {pendingDissolution.initiatedBy} hat die Verbindung aufgelöst
               </p>
               <p style={{
-                margin: 0,
+                ...tokens.typography.small,
                 color: tokens.colors.text.secondary,
-                fontSize: "13px",
               }}>
                 Du kannst wählen, ob du anonymisierte Learnings behalten möchtest.
               </p>
@@ -327,7 +300,7 @@ export default function WirPage() {
                 whiteSpace: "nowrap",
               }}
             >
-              Bestätigen
+              Bestatigen
             </button>
           </div>
         )}
@@ -335,35 +308,25 @@ export default function WirPage() {
         {/* Couple Session Card - Only if connected */}
         {isConnected && (
           <div style={{
-            background: tokens.colors.bg.elevated,
-            borderRadius: tokens.radii.xl,
+            ...tokens.cards.elevated,
             padding: "32px 24px",
             textAlign: "center",
-            boxShadow: tokens.shadows.medium,
             marginBottom: "16px",
           }}>
             <div style={{
               width: "80px",
               height: "80px",
               borderRadius: "50%",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
+              background: tokens.gradients.primary,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               margin: "0 auto 16px",
             }}><Users size={40} color="white" /></div>
-            <h2 style={{
-              fontSize: "22px",
-              fontWeight: "bold",
-              color: tokens.colors.text.primary,
-              margin: "0 0 8px 0",
-              fontFamily: tokens.fonts.display,
-            }}>Gemeinsame Session</h2>
+            <h2 style={tokens.typography.h2}>Gemeinsame Session</h2>
             <p style={{
-              fontSize: "15px",
-              color: tokens.colors.text.secondary,
-              lineHeight: "1.6",
-              margin: "0 0 24px 0",
+              ...tokens.typography.body,
+              marginBottom: "24px",
             }}>
               Sprecht zusammen mit Amiya über eure Beziehung.
               Sie moderiert und hilft euch, einander besser zu verstehen.
@@ -371,17 +334,7 @@ export default function WirPage() {
             <button
               onClick={handleStartCoupleSession}
               style={{
-                padding: "16px 32px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-                color: "white",
-                border: "none",
-                borderRadius: tokens.radii.md,
-                fontSize: "16px",
-                fontWeight: "600",
-                cursor: "pointer",
-                boxShadow: isDarkMode
-                  ? tokens.shadows.glow(tokens.colors.aurora.mint)
-                  : `0 4px 15px ${tokens.colors.aurora.mint}20`,
+                ...tokens.buttons.primaryLarge,
                 width: "100%",
               }}
             >
@@ -393,13 +346,8 @@ export default function WirPage() {
         {/* Pending Suggestions Section - Only if connected and has suggestions */}
         {isConnected && pendingSuggestions.length > 0 && (
           <div style={{
-            background: isDarkMode
-              ? `linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(253, 230, 138, 0.1))`
-              : "linear-gradient(135deg, #fef3c7, #fde68a)",
-            borderRadius: tokens.radii.xl,
-            padding: "20px",
+            ...tokens.alerts.warning,
             marginBottom: "16px",
-            border: `1px solid ${tokens.colors.warning}`,
           }}>
             <div style={{
               display: "flex",
@@ -407,24 +355,22 @@ export default function WirPage() {
               gap: "12px",
               marginBottom: "16px",
             }}>
-              <span style={{ fontSize: "28px" }}>⏳</span>
+              <span style={{ fontSize: "28px" }}>&#x23F3;</span>
               <p style={{
                 margin: 0,
                 fontWeight: "600",
-                color: tokens.colors.warning,
+                ...tokens.alerts.warningText,
                 fontSize: "16px",
               }}>
                 {pendingSuggestions.length === 1
-                  ? "1 Vereinbarung wartet auf Bestätigung"
-                  : `${pendingSuggestions.length} Vereinbarungen warten auf Bestätigung`}
+                  ? "1 Vereinbarung wartet auf Bestatigung"
+                  : `${pendingSuggestions.length} Vereinbarungen warten auf Bestatigung`}
               </p>
             </div>
 
             {pendingSuggestions.map((suggestion) => (
               <div key={suggestion.id} style={{
-                background: isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.7)",
-                borderRadius: tokens.radii.md,
-                padding: "16px",
+                ...tokens.cards.surface,
                 marginBottom: "12px",
               }}>
                 <p style={{
@@ -435,9 +381,9 @@ export default function WirPage() {
                 }}>"{suggestion.title}"</p>
                 {suggestion.underlying_need && (
                   <p style={{
-                    fontSize: "13px",
+                    ...tokens.typography.small,
                     color: tokens.colors.text.secondary,
-                    margin: "0 0 12px 0",
+                    marginBottom: "12px",
                     fontStyle: "italic",
                   }}>
                     Dahinter: {suggestion.underlying_need}
@@ -457,7 +403,7 @@ export default function WirPage() {
                     width: "100%",
                   }}
                 >
-                  Ansehen & Bestätigen
+                  Ansehen & Bestatigen
                 </button>
               </div>
             ))}
@@ -467,10 +413,8 @@ export default function WirPage() {
         {/* Agreements Section - Only if connected */}
         {isConnected && (
           <div style={{
-            background: tokens.colors.bg.elevated,
-            borderRadius: tokens.radii.xl,
+            ...tokens.cards.elevated,
             padding: "20px",
-            boxShadow: tokens.shadows.medium,
             marginBottom: "16px",
           }}>
             <AgreementsList
@@ -484,53 +428,31 @@ export default function WirPage() {
         {/* Connect Card - Only if not connected */}
         {!isConnected && !pendingDissolution && (
           <div style={{
-            background: tokens.colors.bg.elevated,
-            borderRadius: tokens.radii.xl,
+            ...tokens.cards.elevated,
             padding: "32px 24px",
             textAlign: "center",
-            boxShadow: tokens.shadows.medium,
             marginBottom: "16px",
           }}>
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>💑</div>
-            <h2 style={{
-              fontSize: "22px",
-              fontWeight: "bold",
-              color: tokens.colors.text.primary,
-              margin: "0 0 8px 0",
-              fontFamily: tokens.fonts.display,
-            }}>Mehr gemeinsam erleben</h2>
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>&#x1F491;</div>
+            <h2 style={tokens.typography.h2}>Mehr gemeinsam erleben</h2>
             <p style={{
               fontSize: "16px",
               color: tokens.colors.aurora.lavender,
               fontWeight: "500",
               margin: "0 0 16px 0",
             }}>
-              Näher. Tiefer. Mühelos.
+              Naher. Tiefer. Muhelos.
             </p>
             <p style={{
-              fontSize: "15px",
-              color: tokens.colors.text.secondary,
-              lineHeight: "1.6",
-              margin: "0 0 24px 0",
+              ...tokens.typography.body,
+              marginBottom: "24px",
             }}>
               Ein Abo, zwei Accounts. Füge {partnerName} zu deinem Abo hinzu –
               oder tritt ihrem bei, ohne zusätzliche Kosten.
             </p>
             <button
               onClick={() => router.push("/wir/connect")}
-              style={{
-                padding: "16px 32px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-                color: "white",
-                border: "none",
-                borderRadius: tokens.radii.md,
-                fontSize: "16px",
-                fontWeight: "600",
-                cursor: "pointer",
-                boxShadow: isDarkMode
-                  ? tokens.shadows.glow(tokens.colors.aurora.mint)
-                  : `0 4px 15px ${tokens.colors.aurora.mint}20`,
-              }}
+              style={tokens.buttons.primaryLarge}
             >
               Verbinden
             </button>
@@ -540,12 +462,8 @@ export default function WirPage() {
         {/* History Preview Card */}
         <div
           style={{
-            background: tokens.colors.bg.elevated,
-            borderRadius: tokens.radii.lg,
-            padding: "20px",
-            boxShadow: tokens.shadows.soft,
+            ...tokens.cards.interactive,
             marginBottom: "16px",
-            cursor: "pointer",
           }}
           onClick={() => router.push("/history")}
         >
@@ -562,11 +480,7 @@ export default function WirPage() {
                 color: tokens.colors.text.primary,
                 margin: "0 0 4px 0",
               }}>Session-Verlauf</h3>
-              <p style={{
-                fontSize: "13px",
-                color: tokens.colors.text.secondary,
-                margin: 0,
-              }}>
+              <p style={tokens.typography.small}>
                 Alle Solo- und Couple-Sessions ansehen
               </p>
             </div>
@@ -578,12 +492,8 @@ export default function WirPage() {
         {isConnected && (
           <div
             style={{
-              background: tokens.colors.bg.elevated,
-              borderRadius: tokens.radii.lg,
-              padding: "20px",
-              boxShadow: tokens.shadows.soft,
+              ...tokens.cards.interactive,
               marginBottom: "16px",
-              cursor: "pointer",
             }}
             onClick={() => setShowDisconnect(true)}
           >
@@ -600,11 +510,7 @@ export default function WirPage() {
                   color: tokens.colors.text.primary,
                   margin: "0 0 4px 0",
                 }}>Verbindung verwalten</h3>
-                <p style={{
-                  fontSize: "13px",
-                  color: tokens.colors.text.secondary,
-                  margin: 0,
-                }}>
+                <p style={tokens.typography.small}>
                   Paar-Einstellungen und Trennung
                 </p>
               </div>
@@ -615,135 +521,51 @@ export default function WirPage() {
       </div>
 
       {/* Bottom Navigation */}
-      <div style={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        background: tokens.colors.bg.elevated,
-        borderTop: `1px solid ${tokens.colors.bg.soft}`,
-        display: "flex",
-        justifyContent: "space-around",
-        padding: "12px 0 24px 0",
-      }}>
-        <button onClick={() => router.push("/")} style={{
-          background: "none",
-          border: "none",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "4px",
-          cursor: "pointer",
-          padding: "8px 16px",
-        }}>
-          <HomeIcon size={24} color={tokens.colors.text.muted} />
-          <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Home</span>
+      <div style={tokens.layout.navBar}>
+        <button onClick={() => router.push("/")} style={tokens.buttons.nav(false)}>
+          <HomeIcon size={24} />
+          <span style={{ fontSize: "12px" }}>Home</span>
         </button>
-        <button style={{
-          background: "none",
-          border: "none",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "4px",
-          cursor: "pointer",
-          padding: "8px 16px",
-        }}>
+        <button style={tokens.buttons.nav(true)}>
           <div style={{ position: "relative", display: "inline-block" }}>
-            <Heart size={24} color={tokens.colors.aurora.lavender} />
+            <Heart size={24} />
             {pendingSuggestions.length > 0 && (
-              <span style={{
-                position: "absolute",
-                top: "-6px",
-                right: "-10px",
-                background: tokens.colors.error,
-                color: "white",
-                fontSize: "11px",
-                fontWeight: "bold",
-                minWidth: "18px",
-                height: "18px",
-                borderRadius: "9px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "0 4px",
-              }}>{pendingSuggestions.length}</span>
+              <span style={tokens.badges.notification}>{pendingSuggestions.length}</span>
             )}
           </div>
-          <span style={{
-            fontSize: "12px",
-            color: tokens.colors.aurora.lavender,
-            fontWeight: "600",
-          }}>Wir</span>
+          <span style={{ fontSize: "12px", fontWeight: "600" }}>Wir</span>
         </button>
-        <button onClick={() => router.push("/history")} style={{
-          background: "none",
-          border: "none",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "4px",
-          cursor: "pointer",
-          padding: "8px 16px",
-        }}>
-          <ClipboardList size={24} color={tokens.colors.text.muted} />
-          <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Verlauf</span>
+        <button onClick={() => router.push("/history")} style={tokens.buttons.nav(false)}>
+          <ClipboardList size={24} />
+          <span style={{ fontSize: "12px" }}>Verlauf</span>
         </button>
-        <button onClick={() => router.push("/profile")} style={{
-          background: "none",
-          border: "none",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "4px",
-          cursor: "pointer",
-          padding: "8px 16px",
-        }}>
-          <User size={24} color={tokens.colors.text.muted} />
-          <span style={{ fontSize: "12px", color: tokens.colors.text.muted }}>Profil</span>
+        <button onClick={() => router.push("/profile")} style={tokens.buttons.nav(false)}>
+          <User size={24} />
+          <span style={{ fontSize: "12px" }}>Profil</span>
         </button>
       </div>
 
       {/* Preparation Modal */}
       {showPrepModal && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "rgba(0,0,0,0.6)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "20px",
-          zIndex: 1000,
-        }}>
+        <div style={tokens.modals.overlay}>
           <div style={{
-            background: tokens.colors.bg.elevated,
-            borderRadius: tokens.radii.xl,
-            padding: "32px 24px",
+            ...tokens.modals.container,
             maxWidth: "400px",
-            width: "100%",
+            padding: "32px 24px",
             textAlign: "center",
-            maxHeight: "90vh",
-            overflowY: "auto",
           }}>
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>💜</div>
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>&#x1F49C;</div>
             <h2 style={{
-              fontSize: "22px",
-              fontWeight: "bold",
-              color: tokens.colors.text.primary,
-              margin: "0 0 24px 0",
-              fontFamily: tokens.fonts.display,
+              ...tokens.modals.title,
+              marginBottom: "24px",
             }}>Bereit für eure Session?</h2>
 
             <div style={{ textAlign: "left", marginBottom: "24px" }}>
               {[
-                { icon: "⏱️", title: "Max. 1 Stunde", text: "Plant genug Zeit ein, ohne Zeitdruck." },
-                { icon: "🔕", title: "Nicht stören", text: "Handys auf lautlos, voller Fokus auf euch." },
-                { icon: "🛋️", title: "Gemütlicher Ort", text: "Setzt euch bequem hin, nebeneinander." },
-                { icon: "🎧", title: "Lautsprecher nutzen", text: "Damit ihr beide Amiya gut hört." },
+                { icon: "\u23F1\uFE0F", title: "Max. 1 Stunde", text: "Plant genug Zeit ein, ohne Zeitdruck." },
+                { icon: "\uD83D\uDD15", title: "Nicht stören", text: "Handys auf lautlos, voller Fokus auf euch." },
+                { icon: "\uD83D\uDECB\uFE0F", title: "Gemutlicher Ort", text: "Setzt euch bequem hin, nebeneinander." },
+                { icon: "\uD83C\uDFA7", title: "Lautsprecher nutzen", text: "Damit ihr beide Amiya gut hört." },
               ].map((item, i) => (
                 <div key={i} style={{
                   display: "flex",
@@ -755,9 +577,9 @@ export default function WirPage() {
                   <div>
                     <strong style={{ color: tokens.colors.text.primary }}>{item.title}</strong>
                     <p style={{
-                      fontSize: "13px",
+                      ...tokens.typography.small,
                       color: tokens.colors.text.secondary,
-                      margin: "4px 0 0 0",
+                      marginTop: "4px",
                     }}>{item.text}</p>
                   </div>
                 </div>
@@ -767,18 +589,8 @@ export default function WirPage() {
             <button
               onClick={handleConfirmStart}
               style={{
+                ...tokens.buttons.primaryLarge,
                 width: "100%",
-                padding: "18px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-                color: "white",
-                border: "none",
-                borderRadius: tokens.radii.lg,
-                fontSize: "17px",
-                fontWeight: "600",
-                cursor: "pointer",
-                boxShadow: isDarkMode
-                  ? tokens.shadows.glow(tokens.colors.aurora.mint)
-                  : `0 4px 15px ${tokens.colors.aurora.mint}20`,
                 marginBottom: "12px",
               }}
             >
@@ -787,14 +599,7 @@ export default function WirPage() {
 
             <button
               onClick={() => setShowPrepModal(false)}
-              style={{
-                background: "none",
-                border: "none",
-                color: tokens.colors.text.secondary,
-                fontSize: "15px",
-                cursor: "pointer",
-                padding: "8px",
-              }}
+              style={tokens.buttons.ghost}
             >
               Abbrechen
             </button>
@@ -837,5 +642,3 @@ export default function WirPage() {
     </div>
   );
 }
-
-// All styles now use theme tokens inline

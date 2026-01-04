@@ -1,6 +1,7 @@
 /**
  * ANALYSIS VIEW - components/AnalysisView.js
  * Session-Analyse Anzeige mit Agreement Suggestion Support
+ * Migrated to Design System tokens
  */
 "use client";
 import { useState, useEffect } from "react";
@@ -10,7 +11,7 @@ import { useTheme } from "../lib/ThemeContext";
 
 export default function AnalysisView({ sessionId, onClose }) {
   const { user, profile } = useAuth();
-  const { tokens, isDarkMode } = useTheme();
+  const { tokens } = useTheme();
   const [analysis, setAnalysis] = useState(null);
   const [themes, setThemes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -211,7 +212,7 @@ export default function AnalysisView({ sessionId, onClose }) {
     kinder: "Kinder & Familie",
     finanzen: "Finanzen",
     arbeit: "Arbeit",
-    intimität: "Intimität",
+    intimitat: "Intimitat",
     alltag: "Alltag",
     zeit: "Zeit",
     vertrauen: "Vertrauen",
@@ -295,11 +296,9 @@ export default function AnalysisView({ sessionId, onClose }) {
       if (line.startsWith("**") && line.endsWith("**")) {
         return (
           <h3 key={i} style={{
+            ...tokens.typography.h3,
             fontSize: "16px",
-            fontWeight: "600",
-            color: tokens.colors.text.primary,
             marginTop: "20px",
-            marginBottom: "8px",
           }}>{line.replace(/\*\*/g, "")}</h3>
         );
       }
@@ -307,10 +306,8 @@ export default function AnalysisView({ sessionId, onClose }) {
         const parts = line.split("**");
         return (
           <p key={i} style={{
-            color: tokens.colors.text.secondary,
-            lineHeight: "1.7",
+            ...tokens.typography.body,
             marginBottom: "12px",
-            fontSize: "15px",
           }}>
             <strong style={{ color: tokens.colors.text.primary }}>{parts[1]}</strong>{parts[2]}
           </p>
@@ -319,10 +316,8 @@ export default function AnalysisView({ sessionId, onClose }) {
       if (line.trim()) {
         return (
           <p key={i} style={{
-            color: tokens.colors.text.secondary,
-            lineHeight: "1.7",
+            ...tokens.typography.body,
             marginBottom: "12px",
-            fontSize: "15px",
           }}>{line}</p>
         );
       }
@@ -332,54 +327,21 @@ export default function AnalysisView({ sessionId, onClose }) {
 
   if (loading) {
     return (
-      <div style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "20px",
-        zIndex: 1000,
-        overflowY: "auto",
-      }}>
-        <div style={{
-          background: tokens.colors.bg.elevated,
-          borderRadius: tokens.radii.xl,
-          padding: "24px",
-          maxWidth: "500px",
-          width: "100%",
-          maxHeight: "90vh",
-          overflowY: "auto",
-          boxShadow: tokens.shadows.large,
-        }}>
+      <div style={tokens.modals.overlay}>
+        <div style={tokens.modals.container}>
           <div style={{
             textAlign: "center",
             padding: "40px 20px",
           }}>
             <div style={{
-              width: "50px",
-              height: "50px",
-              border: `4px solid ${tokens.colors.bg.soft}`,
-              borderTopColor: tokens.colors.aurora.lavender,
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
+              ...tokens.loaders.spinner(50),
               margin: "0 auto 20px",
             }} />
             <p style={{
-              fontSize: "18px",
-              fontWeight: "600",
-              color: tokens.colors.text.primary,
+              ...tokens.typography.h3,
               marginBottom: "8px",
-              fontFamily: tokens.fonts.display,
             }}>Analyse wird erstellt...</p>
-            <p style={{
-              color: tokens.colors.text.muted,
-              fontSize: "14px",
-            }}>Einen Moment</p>
+            <p style={tokens.typography.small}>Einen Moment</p>
           </div>
         </div>
       </div>
@@ -388,30 +350,8 @@ export default function AnalysisView({ sessionId, onClose }) {
 
   if (error) {
     return (
-      <div style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "20px",
-        zIndex: 1000,
-        overflowY: "auto",
-      }}>
-        <div style={{
-          background: tokens.colors.bg.elevated,
-          borderRadius: tokens.radii.xl,
-          padding: "24px",
-          maxWidth: "500px",
-          width: "100%",
-          maxHeight: "90vh",
-          overflowY: "auto",
-          boxShadow: tokens.shadows.large,
-        }}>
+      <div style={tokens.modals.overlay}>
+        <div style={tokens.modals.container}>
           <div style={{
             textAlign: "center",
             padding: "40px 20px",
@@ -420,21 +360,14 @@ export default function AnalysisView({ sessionId, onClose }) {
               fontSize: "48px",
               display: "block",
               marginBottom: "16px",
-            }}>⚠️</span>
+            }}>&#9888;&#65039;</span>
             <p style={{
-              color: tokens.colors.error,
+              ...tokens.alerts.error,
               marginBottom: "20px",
             }}>{error}</p>
-            <button onClick={onClose} style={{
-              padding: "12px 24px",
-              background: tokens.colors.bg.surface,
-              color: tokens.colors.text.primary,
-              border: "none",
-              borderRadius: tokens.radii.md,
-              fontSize: "15px",
-              cursor: "pointer",
-              fontFamily: tokens.fonts.body,
-            }}>Schliessen</button>
+            <button onClick={onClose} style={tokens.buttons.secondary}>
+              Schliessen
+            </button>
           </div>
         </div>
       </div>
@@ -442,51 +375,13 @@ export default function AnalysisView({ sessionId, onClose }) {
   }
 
   return (
-    <div style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: "rgba(0,0,0,0.5)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "20px",
-      zIndex: 1000,
-      overflowY: "auto",
-    }}>
-      <div style={{
-        background: tokens.colors.bg.elevated,
-        borderRadius: tokens.radii.xl,
-        padding: "24px",
-        maxWidth: "500px",
-        width: "100%",
-        maxHeight: "90vh",
-        overflowY: "auto",
-        boxShadow: tokens.shadows.large,
-      }}>
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "20px",
-        }}>
-          <h2 style={{
-            fontSize: "22px",
-            fontWeight: "bold",
-            color: tokens.colors.text.primary,
-            margin: 0,
-            fontFamily: tokens.fonts.display,
-          }}>Session-Analyse</h2>
-          <button onClick={onClose} style={{
-            background: "none",
-            border: "none",
-            fontSize: "24px",
-            color: tokens.colors.text.muted,
-            cursor: "pointer",
-            padding: "4px",
-          }}>✕</button>
+    <div style={tokens.modals.overlay}>
+      <div style={tokens.modals.container}>
+        <div style={tokens.modals.header}>
+          <h2 style={tokens.modals.title}>Session-Analyse</h2>
+          <button onClick={onClose} style={tokens.buttons.icon}>
+            <span style={{ fontSize: "24px" }}>x</span>
+          </button>
         </div>
 
         {themes.length > 0 && (
@@ -497,16 +392,7 @@ export default function AnalysisView({ sessionId, onClose }) {
             marginBottom: "20px",
           }}>
             {themes.map((theme) => (
-              <span key={theme} style={{
-                background: isDarkMode
-                  ? `rgba(139, 92, 246, 0.2)`
-                  : "linear-gradient(135deg, #f3e8ff, #fae8ff)",
-                color: tokens.colors.aurora.lavender,
-                padding: "6px 12px",
-                borderRadius: tokens.radii.pill,
-                fontSize: "13px",
-                fontWeight: "500",
-              }}>
+              <span key={theme} style={tokens.badges.theme}>
                 {themeLabels[theme] || theme}
               </span>
             ))}
@@ -520,13 +406,8 @@ export default function AnalysisView({ sessionId, onClose }) {
         {/* Agreement Suggestion */}
         {suggestion && !agreementSaved && (
           <div style={{
-            background: isDarkMode
-              ? "rgba(251, 191, 36, 0.15)"
-              : "linear-gradient(135deg, #fef3c7, #fde68a)",
-            borderRadius: tokens.radii.lg,
-            padding: "20px",
+            ...tokens.alerts.warning,
             marginBottom: "20px",
-            border: `1px solid ${isDarkMode ? "rgba(251, 191, 36, 0.3)" : "#fcd34d"}`,
           }}>
             <div style={{
               display: "flex",
@@ -534,29 +415,30 @@ export default function AnalysisView({ sessionId, onClose }) {
               gap: "10px",
               marginBottom: "12px",
             }}>
-              <span style={{ fontSize: "24px" }}>💡</span>
+              <span style={{ fontSize: "24px" }}>&#128161;</span>
               <h4 style={{
+                ...tokens.alerts.warningText,
                 fontSize: "16px",
                 fontWeight: "600",
-                color: isDarkMode ? "#fbbf24" : "#92400e",
                 margin: 0,
-              }}>Mögliche Vereinbarung erkannt</h4>
+              }}>Mogliche Vereinbarung erkannt</h4>
             </div>
 
             {!showAgreementEditor ? (
               <>
                 <p style={{
+                  ...tokens.alerts.warningText,
                   fontSize: "15px",
                   fontWeight: "500",
-                  color: isDarkMode ? "#fcd34d" : "#78350f",
                   margin: "0 0 8px 0",
                 }}>"{suggestion.title}"</p>
                 {suggestion.underlying_need && (
                   <p style={{
+                    ...tokens.alerts.warningText,
                     fontSize: "14px",
-                    color: isDarkMode ? "#d97706" : "#a16207",
                     margin: "0 0 16px 0",
                     fontStyle: "italic",
+                    opacity: 0.8,
                   }}>
                     Dahinter: {suggestion.underlying_need}
                   </p>
@@ -565,11 +447,11 @@ export default function AnalysisView({ sessionId, onClose }) {
                 {/* Show who is responsible */}
                 {suggestion.responsible && suggestion.responsible !== "both" && (
                   <p style={{
+                    ...tokens.alerts.warningText,
                     fontSize: "13px",
-                    color: isDarkMode ? "#fbbf24" : "#92400e",
                     margin: "0 0 12px 0",
                     padding: "8px 12px",
-                    background: isDarkMode ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.5)",
+                    background: "rgba(0,0,0,0.1)",
                     borderRadius: tokens.radii.sm,
                     display: "inline-block",
                   }}>
@@ -587,15 +469,10 @@ export default function AnalysisView({ sessionId, onClose }) {
                     <button
                       onClick={() => setShowAgreementEditor(true)}
                       style={{
+                        ...tokens.buttons.secondaryOutline,
+                        ...tokens.alerts.warningText,
                         padding: "10px 16px",
-                        background: isDarkMode ? tokens.colors.bg.surface : "white",
-                        color: isDarkMode ? "#fbbf24" : "#92400e",
-                        border: `2px solid ${isDarkMode ? "#fbbf24" : "#fbbf24"}`,
-                        borderRadius: tokens.radii.sm,
                         fontSize: "14px",
-                        fontWeight: "500",
-                        cursor: "pointer",
-                        fontFamily: tokens.fonts.body,
                       }}
                     >
                       Anpassen & Speichern
@@ -603,30 +480,19 @@ export default function AnalysisView({ sessionId, onClose }) {
                     <button
                       onClick={handleSaveAgreement}
                       style={{
-                        padding: "10px 16px",
-                        background: "#f59e0b",
-                        color: "white",
-                        border: "none",
-                        borderRadius: tokens.radii.sm,
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        cursor: "pointer",
-                        fontFamily: tokens.fonts.body,
+                        ...tokens.buttons.primarySmall,
+                        background: tokens.colors.warning,
                       }}
                       disabled={savingAgreement}
                     >
-                      {savingAgreement ? "..." : "So übernehmen"}
+                      {savingAgreement ? "..." : "So ubernehmen"}
                     </button>
                     <button
                       onClick={handleDismissSuggestion}
                       style={{
-                        padding: "10px 16px",
-                        background: "transparent",
-                        color: isDarkMode ? "#d97706" : "#a16207",
-                        border: "none",
-                        fontSize: "14px",
-                        cursor: "pointer",
-                        fontFamily: tokens.fonts.body,
+                        ...tokens.buttons.ghost,
+                        ...tokens.alerts.warningText,
+                        opacity: 0.8,
                       }}
                     >
                       Nicht relevant
@@ -635,30 +501,27 @@ export default function AnalysisView({ sessionId, onClose }) {
                 ) : (
                   // User cannot accept - show waiting message
                   <div style={{
-                    background: isDarkMode ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.6)",
+                    background: "rgba(0,0,0,0.1)",
                     borderRadius: tokens.radii.md,
                     padding: "16px",
                     textAlign: "center",
                   }}>
                     <p style={{
+                      ...tokens.alerts.warningText,
                       fontSize: "15px",
-                      color: isDarkMode ? "#fbbf24" : "#92400e",
                       margin: "0 0 12px 0",
                       fontWeight: "500",
                     }}>
-                      ⏳ Warte auf {getResponsiblePersonName()}s Bestätigung
+                      &#9203; Warte auf {getResponsiblePersonName()}s Bestatigung
                     </p>
                     <button
                       onClick={handleDismissSuggestion}
                       style={{
-                        padding: "8px 16px",
-                        background: "transparent",
-                        color: isDarkMode ? "#d97706" : "#a16207",
-                        border: `1px solid ${isDarkMode ? "#fbbf24" : "#fbbf24"}`,
+                        ...tokens.buttons.ghost,
+                        ...tokens.alerts.warningText,
+                        border: `1px solid currentColor`,
                         borderRadius: tokens.radii.sm,
                         fontSize: "13px",
-                        cursor: "pointer",
-                        fontFamily: tokens.fonts.body,
                       }}
                     >
                       Das stimmt nicht - ablehnen
@@ -670,11 +533,8 @@ export default function AnalysisView({ sessionId, onClose }) {
               <div style={{ marginTop: "16px" }}>
                 <div style={{ marginBottom: "16px" }}>
                   <label style={{
-                    display: "block",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: isDarkMode ? "#fbbf24" : "#78350f",
-                    marginBottom: "6px",
+                    ...tokens.inputs.label,
+                    ...tokens.alerts.warningText,
                   }}>Vereinbarung</label>
                   <input
                     type="text"
@@ -683,28 +543,14 @@ export default function AnalysisView({ sessionId, onClose }) {
                       ...editedAgreement,
                       title: e.target.value
                     })}
-                    style={{
-                      width: "100%",
-                      padding: "12px",
-                      borderRadius: tokens.radii.sm,
-                      border: `2px solid ${isDarkMode ? "#fbbf24" : "#fcd34d"}`,
-                      fontSize: "15px",
-                      background: isDarkMode ? tokens.colors.bg.surface : "white",
-                      color: tokens.colors.text.primary,
-                      outline: "none",
-                      fontFamily: tokens.fonts.body,
-                      boxSizing: "border-box",
-                    }}
+                    style={tokens.inputs.text}
                   />
                 </div>
 
                 <div style={{ marginBottom: "16px" }}>
                   <label style={{
-                    display: "block",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: isDarkMode ? "#fbbf24" : "#78350f",
-                    marginBottom: "6px",
+                    ...tokens.inputs.label,
+                    ...tokens.alerts.warningText,
                   }}>Warum wichtig? (optional)</label>
                   <input
                     type="text"
@@ -713,29 +559,15 @@ export default function AnalysisView({ sessionId, onClose }) {
                       ...editedAgreement,
                       underlyingNeed: e.target.value
                     })}
-                    style={{
-                      width: "100%",
-                      padding: "12px",
-                      borderRadius: tokens.radii.sm,
-                      border: `2px solid ${isDarkMode ? "#fbbf24" : "#fcd34d"}`,
-                      fontSize: "15px",
-                      background: isDarkMode ? tokens.colors.bg.surface : "white",
-                      color: tokens.colors.text.primary,
-                      outline: "none",
-                      fontFamily: tokens.fonts.body,
-                      boxSizing: "border-box",
-                    }}
-                    placeholder="Das Bedürfnis dahinter..."
+                    style={tokens.inputs.text}
+                    placeholder="Das Bedurfnis dahinter..."
                   />
                 </div>
 
                 <div style={{ marginBottom: "16px" }}>
                   <label style={{
-                    display: "block",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: isDarkMode ? "#fbbf24" : "#78350f",
-                    marginBottom: "6px",
+                    ...tokens.inputs.label,
+                    ...tokens.alerts.warningText,
                   }}>Wer ist verantwortlich?</label>
                   <div style={{
                     display: "flex",
@@ -747,7 +579,7 @@ export default function AnalysisView({ sessionId, onClose }) {
                         alignItems: "center",
                         gap: "6px",
                         fontSize: "14px",
-                        color: isDarkMode ? "#fcd34d" : "#78350f",
+                        ...tokens.alerts.warningText,
                         cursor: "pointer",
                       }}>
                         <input
@@ -759,7 +591,7 @@ export default function AnalysisView({ sessionId, onClose }) {
                             ...editedAgreement,
                             responsible: e.target.value
                           })}
-                          style={{ accentColor: "#f59e0b" }}
+                          style={{ accentColor: tokens.colors.warning }}
                         />
                         {responsibleLabels[value]}
                       </label>
@@ -769,11 +601,8 @@ export default function AnalysisView({ sessionId, onClose }) {
 
                 <div style={{ marginBottom: "16px" }}>
                   <label style={{
-                    display: "block",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: isDarkMode ? "#fbbf24" : "#78350f",
-                    marginBottom: "6px",
+                    ...tokens.inputs.label,
+                    ...tokens.alerts.warningText,
                   }}>Check-in in</label>
                   <select
                     value={editedAgreement.checkInDays}
@@ -781,17 +610,7 @@ export default function AnalysisView({ sessionId, onClose }) {
                       ...editedAgreement,
                       checkInDays: parseInt(e.target.value)
                     })}
-                    style={{
-                      width: "100%",
-                      padding: "12px",
-                      borderRadius: tokens.radii.sm,
-                      border: `2px solid ${isDarkMode ? "#fbbf24" : "#fcd34d"}`,
-                      fontSize: "15px",
-                      background: isDarkMode ? tokens.colors.bg.surface : "white",
-                      color: tokens.colors.text.primary,
-                      outline: "none",
-                      fontFamily: tokens.fonts.body,
-                    }}
+                    style={tokens.inputs.text}
                   >
                     <option value={7}>1 Woche</option>
                     <option value={14}>2 Wochen</option>
@@ -809,13 +628,8 @@ export default function AnalysisView({ sessionId, onClose }) {
                   <button
                     onClick={() => setShowAgreementEditor(false)}
                     style={{
-                      padding: "10px 20px",
-                      background: "transparent",
-                      color: isDarkMode ? "#d97706" : "#a16207",
-                      border: "none",
-                      fontSize: "14px",
-                      cursor: "pointer",
-                      fontFamily: tokens.fonts.body,
+                      ...tokens.buttons.ghost,
+                      ...tokens.alerts.warningText,
                     }}
                   >
                     Abbrechen
@@ -823,15 +637,8 @@ export default function AnalysisView({ sessionId, onClose }) {
                   <button
                     onClick={handleSaveAgreement}
                     style={{
-                      padding: "12px 24px",
-                      background: "#f59e0b",
-                      color: "white",
-                      border: "none",
-                      borderRadius: tokens.radii.md,
-                      fontSize: "15px",
-                      fontWeight: "600",
-                      cursor: "pointer",
-                      fontFamily: tokens.fonts.body,
+                      ...tokens.buttons.primary,
+                      background: tokens.colors.warning,
                       opacity: savingAgreement || !editedAgreement.title.trim() ? 0.6 : 1,
                     }}
                     disabled={savingAgreement || !editedAgreement.title.trim()}
@@ -847,13 +654,11 @@ export default function AnalysisView({ sessionId, onClose }) {
         {/* Success message */}
         {agreementSaved && (
           <div style={{
-            background: isDarkMode ? "rgba(52, 211, 153, 0.15)" : "#d1fae5",
-            borderRadius: tokens.radii.md,
-            padding: "16px",
-            marginBottom: "20px",
+            ...tokens.alerts.success,
             display: "flex",
             alignItems: "center",
             gap: "12px",
+            marginBottom: "20px",
           }}>
             <span style={{
               width: "24px",
@@ -867,9 +672,9 @@ export default function AnalysisView({ sessionId, onClose }) {
               fontSize: "14px",
               fontWeight: "bold",
               flexShrink: 0,
-            }}>✓</span>
+            }}>&#10003;</span>
             <p style={{
-              color: isDarkMode ? tokens.colors.success : "#065f46",
+              color: tokens.colors.success,
               fontSize: "14px",
               margin: 0,
             }}>
@@ -882,16 +687,8 @@ export default function AnalysisView({ sessionId, onClose }) {
         )}
 
         <button onClick={onClose} style={{
+          ...tokens.buttons.primary,
           width: "100%",
-          padding: "16px",
-          background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-          color: "white",
-          border: "none",
-          borderRadius: tokens.radii.md,
-          fontSize: "16px",
-          fontWeight: "600",
-          cursor: "pointer",
-          fontFamily: tokens.fonts.body,
         }}>
           {agreementSaved ? "Fertig" : "Verstanden"}
         </button>

@@ -1,6 +1,7 @@
 /**
  * DISCONNECT DIALOG - components/DisconnectDialog.js
  * Dialog für Couple-Trennung mit Learnings-Option für BEIDE Partner
+ * Migrated to Design System tokens
  */
 "use client";
 import { useState } from "react";
@@ -9,7 +10,7 @@ import { useTheme } from "../lib/ThemeContext";
 
 export default function DisconnectDialog({ pendingDissolution, onClose, onComplete }) {
   const { user, profile } = useAuth();
-  const { tokens, isDarkMode } = useTheme();
+  const { tokens } = useTheme();
   const [step, setStep] = useState(pendingDissolution ? "confirm" : "info");
   const [keepLearnings, setKeepLearnings] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -107,75 +108,45 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
   };
 
   return (
-    <div style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: "rgba(0,0,0,0.6)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "20px",
-      zIndex: 1000,
-    }}>
+    <div style={tokens.modals.overlay}>
       <div style={{
-        background: tokens.colors.bg.elevated,
-        borderRadius: tokens.radii.xl,
+        ...tokens.modals.container,
         padding: "32px 24px",
         maxWidth: "440px",
-        width: "100%",
-        maxHeight: "90vh",
-        overflowY: "auto",
-        position: "relative",
-        boxShadow: tokens.shadows.large,
       }}>
         {/* Close Button */}
         <button onClick={onClose} style={{
+          ...tokens.buttons.icon,
           position: "absolute",
           top: "16px",
           right: "16px",
-          background: "none",
-          border: "none",
-          fontSize: "24px",
-          color: tokens.colors.text.muted,
-          cursor: "pointer",
-        }}>✕</button>
+        }}>
+          <span style={{ fontSize: "24px" }}>x</span>
+        </button>
 
         {/* STEP: Info (Initiator viewing options) */}
         {step === "info" && (
           <>
             <div style={{ textAlign: "center", marginBottom: "16px" }}>
-              <span style={{ fontSize: "48px" }}>⚙️</span>
+              <span style={{ fontSize: "48px" }}>&#9881;&#65039;</span>
             </div>
 
             <h2 style={{
-              fontSize: "22px",
-              fontWeight: "bold",
-              color: tokens.colors.text.primary,
+              ...tokens.typography.h2,
               textAlign: "center",
-              margin: "0 0 12px 0",
-              fontFamily: tokens.fonts.display,
             }}>Verbindung verwalten</h2>
 
             <p style={{
-              fontSize: "15px",
-              color: tokens.colors.text.muted,
+              ...tokens.typography.body,
               textAlign: "center",
-              lineHeight: "1.6",
-              margin: "0 0 20px 0",
+              color: tokens.colors.text.muted,
+              marginBottom: "20px",
             }}>
               Du bist mit {partnerName} verbunden. Gemeinsame Sessions
               und Vereinbarungen sind aktiv.
             </p>
 
-            <div style={{
-              background: tokens.colors.bg.surface,
-              borderRadius: tokens.radii.md,
-              padding: "16px",
-              marginBottom: "24px",
-            }}>
+            <div style={tokens.cards.surface}>
               <h4 style={{
                 fontSize: "14px",
                 fontWeight: "600",
@@ -192,42 +163,29 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
                 <li>Gemeinsame Sessions bleiben im Verlauf</li>
                 <li>Vereinbarungen werden archiviert</li>
                 <li>Du kannst anonymisierte Learnings behalten</li>
-                <li>{partnerName} erhält die gleiche Option</li>
+                <li>{partnerName} erhalt die gleiche Option</li>
               </ul>
             </div>
 
-            <button
-              onClick={() => setStep("learnings")}
-              style={{
-                width: "100%",
-                padding: "16px",
-                background: isDarkMode ? "rgba(248, 113, 113, 0.15)" : "#fee2e2",
-                color: tokens.colors.error,
-                border: "none",
-                borderRadius: tokens.radii.md,
-                fontSize: "16px",
-                fontWeight: "600",
-                cursor: "pointer",
-                marginBottom: "12px",
-                fontFamily: tokens.fonts.body,
-              }}
-            >
-              Verbindung auflösen
-            </button>
+            <div style={{ marginTop: "24px" }}>
+              <button
+                onClick={() => setStep("learnings")}
+                style={{
+                  ...tokens.buttons.danger,
+                  width: "100%",
+                  marginBottom: "12px",
+                }}
+              >
+                Verbindung auflosen
+              </button>
 
-            <button onClick={onClose} style={{
-              width: "100%",
-              padding: "14px",
-              background: tokens.colors.bg.surface,
-              color: tokens.colors.text.primary,
-              border: "none",
-              borderRadius: tokens.radii.md,
-              fontSize: "15px",
-              cursor: "pointer",
-              fontFamily: tokens.fonts.body,
-            }}>
-              Abbrechen
-            </button>
+              <button onClick={onClose} style={{
+                ...tokens.buttons.secondary,
+                width: "100%",
+              }}>
+                Abbrechen
+              </button>
+            </div>
           </>
         )}
 
@@ -235,27 +193,22 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
         {step === "learnings" && !pendingDissolution && (
           <>
             <div style={{ textAlign: "center", marginBottom: "16px" }}>
-              <span style={{ fontSize: "48px" }}>📝</span>
+              <span style={{ fontSize: "48px" }}>&#128221;</span>
             </div>
 
             <h2 style={{
-              fontSize: "22px",
-              fontWeight: "bold",
-              color: tokens.colors.text.primary,
+              ...tokens.typography.h2,
               textAlign: "center",
-              margin: "0 0 12px 0",
-              fontFamily: tokens.fonts.display,
             }}>Learnings behalten?</h2>
 
             <p style={{
-              fontSize: "15px",
-              color: tokens.colors.text.muted,
+              ...tokens.typography.body,
               textAlign: "center",
-              lineHeight: "1.6",
-              margin: "0 0 20px 0",
+              color: tokens.colors.text.muted,
+              marginBottom: "20px",
             }}>
-              Möchtest du anonymisierte Erkenntnisse aus euren
-              Vereinbarungen für die Zukunft behalten?
+              Mochtest du anonymisierte Erkenntnisse aus euren
+              Vereinbarungen fur die Zukunft behalten?
             </p>
 
             <div style={{
@@ -266,21 +219,9 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
             }}>
               <button
                 onClick={() => setKeepLearnings(true)}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "12px",
-                  padding: "16px",
-                  background: keepLearnings
-                    ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
-                    : tokens.colors.bg.surface,
-                  border: `2px solid ${keepLearnings ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
-                  borderRadius: tokens.radii.md,
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
+                style={tokens.inputs.selection(keepLearnings)}
               >
-                <span style={{ fontSize: "24px", marginTop: "2px" }}>✅</span>
+                <span style={{ fontSize: "24px", marginTop: "2px" }}>&#9989;</span>
                 <div style={{ flex: 1 }}>
                   <span style={{
                     display: "block",
@@ -290,33 +231,20 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
                     marginBottom: "4px",
                   }}>Learnings behalten</span>
                   <span style={{
-                    fontSize: "13px",
-                    color: tokens.colors.text.muted,
+                    ...tokens.typography.small,
                     lineHeight: "1.4",
                   }}>
                     Anonymisiert, ohne Namen oder Details.
-                    Kann in zukünftigen Beziehungen helfen.
+                    Kann in zukunftigen Beziehungen helfen.
                   </span>
                 </div>
               </button>
 
               <button
                 onClick={() => setKeepLearnings(false)}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "12px",
-                  padding: "16px",
-                  background: !keepLearnings
-                    ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
-                    : tokens.colors.bg.surface,
-                  border: `2px solid ${!keepLearnings ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
-                  borderRadius: tokens.radii.md,
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
+                style={tokens.inputs.selection(!keepLearnings)}
               >
-                <span style={{ fontSize: "24px", marginTop: "2px" }}>🗑️</span>
+                <span style={{ fontSize: "24px", marginTop: "2px" }}>&#128465;&#65039;</span>
                 <div style={{ flex: 1 }}>
                   <span style={{
                     display: "block",
@@ -324,10 +252,9 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
                     color: tokens.colors.text.primary,
                     fontSize: "15px",
                     marginBottom: "4px",
-                  }}>Alles löschen</span>
+                  }}>Alles loschen</span>
                   <span style={{
-                    fontSize: "13px",
-                    color: tokens.colors.text.muted,
+                    ...tokens.typography.small,
                     lineHeight: "1.4",
                   }}>
                     Keine Daten aus dieser Verbindung behalten.
@@ -336,73 +263,52 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
               </button>
             </div>
 
-            <div style={{
-              background: isDarkMode ? "rgba(251, 191, 36, 0.15)" : "#fef3c7",
-              borderRadius: tokens.radii.md,
-              padding: "12px",
-              marginBottom: "20px",
-            }}>
+            <div style={tokens.alerts.warning}>
               <p style={{
+                ...tokens.alerts.warningText,
                 margin: 0,
                 fontSize: "13px",
-                color: isDarkMode ? "#fbbf24" : "#92400e",
                 lineHeight: "1.5",
               }}>
                 <strong>Hinweis:</strong> {partnerName} wird ebenfalls gefragt
-                und kann unabhängig von dir entscheiden.
+                und kann unabhangig von dir entscheiden.
               </p>
             </div>
 
             {error && (
               <p style={{
-                color: tokens.colors.error,
-                fontSize: "14px",
-                background: isDarkMode ? "rgba(248, 113, 113, 0.15)" : "#fef2f2",
-                padding: "12px",
-                borderRadius: tokens.radii.sm,
+                ...tokens.alerts.error,
+                marginTop: "16px",
                 marginBottom: "16px",
                 textAlign: "center",
               }}>{error}</p>
             )}
 
-            <button
-              onClick={handleInitiateDisconnect}
-              style={{
-                width: "100%",
-                padding: "16px",
-                background: isDarkMode ? "rgba(248, 113, 113, 0.15)" : "#fee2e2",
-                color: tokens.colors.error,
-                border: "none",
-                borderRadius: tokens.radii.md,
-                fontSize: "16px",
-                fontWeight: "600",
-                cursor: "pointer",
-                marginBottom: "12px",
-                fontFamily: tokens.fonts.body,
-                opacity: loading ? 0.7 : 1,
-              }}
-              disabled={loading}
-            >
-              {loading ? "Wird verarbeitet..." : "Verbindung auflösen"}
-            </button>
+            <div style={{ marginTop: "20px" }}>
+              <button
+                onClick={handleInitiateDisconnect}
+                style={{
+                  ...tokens.buttons.danger,
+                  width: "100%",
+                  marginBottom: "12px",
+                  opacity: loading ? 0.7 : 1,
+                }}
+                disabled={loading}
+              >
+                {loading ? "Wird verarbeitet..." : "Verbindung auflosen"}
+              </button>
 
-            <button
-              onClick={() => setStep("info")}
-              style={{
-                width: "100%",
-                padding: "14px",
-                background: tokens.colors.bg.surface,
-                color: tokens.colors.text.primary,
-                border: "none",
-                borderRadius: tokens.radii.md,
-                fontSize: "15px",
-                cursor: "pointer",
-                fontFamily: tokens.fonts.body,
-              }}
-              disabled={loading}
-            >
-              Zurück
-            </button>
+              <button
+                onClick={() => setStep("info")}
+                style={{
+                  ...tokens.buttons.secondary,
+                  width: "100%",
+                }}
+                disabled={loading}
+              >
+                Zuruck
+              </button>
+            </div>
           </>
         )}
 
@@ -410,33 +316,26 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
         {step === "confirm" && pendingDissolution && (
           <>
             <div style={{ textAlign: "center", marginBottom: "16px" }}>
-              <span style={{ fontSize: "48px" }}>💔</span>
+              <span style={{ fontSize: "48px" }}>&#128148;</span>
             </div>
 
             <h2 style={{
-              fontSize: "22px",
-              fontWeight: "bold",
-              color: tokens.colors.text.primary,
+              ...tokens.typography.h2,
               textAlign: "center",
-              margin: "0 0 12px 0",
-              fontFamily: tokens.fonts.display,
-            }}>Verbindung aufgelöst</h2>
+            }}>Verbindung aufgelost</h2>
 
             <p style={{
-              fontSize: "15px",
-              color: tokens.colors.text.muted,
+              ...tokens.typography.body,
               textAlign: "center",
-              lineHeight: "1.6",
-              margin: "0 0 20px 0",
+              color: tokens.colors.text.muted,
+              marginBottom: "20px",
             }}>
               {pendingDissolution.initiatedBy} hat die Verbindung beendet.
             </p>
 
             {pendingDissolution.agreementCount > 0 && (
               <div style={{
-                background: tokens.colors.bg.surface,
-                borderRadius: tokens.radii.md,
-                padding: "16px",
+                ...tokens.cards.surface,
                 marginBottom: "20px",
               }}>
                 <p style={{
@@ -452,13 +351,12 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
                     fontSize: "14px",
                     color: tokens.colors.text.muted,
                     margin: "0 0 4px 0",
-                  }}>• {a.title}</p>
+                  }}>&#8226; {a.title}</p>
                 ))}
                 {pendingDissolution.agreementCount > 3 && (
                   <p style={{
-                    fontSize: "13px",
-                    color: tokens.colors.text.muted,
-                    margin: "8px 0 0 0",
+                    ...tokens.typography.small,
+                    marginTop: "8px",
                     fontStyle: "italic",
                   }}>
                     + {pendingDissolution.agreementCount - 3} weitere
@@ -467,12 +365,7 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
               </div>
             )}
 
-            <h3 style={{
-              fontSize: "16px",
-              fontWeight: "600",
-              color: tokens.colors.text.primary,
-              margin: "20px 0 12px 0",
-            }}>Möchtest du Learnings behalten?</h3>
+            <h3 style={tokens.typography.h3}>Mochtest du Learnings behalten?</h3>
 
             <div style={{
               display: "flex",
@@ -482,21 +375,9 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
             }}>
               <button
                 onClick={() => setKeepLearnings(true)}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "12px",
-                  padding: "16px",
-                  background: keepLearnings
-                    ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
-                    : tokens.colors.bg.surface,
-                  border: `2px solid ${keepLearnings ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
-                  borderRadius: tokens.radii.md,
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
+                style={tokens.inputs.selection(keepLearnings)}
               >
-                <span style={{ fontSize: "24px", marginTop: "2px" }}>✅</span>
+                <span style={{ fontSize: "24px", marginTop: "2px" }}>&#9989;</span>
                 <div style={{ flex: 1 }}>
                   <span style={{
                     display: "block",
@@ -506,8 +387,7 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
                     marginBottom: "4px",
                   }}>Learnings behalten</span>
                   <span style={{
-                    fontSize: "13px",
-                    color: tokens.colors.text.muted,
+                    ...tokens.typography.small,
                     lineHeight: "1.4",
                   }}>
                     Anonymisiert, ohne Namen oder Details
@@ -517,21 +397,9 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
 
               <button
                 onClick={() => setKeepLearnings(false)}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "12px",
-                  padding: "16px",
-                  background: !keepLearnings
-                    ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
-                    : tokens.colors.bg.surface,
-                  border: `2px solid ${!keepLearnings ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
-                  borderRadius: tokens.radii.md,
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
+                style={tokens.inputs.selection(!keepLearnings)}
               >
-                <span style={{ fontSize: "24px", marginTop: "2px" }}>🗑️</span>
+                <span style={{ fontSize: "24px", marginTop: "2px" }}>&#128465;&#65039;</span>
                 <div style={{ flex: 1 }}>
                   <span style={{
                     display: "block",
@@ -539,10 +407,9 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
                     color: tokens.colors.text.primary,
                     fontSize: "15px",
                     marginBottom: "4px",
-                  }}>Alles löschen</span>
+                  }}>Alles loschen</span>
                   <span style={{
-                    fontSize: "13px",
-                    color: tokens.colors.text.muted,
+                    ...tokens.typography.small,
                     lineHeight: "1.4",
                   }}>
                     Keine Daten behalten
@@ -553,11 +420,7 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
 
             {error && (
               <p style={{
-                color: tokens.colors.error,
-                fontSize: "14px",
-                background: isDarkMode ? "rgba(248, 113, 113, 0.15)" : "#fef2f2",
-                padding: "12px",
-                borderRadius: tokens.radii.sm,
+                ...tokens.alerts.error,
                 marginBottom: "16px",
                 textAlign: "center",
               }}>{error}</p>
@@ -566,36 +429,22 @@ export default function DisconnectDialog({ pendingDissolution, onClose, onComple
             <button
               onClick={handleConfirmDisconnect}
               style={{
+                ...tokens.buttons.primary,
                 width: "100%",
-                padding: "16px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-                color: "white",
-                border: "none",
-                borderRadius: tokens.radii.md,
-                fontSize: "16px",
-                fontWeight: "600",
-                cursor: "pointer",
                 marginBottom: "12px",
-                fontFamily: tokens.fonts.body,
                 opacity: loading ? 0.7 : 1,
               }}
               disabled={loading}
             >
-              {loading ? "Wird verarbeitet..." : "Bestätigen"}
+              {loading ? "Wird verarbeitet..." : "Bestatigen"}
             </button>
 
             <button
               onClick={handleCancelDisconnect}
               style={{
+                ...tokens.buttons.ghostAccent,
                 width: "100%",
-                padding: "12px",
-                background: "none",
-                color: tokens.colors.aurora.lavender,
-                border: "none",
-                fontSize: "14px",
-                cursor: "pointer",
                 textDecoration: "underline",
-                fontFamily: tokens.fonts.body,
               }}
               disabled={loading}
             >

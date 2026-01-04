@@ -1,6 +1,7 @@
 /**
  * AGREEMENT DETAIL COMPONENT - components/AgreementDetail.js
- * Zeigt Details einer Vereinbarung mit Check-in Möglichkeit
+ * Zeigt Details einer Vereinbarung mit Check-in Moglichkeit
+ * Migrated to Design System tokens
  */
 "use client";
 import { useState, useEffect } from "react";
@@ -9,7 +10,7 @@ import { useTheme } from "../lib/ThemeContext";
 
 export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
   const { user, profile } = useAuth();
-  const { tokens, isDarkMode } = useTheme();
+  const { tokens } = useTheme();
   const [agreement, setAgreement] = useState(null);
   const [couple, setCouple] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -142,48 +143,20 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
   const checkInOptions = [
     { value: "good", emoji: "💚", label: "Gut gelaufen", desc: "Hat funktioniert wie geplant" },
     { value: "partial", emoji: "💛", label: "Teils geklappt", desc: "Manchmal ja, manchmal nein" },
-    { value: "difficult", emoji: "🧡", label: "War schwierig", desc: "Braucht mehr Übung" },
+    { value: "difficult", emoji: "🧡", label: "War schwierig", desc: "Braucht mehr Ubung" },
     { value: "needs_change", emoji: "❤️", label: "Braucht Anpassung", desc: "So funktioniert es nicht" },
   ];
 
   if (loading) {
     return (
-      <div style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "20px",
-        zIndex: 1000,
-        overflowY: "auto",
-      }}>
-        <div style={{
-          background: tokens.colors.bg.elevated,
-          borderRadius: tokens.radii.xl,
-          maxWidth: "500px",
-          width: "100%",
-          maxHeight: "90vh",
-          overflowY: "auto",
-          boxShadow: tokens.shadows.large,
-        }}>
+      <div style={tokens.modals.overlay}>
+        <div style={tokens.modals.container}>
           <div style={{
             padding: "60px",
             display: "flex",
             justifyContent: "center",
           }}>
-            <div style={{
-              width: "40px",
-              height: "40px",
-              border: `4px solid ${tokens.colors.bg.soft}`,
-              borderTopColor: tokens.colors.aurora.lavender,
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
-            }} />
+            <div style={tokens.loaders.spinner(40)} />
           </div>
         </div>
       </div>
@@ -192,39 +165,16 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
 
   if (!agreement) {
     return (
-      <div style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "20px",
-        zIndex: 1000,
-        overflowY: "auto",
-      }}>
+      <div style={tokens.modals.overlay}>
         <div style={{
-          background: tokens.colors.bg.elevated,
-          borderRadius: tokens.radii.xl,
-          maxWidth: "500px",
-          width: "100%",
-          padding: "32px",
+          ...tokens.modals.container,
           textAlign: "center",
-          boxShadow: tokens.shadows.large,
+          padding: "32px",
         }}>
-          <p style={{ color: tokens.colors.text.secondary }}>Vereinbarung nicht gefunden</p>
+          <p style={tokens.typography.body}>Vereinbarung nicht gefunden</p>
           <button onClick={onClose} style={{
-            padding: "12px 24px",
-            background: tokens.colors.bg.surface,
-            color: tokens.colors.text.primary,
-            border: "none",
-            borderRadius: tokens.radii.md,
-            cursor: "pointer",
+            ...tokens.buttons.secondary,
             marginTop: "16px",
-            fontFamily: tokens.fonts.body,
           }}>Schliessen</button>
         </div>
       </div>
@@ -232,28 +182,10 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
   }
 
   return (
-    <div style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: "rgba(0,0,0,0.5)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "20px",
-      zIndex: 1000,
-      overflowY: "auto",
-    }}>
+    <div style={tokens.modals.overlay}>
       <div style={{
-        background: tokens.colors.bg.elevated,
-        borderRadius: tokens.radii.xl,
-        maxWidth: "500px",
-        width: "100%",
-        maxHeight: "90vh",
-        overflowY: "auto",
-        boxShadow: tokens.shadows.large,
+        ...tokens.modals.container,
+        padding: 0,
       }}>
         {/* Header */}
         <div style={{
@@ -263,21 +195,12 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
           padding: "16px 20px",
           borderBottom: `1px solid ${tokens.colors.bg.soft}`,
         }}>
-          <button onClick={onClose} style={{
-            background: "none",
-            border: "none",
-            fontSize: "16px",
-            color: tokens.colors.text.muted,
-            cursor: "pointer",
-            fontFamily: tokens.fonts.body,
-          }}>← Zurück</button>
-          <button onClick={() => setShowActions(!showActions)} style={{
-            background: "none",
-            border: "none",
-            fontSize: "24px",
-            color: tokens.colors.text.muted,
-            cursor: "pointer",
-          }}>⋯</button>
+          <button onClick={onClose} style={tokens.buttons.ghost}>
+            ← Zuruck
+          </button>
+          <button onClick={() => setShowActions(!showActions)} style={tokens.buttons.icon}>
+            &#8943;
+          </button>
         </div>
 
         {/* Actions Menu */}
@@ -291,86 +214,63 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
               <button
                 onClick={() => handleAction("pause")}
                 style={{
+                  ...tokens.buttons.secondary,
                   display: "block",
                   width: "100%",
-                  padding: "12px 16px",
-                  background: tokens.colors.bg.elevated,
-                  border: "none",
-                  borderRadius: tokens.radii.sm,
                   textAlign: "left",
-                  fontSize: "14px",
-                  color: tokens.colors.text.primary,
-                  cursor: "pointer",
                   marginBottom: "4px",
-                  fontFamily: tokens.fonts.body,
+                  padding: "12px 16px",
                 }}
                 disabled={actionLoading}
               >
-                ⏸️ Pausieren
+                &#9208;&#65039; Pausieren
               </button>
             )}
             {agreement.status === "paused" && (
               <button
                 onClick={() => handleAction("resume")}
                 style={{
+                  ...tokens.buttons.secondary,
                   display: "block",
                   width: "100%",
-                  padding: "12px 16px",
-                  background: tokens.colors.bg.elevated,
-                  border: "none",
-                  borderRadius: tokens.radii.sm,
                   textAlign: "left",
-                  fontSize: "14px",
-                  color: tokens.colors.text.primary,
-                  cursor: "pointer",
                   marginBottom: "4px",
-                  fontFamily: tokens.fonts.body,
+                  padding: "12px 16px",
                 }}
                 disabled={actionLoading}
               >
-                ▶️ Fortsetzen
+                &#9654;&#65039; Fortsetzen
               </button>
             )}
             {agreement.status === "active" && (
               <button
                 onClick={() => handleAction("achieve")}
                 style={{
+                  ...tokens.buttons.secondary,
                   display: "block",
                   width: "100%",
-                  padding: "12px 16px",
-                  background: tokens.colors.bg.elevated,
-                  border: "none",
-                  borderRadius: tokens.radii.sm,
                   textAlign: "left",
-                  fontSize: "14px",
-                  color: tokens.colors.text.primary,
-                  cursor: "pointer",
                   marginBottom: "4px",
-                  fontFamily: tokens.fonts.body,
+                  padding: "12px 16px",
                 }}
                 disabled={actionLoading}
               >
-                🎉 Als erreicht markieren
+                &#127881; Als erreicht markieren
               </button>
             )}
             <button
               onClick={() => handleAction("archive")}
               style={{
+                ...tokens.buttons.secondary,
                 display: "block",
                 width: "100%",
-                padding: "12px 16px",
-                background: tokens.colors.bg.elevated,
-                border: "none",
-                borderRadius: tokens.radii.sm,
                 textAlign: "left",
-                fontSize: "14px",
+                padding: "12px 16px",
                 color: tokens.colors.error,
-                cursor: "pointer",
-                fontFamily: tokens.fonts.body,
               }}
               disabled={actionLoading}
             >
-              🗑️ Archivieren
+              &#128465;&#65039; Archivieren
             </button>
           </div>
         )}
@@ -378,12 +278,14 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
         {/* Status Banner */}
         {needsMyApproval && (
           <div style={{
-            background: isDarkMode ? "rgba(251, 191, 36, 0.15)" : "#fef3c7",
+            ...tokens.alerts.warning,
             padding: "16px 20px",
+            borderRadius: 0,
+            border: "none",
           }}>
             <p style={{
+              ...tokens.alerts.warningText,
               margin: "0 0 12px 0",
-              color: isDarkMode ? "#fbbf24" : "#92400e",
               fontSize: "14px",
             }}>
               {profile?.partner_name || "Dein Partner"} hat diese Vereinbarung vorgeschlagen
@@ -395,30 +297,18 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
               <button
                 onClick={handleApprove}
                 style={{
-                  padding: "10px 20px",
+                  ...tokens.buttons.primarySmall,
                   background: tokens.colors.success,
-                  color: "white",
-                  border: "none",
-                  borderRadius: tokens.radii.sm,
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  fontFamily: tokens.fonts.body,
                 }}
                 disabled={actionLoading}
               >
-                ✓ Zustimmen
+                &#10003; Zustimmen
               </button>
               <button
                 onClick={() => handleAction("archive")}
                 style={{
-                  padding: "10px 20px",
-                  background: "transparent",
-                  color: isDarkMode ? "#fbbf24" : "#92400e",
-                  border: "none",
-                  fontSize: "14px",
-                  cursor: "pointer",
-                  fontFamily: tokens.fonts.body,
+                  ...tokens.buttons.ghost,
+                  ...tokens.alerts.warningText,
                 }}
                 disabled={actionLoading}
               >
@@ -430,31 +320,23 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
 
         {/* Main Content */}
         <div style={{ padding: "24px 20px" }}>
-          <h2 style={{
-            fontSize: "22px",
-            fontWeight: "bold",
-            color: tokens.colors.text.primary,
-            margin: "0 0 16px 0",
-            fontFamily: tokens.fonts.display,
-          }}>{agreement.title}</h2>
+          <h2 style={tokens.typography.h2}>{agreement.title}</h2>
 
           {agreement.underlying_need && (
             <div style={{
-              background: isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff",
-              borderRadius: tokens.radii.md,
-              padding: "16px",
+              ...tokens.alerts.info,
               marginBottom: "20px",
             }}>
               <span style={{
+                ...tokens.alerts.infoText,
                 fontSize: "13px",
                 fontWeight: "600",
-                color: tokens.colors.aurora.lavender,
                 display: "block",
                 marginBottom: "6px",
               }}>Warum es wichtig ist</span>
               <p style={{
+                ...tokens.alerts.infoText,
                 margin: 0,
-                color: isDarkMode ? tokens.colors.aurora.lavender : "#4c1d95",
                 fontSize: "15px",
                 lineHeight: "1.5",
               }}>{agreement.underlying_need}</p>
@@ -467,29 +349,23 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
             marginBottom: "20px",
           }}>
             <div style={{ flex: 1 }}>
+              <span style={tokens.typography.small}>Verantwortlich</span>
               <span style={{
                 display: "block",
-                fontSize: "12px",
-                color: tokens.colors.text.muted,
-                marginBottom: "4px",
-              }}>Verantwortlich</span>
-              <span style={{
                 fontSize: "15px",
                 fontWeight: "500",
                 color: tokens.colors.text.primary,
+                marginTop: "4px",
               }}>{getResponsibleName()}</span>
             </div>
             <div style={{ flex: 1 }}>
+              <span style={tokens.typography.small}>Status</span>
               <span style={{
                 display: "block",
-                fontSize: "12px",
-                color: tokens.colors.text.muted,
-                marginBottom: "4px",
-              }}>Status</span>
-              <span style={{
                 fontSize: "15px",
                 fontWeight: "500",
                 color: agreement.status === "active" ? tokens.colors.success : tokens.colors.text.muted,
+                marginTop: "4px",
               }}>
                 {agreement.status === "active" ? "Aktiv" :
                   agreement.status === "paused" ? "Pausiert" :
@@ -503,17 +379,15 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
           {/* Success Streak */}
           {agreement.success_streak > 0 && (
             <div style={{
-              background: isDarkMode ? "rgba(251, 191, 36, 0.15)" : "#fef3c7",
-              borderRadius: tokens.radii.md,
-              padding: "12px 16px",
+              ...tokens.alerts.warning,
               display: "flex",
               alignItems: "center",
               gap: "10px",
               marginBottom: "20px",
             }}>
-              <span style={{ fontSize: "24px" }}>🔥</span>
+              <span style={{ fontSize: "24px" }}>&#128293;</span>
               <span style={{
-                color: isDarkMode ? "#fbbf24" : "#92400e",
+                ...tokens.alerts.warningText,
                 fontSize: "14px",
                 fontWeight: "500",
               }}>
@@ -525,7 +399,7 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
           {/* Check-in Due */}
           {isCheckInDue && agreement.status === "active" && !showCheckIn && (
             <div style={{
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
+              background: tokens.gradients.primary,
               borderRadius: tokens.radii.md,
               padding: "20px",
               textAlign: "center",
@@ -536,19 +410,13 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
                 fontSize: "16px",
                 fontWeight: "600",
                 margin: "0 0 12px 0",
-              }}>Check-in fällig!</p>
+              }}>Check-in fallig!</p>
               <button
                 onClick={() => setShowCheckIn(true)}
                 style={{
-                  padding: "12px 24px",
+                  ...tokens.buttons.secondary,
                   background: "white",
                   color: tokens.colors.aurora.lavender,
-                  border: "none",
-                  borderRadius: tokens.radii.md,
-                  fontSize: "15px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  fontFamily: tokens.fonts.body,
                 }}
               >
                 Jetzt einchecken
@@ -559,18 +427,12 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
           {/* Check-in Form */}
           {showCheckIn && (
             <div style={{
-              background: tokens.colors.bg.surface,
+              ...tokens.cards.surface,
               borderRadius: tokens.radii.lg,
               padding: "20px",
               marginBottom: "20px",
             }}>
-              <h3 style={{
-                fontSize: "18px",
-                fontWeight: "600",
-                color: tokens.colors.text.primary,
-                margin: "0 0 16px 0",
-                fontFamily: tokens.fonts.display,
-              }}>Wie läuft es?</h3>
+              <h3 style={tokens.typography.h3}>Wie lauft es?</h3>
 
               <div style={{
                 display: "flex",
@@ -583,17 +445,8 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
                     key={option.value}
                     onClick={() => setCheckInStatus(option.value)}
                     style={{
-                      display: "flex",
+                      ...tokens.inputs.selection(checkInStatus === option.value),
                       alignItems: "center",
-                      gap: "12px",
-                      padding: "14px",
-                      background: checkInStatus === option.value
-                        ? (isDarkMode ? "rgba(139, 92, 246, 0.15)" : "#f5f3ff")
-                        : tokens.colors.bg.elevated,
-                      border: `2px solid ${checkInStatus === option.value ? tokens.colors.aurora.lavender : tokens.colors.bg.soft}`,
-                      borderRadius: tokens.radii.md,
-                      cursor: "pointer",
-                      textAlign: "left",
                     }}
                   >
                     <span style={{ fontSize: "24px" }}>{option.emoji}</span>
@@ -603,8 +456,7 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
                       fontSize: "15px",
                     }}>{option.label}</span>
                     <span style={{
-                      fontSize: "13px",
-                      color: tokens.colors.text.muted,
+                      ...tokens.typography.small,
                       marginLeft: "auto",
                     }}>{option.desc}</span>
                   </button>
@@ -614,29 +466,13 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
               {checkInStatus && (
                 <>
                   <div style={{ marginBottom: "16px" }}>
-                    <label style={{
-                      display: "block",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      color: tokens.colors.text.primary,
-                      marginBottom: "6px",
-                    }}>Was hat gut funktioniert? (optional)</label>
+                    <label style={tokens.inputs.label}>Was hat gut funktioniert? (optional)</label>
                     <textarea
                       value={whatWorked}
                       onChange={(e) => setWhatWorked(e.target.value)}
                       style={{
-                        width: "100%",
-                        padding: "12px",
-                        borderRadius: tokens.radii.md,
-                        border: `2px solid ${tokens.colors.bg.soft}`,
-                        fontSize: "15px",
+                        ...tokens.inputs.textarea,
                         minHeight: "80px",
-                        resize: "vertical",
-                        outline: "none",
-                        background: tokens.colors.bg.elevated,
-                        color: tokens.colors.text.primary,
-                        fontFamily: tokens.fonts.body,
-                        boxSizing: "border-box",
                       }}
                       placeholder="z.B. Der Reminder im Auto hat geholfen..."
                     />
@@ -644,29 +480,13 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
 
                   {(checkInStatus === "difficult" || checkInStatus === "needs_change") && (
                     <div style={{ marginBottom: "16px" }}>
-                      <label style={{
-                        display: "block",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                        color: tokens.colors.text.primary,
-                        marginBottom: "6px",
-                      }}>Was war schwierig?</label>
+                      <label style={tokens.inputs.label}>Was war schwierig?</label>
                       <textarea
                         value={whatWasHard}
                         onChange={(e) => setWhatWasHard(e.target.value)}
                         style={{
-                          width: "100%",
-                          padding: "12px",
-                          borderRadius: tokens.radii.md,
-                          border: `2px solid ${tokens.colors.bg.soft}`,
-                          fontSize: "15px",
+                          ...tokens.inputs.textarea,
                           minHeight: "80px",
-                          resize: "vertical",
-                          outline: "none",
-                          background: tokens.colors.bg.elevated,
-                          color: tokens.colors.text.primary,
-                          fontFamily: tokens.fonts.body,
-                          boxSizing: "border-box",
                         }}
                         placeholder="z.B. Im Stress vergesse ich es..."
                       />
@@ -680,31 +500,13 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
                   }}>
                     <button
                       onClick={() => setShowCheckIn(false)}
-                      style={{
-                        padding: "10px 20px",
-                        background: "transparent",
-                        color: tokens.colors.text.muted,
-                        border: "none",
-                        fontSize: "14px",
-                        cursor: "pointer",
-                        fontFamily: tokens.fonts.body,
-                      }}
+                      style={tokens.buttons.ghost}
                     >
                       Abbrechen
                     </button>
                     <button
                       onClick={handleCheckIn}
-                      style={{
-                        padding: "12px 24px",
-                        background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-                        color: "white",
-                        border: "none",
-                        borderRadius: tokens.radii.md,
-                        fontSize: "15px",
-                        fontWeight: "600",
-                        cursor: "pointer",
-                        fontFamily: tokens.fonts.body,
-                      }}
+                      style={tokens.buttons.primary}
                       disabled={savingCheckIn}
                     >
                       {savingCheckIn ? "Speichern..." : "Check-in speichern"}
@@ -723,11 +525,8 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
               borderTop: `1px solid ${tokens.colors.bg.soft}`,
             }}>
               <h3 style={{
+                ...tokens.typography.h3,
                 fontSize: "16px",
-                fontWeight: "600",
-                color: tokens.colors.text.primary,
-                margin: "0 0 16px 0",
-                fontFamily: tokens.fonts.display,
               }}>Verlauf</h3>
               {agreement.checkins.slice(0, 5).map((checkin, i) => (
                 <div key={checkin.id || i} style={{
@@ -741,25 +540,22 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
                         checkin.status === "difficult" ? "🧡" : "❤️"}
                   </span>
                   <div style={{ flex: 1 }}>
-                    <span style={{
-                      fontSize: "13px",
-                      color: tokens.colors.text.muted,
-                    }}>
+                    <span style={tokens.typography.small}>
                       {formatDate(checkin.created_at)}
                     </span>
                     {checkin.what_worked && (
                       <p style={{
-                        margin: "4px 0 0 0",
+                        ...tokens.typography.body,
+                        marginTop: "4px",
                         fontSize: "14px",
-                        color: tokens.colors.text.secondary,
-                      }}>✓ {checkin.what_worked}</p>
+                      }}>&#10003; {checkin.what_worked}</p>
                     )}
                     {checkin.what_was_hard && (
                       <p style={{
-                        margin: "4px 0 0 0",
+                        ...tokens.typography.body,
+                        marginTop: "4px",
                         fontSize: "14px",
-                        color: tokens.colors.text.secondary,
-                      }}>△ {checkin.what_was_hard}</p>
+                      }}>&#9651; {checkin.what_was_hard}</p>
                     )}
                   </div>
                 </div>
@@ -770,12 +566,11 @@ export default function AgreementDetail({ agreementId, onClose, onUpdate }) {
           {/* Next Check-in */}
           {agreement.next_check_in_at && agreement.status === "active" && (
             <p style={{
+              ...tokens.typography.small,
               textAlign: "center",
-              color: tokens.colors.text.muted,
-              fontSize: "13px",
               marginTop: "20px",
             }}>
-              Nächster Check-in: {formatDate(agreement.next_check_in_at)}
+              Nachster Check-in: {formatDate(agreement.next_check_in_at)}
             </p>
           )}
         </div>
