@@ -147,17 +147,21 @@ function HomeContent() {
 
   // Load analysis context if coming from message analysis
   useEffect(() => {
+    console.log("[DEBUG] Load context effect - fromAnalysisId:", fromAnalysisId, "user:", !!user);
     if (fromAnalysisId && user) {
       loadAnalysisContext(fromAnalysisId);
     }
   }, [fromAnalysisId, user]);
 
   const loadAnalysisContext = async (sessionId) => {
+    console.log("[DEBUG] loadAnalysisContext called with sessionId:", sessionId);
     setLoadingAnalysisContext(true);
     try {
       const response = await fetch(`/api/sessions/${sessionId}`);
+      console.log("[DEBUG] API response status:", response.status);
       if (response.ok) {
         const session = await response.json();
+        console.log("[DEBUG] Session loaded:", { type: session.type, hasAnalysis: !!session.analysis });
         if (session.type === "message_analysis" && session.analysis) {
           setAnalysisContext({
             sessionId: session.id,
@@ -165,19 +169,33 @@ function HomeContent() {
             themes: session.themes || [],
             patterns: session.detected_patterns || {}
           });
-          console.log("Loaded analysis context for voice session");
+          console.log("[DEBUG] Analysis context SET successfully");
+        } else {
+          console.log("[DEBUG] Session type mismatch or no analysis. Type:", session.type);
         }
+      } else {
+        console.log("[DEBUG] API response NOT ok");
       }
     } catch (error) {
-      console.error("Failed to load analysis context:", error);
+      console.error("[DEBUG] Failed to load analysis context:", error);
     } finally {
       setLoadingAnalysisContext(false);
+      console.log("[DEBUG] loadingAnalysisContext set to false");
     }
   };
 
   // AUTO-START: When coming from analysis, start session automatically
   const hasAutoStarted = useRef(false);
   useEffect(() => {
+    console.log("[DEBUG] Auto-start effect check:", {
+      fromAnalysisId: !!fromAnalysisId,
+      analysisContext: !!analysisContext,
+      loadingAnalysisContext,
+      started,
+      hasAutoStarted: hasAutoStarted.current,
+      user: !!user,
+      profileName: profile?.name
+    });
     if (
       fromAnalysisId &&
       analysisContext &&
@@ -187,7 +205,7 @@ function HomeContent() {
       user &&
       profile?.name
     ) {
-      console.log("Auto-starting session with analysis context");
+      console.log("[DEBUG] ✅ All conditions met - AUTO-STARTING SESSION");
       hasAutoStarted.current = true;
       startSession();
     }
