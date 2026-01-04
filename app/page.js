@@ -102,6 +102,8 @@ function HomeContent() {
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
   const mediaStreamRef = useRef(null); // For microphone cleanup
+  const isConnectingRef = useRef(false); // Track if we're in the middle of connecting
+  const shouldAbortRef = useRef(false); // Flag to abort connection if user clicks end
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -175,6 +177,10 @@ function HomeContent() {
   const startSession = useCallback(async () => {
     if (!user) return;
 
+    // Reset abort flag
+    shouldAbortRef.current = false;
+    isConnectingRef.current = true;
+
     setStarted(true);
     setVoiceState(STATE.CONNECTING);
     messagesRef.current = [];
@@ -210,9 +216,27 @@ function HomeContent() {
       const session = await sessionsService.create(user.id, "solo");
       setCurrentSessionId(session.id);
 
+      // Check if user already clicked end
+      if (shouldAbortRef.current) {
+        console.log("Session aborted before microphone request");
+        isConnectingRef.current = false;
+        resetSession();
+        return;
+      }
+
       const { Conversation } = await import("@elevenlabs/client");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream; // Save for cleanup
+
+      // Check again if user clicked end while we were getting microphone
+      if (shouldAbortRef.current) {
+        console.log("Session aborted after microphone request");
+        stream.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+        isConnectingRef.current = false;
+        resetSession();
+        return;
+      }
 
       console.log("Context length:", userContext.length);
       console.log("Context preview:", userContext.substring(0, 300));
@@ -240,6 +264,18 @@ function HomeContent() {
         },
         onConnect: () => {
           console.log("Connected to ElevenLabs");
+          isConnectingRef.current = false;
+
+          // If user already clicked end, disconnect immediately
+          if (shouldAbortRef.current) {
+            console.log("Aborting: User clicked end during connection");
+            if (conversationRef.current) {
+              conversationRef.current.endSession();
+              conversationRef.current = null;
+            }
+            return;
+          }
+
           setVoiceState(STATE.LISTENING);
         },
         onDisconnect: (details) => {
@@ -487,10 +523,28 @@ function HomeContent() {
     // Give immediate visual feedback
     setVoiceState(STATE.IDLE);
 
+    // Set abort flag for any in-progress connection
+    shouldAbortRef.current = true;
+
     // Stop timer
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
+    }
+
+    // If still connecting, just reset and return - the abort flag will handle cleanup
+    if (isConnectingRef.current) {
+      console.log("Ending during connection - abort flag set");
+      // Release microphone if we have it
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => {
+          track.stop();
+          console.log("Audio track stopped during connecting:", track.label);
+        });
+        mediaStreamRef.current = null;
+      }
+      resetSession();
+      return;
     }
 
     // End ElevenLabs session
@@ -586,8 +640,16 @@ function HomeContent() {
   useEffect(() => {
     return () => {
       // Cleanup when leaving the page
+      // Set abort flag to stop any in-progress connection
+      shouldAbortRef.current = true;
+      isConnectingRef.current = false;
+
       if (conversationRef.current) {
-        conversationRef.current.endSession();
+        try {
+          conversationRef.current.endSession();
+        } catch (e) {
+          console.log("Cleanup: session already ended");
+        }
         conversationRef.current = null;
       }
       if (timerRef.current) {
