@@ -2,19 +2,13 @@
 
 /**
  * MESSAGE COACH - Collaborative Response Writing
- *
- * Flow:
- * 1. User comes from message analysis with sessionId
- * 2. Amiya loads context and offers to help write a response
- * 3. User dictates (voice) or types what they want to say
- * 4. Amiya suggests improved phrasing
- * 5. Iterative refinement until user is satisfied
- * 6. Copy final message
+ * Uses Amiya Theme System for consistent styling
  */
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../../lib/AuthContext";
+import { useTheme } from "../../../lib/ThemeContext";
 import {
   ArrowLeft,
   Mic,
@@ -34,6 +28,10 @@ export default function MessageCoachPage() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
   const { user, profile } = useAuth();
+  const { tokens } = useTheme();
+
+  // Build dynamic styles
+  const styles = buildStyles(tokens);
 
   // State
   const [analysisContext, setAnalysisContext] = useState(null);
@@ -48,6 +46,7 @@ export default function MessageCoachPage() {
   // Refs
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -74,7 +73,6 @@ export default function MessageCoachPage() {
             rawConversation: session.summary || "",
           });
 
-          // Start conversation with Amiya's greeting
           const partnerName = profile?.partner_name || "deinem Partner";
           setMessages([
             {
@@ -96,7 +94,6 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
     }
   };
 
-  // Send message to coach API
   const sendMessage = async (text) => {
     if (!text.trim() || isSending) return;
 
@@ -120,8 +117,6 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
       if (!response.ok) throw new Error("API request failed");
 
       const data = await response.json();
-
-      // Add Amiya's response
       setMessages((prev) => [
         ...prev,
         {
@@ -132,7 +127,6 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
         },
       ]);
 
-      // If there's a final draft suggestion
       if (data.suggestion) {
         setFinalDraft(data.suggestion);
       }
@@ -142,8 +136,7 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
         ...prev,
         {
           role: "assistant",
-          content:
-            "Entschuldige, da ist etwas schief gelaufen. Kannst du es nochmal versuchen?",
+          content: "Entschuldige, da ist etwas schief gelaufen. Kannst du es nochmal versuchen?",
           type: "error",
         },
       ]);
@@ -152,14 +145,10 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
     }
   };
 
-  // Voice recording with Web Speech API
-  const recognitionRef = useRef(null);
-
   const startRecording = () => {
-    // Check for Web Speech API support
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Spracherkennung wird von deinem Browser nicht unterstützt. Bitte nutze Chrome oder Safari.");
+      alert("Spracherkennung wird von deinem Browser nicht unterstützt.");
       return;
     }
 
@@ -180,18 +169,12 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
           interimTranscript += transcript;
         }
       }
-      // Show interim results in input
       setInputText(finalTranscript + interimTranscript);
     };
 
-    recognitionRef.current.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-      setIsRecording(false);
-    };
-
+    recognitionRef.current.onerror = () => setIsRecording(false);
     recognitionRef.current.onend = () => {
       setIsRecording(false);
-      // If we have text, send it
       if (finalTranscript.trim()) {
         sendMessage(finalTranscript.trim());
       }
@@ -207,7 +190,6 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
     }
   };
 
-  // Copy to clipboard
   const copyToClipboard = async (text) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -218,23 +200,17 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
     }
   };
 
-  // Update suggestion when user edits via tap-to-edit
   const updateSuggestion = (messageIndex, newText) => {
     setMessages((prev) => {
       const updated = [...prev];
-      if (updated[messageIndex] && updated[messageIndex].suggestion) {
-        updated[messageIndex] = {
-          ...updated[messageIndex],
-          suggestion: newText,
-        };
+      if (updated[messageIndex]?.suggestion) {
+        updated[messageIndex] = { ...updated[messageIndex], suggestion: newText };
       }
       return updated;
     });
-    // Also update the final draft
     setFinalDraft(newText);
   };
 
-  // Request new variation of suggestion
   const requestVariation = async () => {
     if (!finalDraft || isSending) return;
 
@@ -282,7 +258,6 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
     }
   };
 
-  // Handle key press in input
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -331,9 +306,7 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
             key={index}
             style={{
               ...styles.messageBubble,
-              ...(message.role === "user"
-                ? styles.userBubble
-                : styles.assistantBubble),
+              ...(message.role === "user" ? styles.userBubble : styles.assistantBubble),
             }}
           >
             {message.role === "assistant" && (
@@ -341,7 +314,6 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
             )}
             <p style={styles.messageText}>{message.content}</p>
 
-            {/* Show suggestion box if present - with tap-to-edit */}
             {message.suggestion && (
               <div style={styles.suggestionBox}>
                 <div style={styles.suggestionHeader}>
@@ -375,7 +347,6 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
           </div>
         ))}
 
-        {/* Typing indicator */}
         {isSending && (
           <div style={{ ...styles.messageBubble, ...styles.assistantBubble }}>
             <div style={styles.typingIndicator}>
@@ -389,17 +360,14 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Final Draft Bar (if available) */}
+      {/* Final Draft Bar */}
       {finalDraft && (
         <div style={styles.draftBar}>
           <p style={styles.draftLabel}>Aktueller Entwurf</p>
           <p style={styles.draftText} onClick={() => copyToClipboard(finalDraft)}>
             {finalDraft}
           </p>
-          <button
-            onClick={() => copyToClipboard(finalDraft)}
-            style={styles.copyDraftButton}
-          >
+          <button onClick={() => copyToClipboard(finalDraft)} style={styles.copyDraftButton}>
             {copied ? <Check size={20} /> : <Copy size={20} />}
           </button>
         </div>
@@ -409,10 +377,7 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
       <div style={styles.inputArea}>
         <button
           onClick={isRecording ? stopRecording : startRecording}
-          style={{
-            ...styles.micButton,
-            ...(isRecording ? styles.micButtonActive : {}),
-          }}
+          style={{ ...styles.micButton, ...(isRecording ? styles.micButtonActive : {}) }}
           disabled={isSending}
         >
           {isRecording ? <MicOff size={24} /> : <Mic size={24} />}
@@ -441,252 +406,256 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
   );
 }
 
-const styles = {
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100vh",
-    backgroundColor: "#0a0a0a",
-    color: "#fff",
-  },
-  loadingContainer: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-    backgroundColor: "#0a0a0a",
-    color: "#fff",
-  },
-  spinner: {
-    animation: "spin 1s linear infinite",
-  },
-  errorContainer: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-    backgroundColor: "#0a0a0a",
-    color: "#fff",
-    gap: 16,
-  },
-  backButton: {
-    padding: "12px 24px",
-    backgroundColor: "#333",
-    border: "none",
-    borderRadius: 8,
-    color: "#fff",
-    cursor: "pointer",
-  },
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "16px 20px",
-    borderBottom: "1px solid #222",
-    backgroundColor: "#0a0a0a",
-    position: "sticky",
-    top: 0,
-    zIndex: 10,
-  },
-  headerButton: {
-    background: "none",
-    border: "none",
-    color: "#fff",
-    cursor: "pointer",
-    padding: 8,
-  },
-  headerTitle: {
-    display: "flex",
-    alignItems: "center",
-    fontSize: 16,
-    fontWeight: 600,
-  },
-  messagesContainer: {
-    flex: 1,
-    overflowY: "auto",
-    padding: "16px 16px 100px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-  },
-  messageBubble: {
-    maxWidth: "85%",
-    padding: "12px 16px",
-    borderRadius: 16,
-    lineHeight: 1.5,
-  },
-  userBubble: {
-    alignSelf: "flex-end",
-    backgroundColor: "#e8d5c4",
-    color: "#1a1a1a",
-    borderBottomRightRadius: 4,
-  },
-  assistantBubble: {
-    alignSelf: "flex-start",
-    backgroundColor: "#1a1a1a",
-    color: "#fff",
-    borderBottomLeftRadius: 4,
-    border: "1px solid #333",
-  },
-  amiyaLabel: {
-    fontSize: 11,
-    color: "#e8d5c4",
-    marginBottom: 4,
-    fontWeight: 500,
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-  },
-  messageText: {
-    margin: 0,
-    fontSize: 15,
-    whiteSpace: "pre-wrap",
-  },
-  suggestionBox: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: "#0d1f0d",
-    borderRadius: 12,
-    border: "1px solid #1a3a1a",
-  },
-  suggestionHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    fontSize: 12,
-    color: "#8bc98b",
-    marginBottom: 12,
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-  },
-  suggestionText: {
-    margin: 0,
-    fontSize: 15,
-    lineHeight: 1.6,
-    color: "#c8e8c8",
-    whiteSpace: "pre-wrap",
-  },
-  suggestionActions: {
-    display: "flex",
-    gap: 12,
-    marginTop: 16,
-  },
-  actionButton: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "8px 12px",
-    backgroundColor: "rgba(139, 201, 139, 0.15)",
-    border: "1px solid #2a4a2a",
-    borderRadius: 8,
-    color: "#8bc98b",
-    fontSize: 13,
-    cursor: "pointer",
-  },
-  typingIndicator: {
-    display: "flex",
-    gap: 4,
-    padding: "8px 0",
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    backgroundColor: "#666",
-    borderRadius: "50%",
-    animation: "bounce 1.4s infinite ease-in-out both",
-  },
-  draftBar: {
-    position: "fixed",
-    bottom: 80,
-    left: 16,
-    right: 16,
-    padding: "12px 16px",
-    backgroundColor: "#1a2a1a",
-    borderRadius: 12,
-    border: "1px solid #2a4a2a",
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    zIndex: 5,
-  },
-  draftLabel: {
-    fontSize: 11,
-    color: "#8bc98b",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    margin: 0,
-    flexShrink: 0,
-  },
-  draftText: {
-    flex: 1,
-    margin: 0,
-    fontSize: 14,
-    color: "#c8e8c8",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    cursor: "pointer",
-  },
-  copyDraftButton: {
-    background: "none",
-    border: "none",
-    color: "#8bc98b",
-    cursor: "pointer",
-    padding: 8,
-    flexShrink: 0,
-  },
-  inputArea: {
-    position: "fixed",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: "12px 16px",
-    backgroundColor: "#0a0a0a",
-    borderTop: "1px solid #222",
-  },
-  micButton: {
-    width: 48,
-    height: 48,
-    borderRadius: "50%",
-    backgroundColor: "#1a1a1a",
-    border: "1px solid #333",
-    color: "#fff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    flexShrink: 0,
-  },
-  micButtonActive: {
-    backgroundColor: "#e8d5c4",
-    color: "#0a0a0a",
-    border: "none",
-  },
-  textInput: {
-    flex: 1,
-    padding: "12px 16px",
-    backgroundColor: "#1a1a1a",
-    border: "1px solid #333",
-    borderRadius: 24,
-    color: "#fff",
-    fontSize: 15,
-    outline: "none",
-  },
-  sendButton: {
-    width: 48,
-    height: 48,
-    borderRadius: "50%",
-    backgroundColor: "#e8d5c4",
-    border: "none",
-    color: "#0a0a0a",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    flexShrink: 0,
-  },
-};
+// Build styles dynamically from theme tokens
+function buildStyles(tokens) {
+  const { colors, radii, shadows, gradients } = tokens;
+
+  return {
+    container: {
+      display: "flex",
+      flexDirection: "column",
+      height: "100vh",
+      backgroundColor: colors.bg.deep,
+      color: colors.text.primary,
+    },
+    loadingContainer: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      height: "100vh",
+      backgroundColor: colors.bg.deep,
+      color: colors.text.primary,
+    },
+    spinner: {
+      animation: "spin 1s linear infinite",
+    },
+    errorContainer: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      height: "100vh",
+      backgroundColor: colors.bg.deep,
+      color: colors.text.primary,
+      gap: 16,
+    },
+    backButton: {
+      padding: "12px 24px",
+      backgroundColor: colors.bg.surface,
+      border: "none",
+      borderRadius: radii.md,
+      color: colors.text.primary,
+      cursor: "pointer",
+    },
+    header: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "16px 20px",
+      borderBottom: `1px solid ${colors.bg.soft}`,
+      backgroundColor: colors.bg.deep,
+      position: "sticky",
+      top: 0,
+      zIndex: 10,
+    },
+    headerButton: {
+      background: "none",
+      border: "none",
+      color: colors.text.primary,
+      cursor: "pointer",
+      padding: 8,
+    },
+    headerTitle: {
+      display: "flex",
+      alignItems: "center",
+      fontSize: 16,
+      fontWeight: 600,
+      color: colors.text.primary,
+    },
+    messagesContainer: {
+      flex: 1,
+      overflowY: "auto",
+      padding: "16px 16px 100px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 16,
+    },
+    messageBubble: {
+      maxWidth: "85%",
+      padding: "12px 16px",
+      borderRadius: radii.lg,
+      lineHeight: 1.5,
+    },
+    userBubble: {
+      alignSelf: "flex-end",
+      backgroundColor: colors.aurora.mint,
+      color: "#1a1a1a",
+      borderBottomRightRadius: 4,
+    },
+    assistantBubble: {
+      alignSelf: "flex-start",
+      backgroundColor: colors.bg.elevated,
+      color: colors.text.primary,
+      borderBottomLeftRadius: 4,
+      border: `1px solid ${colors.bg.soft}`,
+    },
+    amiyaLabel: {
+      fontSize: 11,
+      color: colors.aurora.mint,
+      marginBottom: 4,
+      fontWeight: 600,
+      textTransform: "uppercase",
+      letterSpacing: "0.5px",
+    },
+    messageText: {
+      margin: 0,
+      fontSize: 15,
+      whiteSpace: "pre-wrap",
+    },
+    suggestionBox: {
+      marginTop: 16,
+      padding: 16,
+      backgroundColor: `${colors.aurora.lavender}10`,
+      borderRadius: radii.md,
+      border: `1px solid ${colors.aurora.lavender}30`,
+    },
+    suggestionHeader: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      fontSize: 12,
+      color: colors.aurora.lavender,
+      marginBottom: 12,
+      textTransform: "uppercase",
+      letterSpacing: "0.5px",
+      fontWeight: 600,
+    },
+    suggestionActions: {
+      display: "flex",
+      gap: 12,
+      marginTop: 16,
+    },
+    actionButton: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      padding: "10px 14px",
+      backgroundColor: `${colors.aurora.mint}15`,
+      border: `1px solid ${colors.aurora.mint}30`,
+      borderRadius: radii.md,
+      color: colors.aurora.mint,
+      fontSize: 13,
+      fontWeight: 500,
+      cursor: "pointer",
+    },
+    typingIndicator: {
+      display: "flex",
+      gap: 4,
+      padding: "8px 0",
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      backgroundColor: colors.text.muted,
+      borderRadius: "50%",
+      animation: "bounce 1.4s infinite ease-in-out both",
+    },
+    draftBar: {
+      position: "fixed",
+      bottom: 80,
+      left: 16,
+      right: 16,
+      padding: "14px 16px",
+      backgroundColor: colors.bg.elevated,
+      borderRadius: radii.md,
+      border: `1px solid ${colors.aurora.mint}30`,
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      zIndex: 5,
+      boxShadow: shadows.medium,
+    },
+    draftLabel: {
+      fontSize: 11,
+      color: colors.aurora.mint,
+      textTransform: "uppercase",
+      letterSpacing: "0.5px",
+      fontWeight: 600,
+      margin: 0,
+      flexShrink: 0,
+    },
+    draftText: {
+      flex: 1,
+      margin: 0,
+      fontSize: 14,
+      color: colors.text.secondary,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
+      cursor: "pointer",
+    },
+    copyDraftButton: {
+      background: "none",
+      border: "none",
+      color: colors.aurora.mint,
+      cursor: "pointer",
+      padding: 8,
+      flexShrink: 0,
+    },
+    inputArea: {
+      position: "fixed",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      padding: "12px 16px",
+      backgroundColor: colors.bg.deep,
+      borderTop: `1px solid ${colors.bg.soft}`,
+    },
+    micButton: {
+      width: 48,
+      height: 48,
+      borderRadius: "50%",
+      backgroundColor: colors.bg.surface,
+      border: `1px solid ${colors.bg.soft}`,
+      color: colors.text.primary,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: "pointer",
+      flexShrink: 0,
+    },
+    micButtonActive: {
+      background: gradients.primary,
+      color: "#ffffff",
+      border: "none",
+    },
+    textInput: {
+      flex: 1,
+      padding: "12px 16px",
+      backgroundColor: colors.bg.surface,
+      border: `1px solid ${colors.bg.soft}`,
+      borderRadius: radii.pill,
+      color: colors.text.primary,
+      fontSize: 15,
+      outline: "none",
+    },
+    sendButton: {
+      width: 48,
+      height: 48,
+      borderRadius: "50%",
+      background: gradients.primary,
+      border: "none",
+      color: "#ffffff",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: "pointer",
+      flexShrink: 0,
+      boxShadow: shadows.button,
+    },
+  };
+}
