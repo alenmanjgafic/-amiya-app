@@ -1,6 +1,8 @@
 /**
  * AUTH PAGE - app/auth/page.js
  * Login & Registrierung (nur E-Mail + Passwort)
+ *
+ * MIGRATED TO DESIGN SYSTEM - Uses tokens.buttons, tokens.inputs, etc.
  */
 "use client";
 import { useState } from "react";
@@ -19,7 +21,7 @@ export default function AuthPage() {
 
   const router = useRouter();
   const { signIn, signUp } = useAuth();
-  const { tokens, isDarkMode } = useTheme();
+  const { tokens } = useTheme();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,53 +45,29 @@ export default function AuthPage() {
   };
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "20px",
-      background: tokens.colors.bg.deep,
-      transition: "background 0.3s ease",
-    }}>
+    <div style={tokens.layout.pageCentered}>
       <div style={{
+        ...tokens.cards.elevatedLarge,
         width: "100%",
         maxWidth: "400px",
-        background: tokens.colors.bg.elevated,
-        borderRadius: tokens.radii.xl,
-        padding: "32px",
-        boxShadow: tokens.shadows.medium,
       }}>
         {/* Logo */}
-        <div style={{
-          textAlign: "center",
-          marginBottom: "32px",
-        }}>
+        <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <div style={{
             width: "70px",
             height: "70px",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
+            background: tokens.gradients.primary,
             borderRadius: tokens.radii.xl,
             margin: "0 auto 16px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: isDarkMode
-              ? tokens.shadows.glow(tokens.colors.aurora.lavender)
-              : "0 8px 30px rgba(124,58,237,0.3)",
-          }}><Heart size={35} color="white" fill="white" /></div>
-          <h1 style={{
-            fontSize: "28px",
-            fontWeight: "bold",
-            color: tokens.colors.text.primary,
-            margin: "0 0 8px 0",
-            fontFamily: tokens.fonts.display,
-          }}>Amiya</h1>
-          <p style={{
-            color: tokens.colors.text.secondary,
-            margin: 0,
-            fontSize: "15px",
+            boxShadow: tokens.shadows.button,
           }}>
+            <Heart size={35} color="white" fill="white" />
+          </div>
+          <h1 style={tokens.typography.h1}>Amiya</h1>
+          <p style={tokens.typography.body}>
             {isLogin ? "Willkommen zurück" : "Erstelle dein Konto"}
           </p>
         </div>
@@ -100,104 +78,48 @@ export default function AuthPage() {
           flexDirection: "column",
           gap: "20px",
         }}>
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "6px",
-          }}>
-            <label style={{
-              fontSize: "14px",
-              fontWeight: "500",
-              color: tokens.colors.text.primary,
-            }}>E-Mail</label>
+          {/* Email Field */}
+          <div>
+            <label style={tokens.inputs.label}>E-Mail</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="deine@email.ch"
-              style={{
-                padding: "14px 16px",
-                borderRadius: tokens.radii.md,
-                border: `2px solid ${tokens.colors.bg.soft}`,
-                fontSize: "16px",
-                outline: "none",
-                transition: "border-color 0.2s",
-                background: tokens.colors.bg.surface,
-                color: tokens.colors.text.primary,
-                fontFamily: tokens.fonts.body,
-              }}
+              style={tokens.inputs.text}
               required
             />
           </div>
 
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "6px",
-          }}>
-            <label style={{
-              fontSize: "14px",
-              fontWeight: "500",
-              color: tokens.colors.text.primary,
-            }}>Passwort</label>
+          {/* Password Field */}
+          <div>
+            <label style={tokens.inputs.label}>Passwort</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={isLogin ? "Dein Passwort" : "Min. 6 Zeichen"}
-              style={{
-                padding: "14px 16px",
-                borderRadius: tokens.radii.md,
-                border: `2px solid ${tokens.colors.bg.soft}`,
-                fontSize: "16px",
-                outline: "none",
-                transition: "border-color 0.2s",
-                background: tokens.colors.bg.surface,
-                color: tokens.colors.text.primary,
-                fontFamily: tokens.fonts.body,
-              }}
+              style={tokens.inputs.text}
               required
               minLength={6}
             />
           </div>
 
-          {error && (
-            <p style={{
-              color: tokens.colors.error,
-              fontSize: "14px",
-              background: isDarkMode ? "rgba(248, 113, 113, 0.1)" : "#fef2f2",
-              padding: "12px",
-              borderRadius: tokens.radii.sm,
-              margin: 0,
-            }}>{error}</p>
-          )}
+          {/* Error Message */}
+          {error && <p style={tokens.alerts.error}>{error}</p>}
 
-          {success && (
-            <p style={{
-              color: tokens.colors.success,
-              fontSize: "14px",
-              background: isDarkMode ? "rgba(52, 211, 153, 0.1)" : "#f0fdf4",
-              padding: "12px",
-              borderRadius: tokens.radii.sm,
-              margin: 0,
-            }}>{success}</p>
-          )}
+          {/* Success Message */}
+          {success && <p style={tokens.alerts.success}>{success}</p>}
 
+          {/* Submit Button */}
           <button
             type="submit"
             style={{
-              padding: "16px",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`,
-              color: "white",
-              border: "none",
-              borderRadius: tokens.radii.md,
-              fontSize: "16px",
-              fontWeight: "600",
-              cursor: loading ? "wait" : "pointer",
+              ...tokens.buttons.primary,
+              width: "100%",
               marginTop: "8px",
-              fontFamily: tokens.fonts.body,
+              cursor: loading ? "wait" : "pointer",
               opacity: loading ? 0.7 : 1,
-              transition: "opacity 0.2s ease",
             }}
             disabled={loading}
           >
@@ -219,11 +141,7 @@ export default function AuthPage() {
           alignItems: "center",
           gap: "8px",
         }}>
-          <p style={{
-            color: tokens.colors.text.secondary,
-            margin: 0,
-            fontSize: "14px",
-          }}>
+          <p style={tokens.typography.body}>
             {isLogin ? "Noch kein Konto?" : "Bereits ein Konto?"}
           </p>
           <button
@@ -232,14 +150,7 @@ export default function AuthPage() {
               setError("");
               setSuccess("");
             }}
-            style={{
-              background: "none",
-              border: "none",
-              color: tokens.colors.aurora.lavender,
-              fontWeight: "600",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
+            style={tokens.buttons.ghostAccent}
           >
             {isLogin ? "Registrieren" : "Anmelden"}
           </button>
@@ -248,5 +159,3 @@ export default function AuthPage() {
     </div>
   );
 }
-
-// All styles now use theme tokens inline
