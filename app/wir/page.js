@@ -349,73 +349,84 @@ export default function WirPage() {
         {/* Pending Items Section - Suggestions + Pending Approval Agreements */}
         {isConnected && pendingSuggestions.length > 0 && (
           <div style={{
-            ...tokens.alerts.warning,
+            ...tokens.cards.interactive,
+            padding: "16px 20px",
             marginBottom: "16px",
+            borderLeft: `4px solid ${tokens.colors.aurora.lavender}`,
           }}>
             <div style={{
               display: "flex",
               alignItems: "center",
-              gap: "12px",
-              marginBottom: "16px",
+              gap: "16px",
+              marginBottom: pendingSuggestions.length > 0 ? "16px" : 0,
             }}>
-              <span style={{ fontSize: "28px" }}>&#x23F3;</span>
-              <p style={{
-                margin: 0,
-                fontWeight: "600",
-                ...tokens.alerts.warningText,
-                fontSize: "16px",
+              <div style={{
+                width: "48px",
+                height: "48px",
+                borderRadius: tokens.radii.lg,
+                background: tokens.colors.aurora.lavender,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
               }}>
-                {pendingSuggestions.length === 1
-                  ? "1 Vereinbarung wartet auf Bestatigung"
-                  : `${pendingSuggestions.length} Vereinbarungen warten auf Bestatigung`}
-              </p>
+                <Clock size={24} color="white" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{
+                  ...tokens.typography.h3,
+                  fontSize: "16px",
+                  marginBottom: "4px",
+                }}>
+                  {pendingSuggestions.length === 1
+                    ? "1 Vereinbarung wartet"
+                    : `${pendingSuggestions.length} Vereinbarungen warten`}
+                </h3>
+                <p style={{
+                  ...tokens.typography.small,
+                  margin: 0,
+                }}>Deine Bestatigung notig</p>
+              </div>
             </div>
 
-            {pendingSuggestions.map((item) => (
-              <div key={item.id} style={{
-                ...tokens.cards.surface,
-                marginBottom: "12px",
-              }}>
-                <p style={{
-                  fontSize: "15px",
-                  fontWeight: "500",
-                  color: tokens.colors.text.primary,
-                  margin: "0 0 8px 0",
-                }}>"{item.title}"</p>
-                {item.underlying_need && (
+            {pendingSuggestions.map((item, index) => (
+              <div
+                key={item.id}
+                onClick={() => {
+                  if (item.type === 'agreement') {
+                    setSelectedAgreementId(item.id);
+                  } else {
+                    router.push(`/history?session=${item.session_id}`);
+                  }
+                }}
+                style={{
+                  ...tokens.cards.surface,
+                  marginBottom: index < pendingSuggestions.length - 1 ? "8px" : 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ flex: 1 }}>
                   <p style={{
-                    ...tokens.typography.small,
-                    color: tokens.colors.text.secondary,
-                    marginBottom: "12px",
-                    fontStyle: "italic",
-                  }}>
-                    Dahinter: {item.underlying_need}
-                  </p>
-                )}
-                <button
-                  onClick={() => {
-                    if (item.type === 'agreement') {
-                      // Open agreement detail modal
-                      setSelectedAgreementId(item.id);
-                    } else {
-                      // Go to session history for suggestion
-                      router.push(`/history?session=${item.session_id}`);
-                    }
-                  }}
-                  style={{
-                    padding: "10px 20px",
-                    background: tokens.colors.warning,
-                    color: "white",
-                    border: "none",
-                    borderRadius: tokens.radii.sm,
-                    fontSize: "14px",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                    width: "100%",
-                  }}
-                >
-                  Ansehen & Bestatigen
-                </button>
+                    fontSize: "15px",
+                    fontWeight: "500",
+                    color: tokens.colors.text.primary,
+                    margin: 0,
+                  }}>"{item.title}"</p>
+                  {item.underlying_need && (
+                    <p style={{
+                      ...tokens.typography.small,
+                      color: tokens.colors.text.muted,
+                      margin: "4px 0 0 0",
+                      fontStyle: "italic",
+                    }}>
+                      {item.underlying_need}
+                    </p>
+                  )}
+                </div>
+                <ChevronRight size={20} color={tokens.colors.aurora.lavender} />
               </div>
             ))}
           </div>
