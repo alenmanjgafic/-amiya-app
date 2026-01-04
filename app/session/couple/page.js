@@ -661,14 +661,15 @@ export default function CoupleSessionPage() {
                 Mit Analyse
                 <span style={{
                   position: "absolute",
-                  top: "-8px",
-                  right: "-8px",
-                  background: tokens.colors.aurora.gold,
-                  color: "#1f2937",
-                  fontSize: "10px",
-                  fontWeight: "700",
-                  padding: "2px 6px",
-                  borderRadius: "10px",
+                  top: "-10px",
+                  right: "-4px",
+                  background: "#10b981",
+                  color: "white",
+                  fontSize: "11px",
+                  fontWeight: "600",
+                  padding: "4px 8px",
+                  borderRadius: "12px",
+                  boxShadow: "0 2px 8px rgba(16, 185, 129, 0.4)",
                 }}>
                   Empfohlen
                 </span>
