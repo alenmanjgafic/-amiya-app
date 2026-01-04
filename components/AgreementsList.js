@@ -7,7 +7,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../lib/AuthContext";
 import { useTheme } from "../lib/ThemeContext";
-import { Handshake } from "lucide-react";
+import { Handshake, Clock, ChevronRight } from "lucide-react";
 
 export default function AgreementsList({ onSelectAgreement, onCreateNew }) {
   const { user, profile } = useAuth();
@@ -167,39 +167,58 @@ export default function AgreementsList({ onSelectAgreement, onCreateNew }) {
       {/* Needs Approval Section */}
       {needsApproval.length > 0 && (
         <div style={{
-          ...tokens.alerts.warning,
+          padding: "16px",
           marginBottom: "16px",
+          background: tokens.isDarkMode ? "rgba(167, 139, 250, 0.1)" : "rgba(167, 139, 250, 0.08)",
+          borderRadius: tokens.radii.lg,
+          borderLeft: `4px solid ${tokens.colors.aurora.lavender}`,
         }}>
-          <p style={{
-            ...tokens.alerts.warningText,
-            fontSize: "14px",
-            fontWeight: "600",
-            margin: "0 0 12px 0",
-          }}>&#9888;&#65039; Deine Zustimmung notig</p>
-          {needsApproval.map(agreement => (
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            marginBottom: "12px",
+          }}>
+            <div style={{
+              width: "32px",
+              height: "32px",
+              borderRadius: tokens.radii.md,
+              background: tokens.colors.aurora.lavender,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}>
+              <Clock size={16} color="white" />
+            </div>
+            <p style={{
+              fontSize: "14px",
+              fontWeight: "600",
+              color: tokens.colors.text.primary,
+              margin: 0,
+            }}>Deine Zustimmung notig</p>
+          </div>
+          {needsApproval.map((agreement, index) => (
             <div
               key={agreement.id}
               style={{
-                ...tokens.cards.elevated,
-                padding: "12px",
+                ...tokens.cards.surface,
+                padding: "12px 16px",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 cursor: "pointer",
-                marginBottom: "8px",
+                marginBottom: index < needsApproval.length - 1 ? "8px" : 0,
               }}
               onClick={() => onSelectAgreement(agreement.id)}
             >
               <p style={{
-                ...tokens.alerts.warningText,
                 margin: 0,
                 fontSize: "14px",
-              }}>"{agreement.title}"</p>
-              <span style={{
-                color: tokens.colors.warning,
-                fontSize: "14px",
                 fontWeight: "500",
-              }}>Ansehen &#8594;</span>
+                color: tokens.colors.text.primary,
+              }}>"{agreement.title}"</p>
+              <ChevronRight size={18} color={tokens.colors.aurora.lavender} />
             </div>
           ))}
         </div>
