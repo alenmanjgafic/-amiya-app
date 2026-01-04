@@ -252,7 +252,7 @@ export default function HistoryPage() {
               onClick={() => router.push(filter === "couple" ? "/wir" : "/")}
               style={{
                 padding: "14px 28px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${isDarkMode ? "#5eead4" : "#0f766e"})`,
                 color: "white",
                 border: "none",
                 borderRadius: tokens.radii.md,

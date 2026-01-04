@@ -42,6 +42,10 @@ export default function WirPage() {
   const [pendingSuggestions, setPendingSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
+  // Stats for header
+  const [sessionCount, setSessionCount] = useState(0);
+  const [memberSince, setMemberSince] = useState("");
+
   useEffect(() => {
     if (!loading && !user) {
       router.push("/auth");
@@ -67,6 +71,47 @@ export default function WirPage() {
       loadPendingSuggestions();
     }
   }, [user, profile?.couple_id, refreshKey]);
+
+  // Load session stats
+  useEffect(() => {
+    if (user && profile) {
+      loadStats();
+    }
+  }, [user, profile]);
+
+  const loadStats = async () => {
+    try {
+      // Calculate member since
+      if (profile?.created_at) {
+        const created = new Date(profile.created_at);
+        const now = new Date();
+        const diffMonths = (now.getFullYear() - created.getFullYear()) * 12 + (now.getMonth() - created.getMonth());
+
+        if (diffMonths < 1) {
+          setMemberSince("Neu bei Amiya");
+        } else if (diffMonths < 12) {
+          setMemberSince(`Seit ${diffMonths} ${diffMonths === 1 ? 'Monat' : 'Monaten'} bei Amiya`);
+        } else {
+          const years = Math.floor(diffMonths / 12);
+          setMemberSince(`Seit ${years} ${years === 1 ? 'Jahr' : 'Jahren'} bei Amiya`);
+        }
+      }
+
+      // Count sessions (couple sessions)
+      if (profile?.couple_id) {
+        const { supabase } = await import("../../lib/supabase");
+        const { count } = await supabase
+          .from("sessions")
+          .select("*", { count: "exact", head: true })
+          .eq("couple_id", profile.couple_id)
+          .eq("type", "couple");
+
+        setSessionCount(count || 0);
+      }
+    } catch (error) {
+      console.error("Failed to load stats:", error);
+    }
+  };
 
   const loadPendingSuggestions = async () => {
     if (!profile?.couple_id) return;
@@ -153,24 +198,89 @@ export default function WirPage() {
       paddingBottom: "100px",
       transition: "background 0.3s ease",
     }}>
-      {/* Header */}
+      {/* Header - ZUSAMMEN Style */}
       <div style={{
         padding: "24px 20px 16px",
         textAlign: "center",
       }}>
+        <p style={{
+          fontSize: "12px",
+          fontWeight: "600",
+          color: tokens.colors.text.muted,
+          textTransform: "uppercase",
+          letterSpacing: "2px",
+          margin: "0 0 4px 0",
+        }}>ZUSAMMEN</p>
         <h1 style={{
-          fontSize: "28px",
+          fontSize: "26px",
           fontWeight: "bold",
           color: tokens.colors.text.primary,
           margin: "0 0 4px 0",
           fontFamily: tokens.fonts.display,
-        }}>Wir</h1>
-        <p style={{
-          fontSize: "15px",
-          color: tokens.colors.aurora.lavender,
-          margin: 0,
-          fontWeight: "500",
-        }}>{userName} & {partnerName}</p>
+        }}>{userName} & {partnerName}</h1>
+        {memberSince && (
+          <p style={{
+            fontSize: "14px",
+            color: tokens.colors.aurora.mint,
+            margin: "0 0 16px 0",
+            fontWeight: "500",
+          }}>{memberSince}</p>
+        )}
+
+        {/* Stats */}
+        {isConnected && (
+          <div style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "12px",
+            marginTop: "8px",
+          }}>
+            <div style={{
+              background: tokens.colors.bg.elevated,
+              borderRadius: tokens.radii.lg,
+              padding: "12px 24px",
+              minWidth: "100px",
+              boxShadow: tokens.shadows.soft,
+            }}>
+              <p style={{
+                fontSize: "24px",
+                fontWeight: "bold",
+                color: tokens.colors.aurora.mint,
+                margin: 0,
+              }}>{sessionCount}</p>
+              <p style={{
+                fontSize: "11px",
+                fontWeight: "600",
+                color: tokens.colors.text.muted,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+                margin: 0,
+              }}>SESSIONS</p>
+            </div>
+            <div style={{
+              background: tokens.colors.bg.elevated,
+              borderRadius: tokens.radii.lg,
+              padding: "12px 24px",
+              minWidth: "100px",
+              boxShadow: tokens.shadows.soft,
+            }}>
+              <p style={{
+                fontSize: "24px",
+                fontWeight: "bold",
+                color: tokens.colors.aurora.lavender,
+                margin: 0,
+              }}>{pendingSuggestions.length || 0}</p>
+              <p style={{
+                fontSize: "11px",
+                fontWeight: "600",
+                color: tokens.colors.text.muted,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+                margin: 0,
+              }}>STÄRKEN</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ padding: "0 20px" }}>
@@ -262,7 +372,7 @@ export default function WirPage() {
               onClick={handleStartCoupleSession}
               style={{
                 padding: "16px 32px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${isDarkMode ? "#5eead4" : "#0f766e"})`,
                 color: "white",
                 border: "none",
                 borderRadius: tokens.radii.md,
@@ -270,8 +380,8 @@ export default function WirPage() {
                 fontWeight: "600",
                 cursor: "pointer",
                 boxShadow: isDarkMode
-                  ? tokens.shadows.glow(tokens.colors.aurora.lavender)
-                  : "0 4px 15px rgba(124,58,237,0.3)",
+                  ? tokens.shadows.glow(tokens.colors.aurora.mint)
+                  : `0 4px 15px ${tokens.colors.aurora.mint}40`,
                 width: "100%",
               }}
             >
@@ -659,7 +769,7 @@ export default function WirPage() {
               style={{
                 width: "100%",
                 padding: "18px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${isDarkMode ? "#5eead4" : "#0f766e"})`,
                 color: "white",
                 border: "none",
                 borderRadius: tokens.radii.lg,
@@ -667,8 +777,8 @@ export default function WirPage() {
                 fontWeight: "600",
                 cursor: "pointer",
                 boxShadow: isDarkMode
-                  ? tokens.shadows.glow(tokens.colors.aurora.lavender)
-                  : "0 4px 15px rgba(124,58,237,0.3)",
+                  ? tokens.shadows.glow(tokens.colors.aurora.mint)
+                  : `0 4px 15px ${tokens.colors.aurora.mint}40`,
                 marginBottom: "12px",
               }}
             >

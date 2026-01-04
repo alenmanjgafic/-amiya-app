@@ -155,8 +155,18 @@ function HomeContent() {
 
   const formatTime = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,"0")}`;
 
+  // Time-based greeting
+  const getTimeGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return "Guten Morgen";
+    if (hour >= 12 && hour < 17) return "Guten Tag";
+    if (hour >= 17 && hour < 21) return "Guten Abend";
+    return "Gute Nacht";
+  };
+
   const displayName = profile?.name || "du";
   const partnerName = profile?.partner_name || "";
+  const timeGreeting = getTimeGreeting();
 
   const startSession = useCallback(async () => {
     if (!user) return;
@@ -720,17 +730,26 @@ function HomeContent() {
               ? tokens.shadows.glow(tokens.colors.aurora.lavender)
               : `0 10px 40px ${tokens.colors.aurora.lavender}40`,
           }}><Heart size={50} color="white" fill="white" /></div>
+          {/* Time-based greeting */}
+          <p style={{
+            fontSize: "13px",
+            fontWeight: "600",
+            color: tokens.colors.text.muted,
+            textTransform: "uppercase",
+            letterSpacing: "1.5px",
+            marginBottom: "4px",
+          }}>{timeGreeting.toUpperCase()}</p>
           <h1 style={{
             fontSize: "36px",
             fontWeight: "bold",
             color: tokens.colors.text.primary,
             marginBottom: "8px",
             fontFamily: tokens.fonts.display,
-          }}>Amiya</h1>
+          }}>{displayName}</h1>
           <p style={{
             color: tokens.colors.text.secondary,
             fontSize: "16px",
-            marginBottom: "16px",
+            marginBottom: "24px",
           }}>Solo Session</p>
 
           <p style={{
@@ -738,7 +757,7 @@ function HomeContent() {
             marginBottom: "32px",
             lineHeight: "1.8",
           }}>
-            Hey {displayName}. Erzähl mir was dich beschäftigt –<br />
+            Erzähl mir was dich beschäftigt –<br />
             über dich und {partnerName}.
           </p>
 
@@ -766,7 +785,7 @@ function HomeContent() {
 
           <button onClick={startSession} style={{
             padding: "18px 40px",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+            background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${isDarkMode ? "#5eead4" : "#0f766e"})`,
             color: "white",
             fontWeight: "600",
             fontSize: "18px",
@@ -774,8 +793,8 @@ function HomeContent() {
             borderRadius: tokens.radii.lg,
             cursor: "pointer",
             boxShadow: isDarkMode
-              ? tokens.shadows.glow(tokens.colors.aurora.lavender)
-              : `0 4px 20px ${tokens.colors.aurora.lavender}40`,
+              ? tokens.shadows.glow(tokens.colors.aurora.mint)
+              : `0 4px 20px ${tokens.colors.aurora.mint}40`,
             fontFamily: tokens.fonts.body,
           }}>
             Session starten
