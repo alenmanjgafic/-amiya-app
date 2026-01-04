@@ -138,8 +138,21 @@ function HomeContent() {
     }
   }, [user, profile, authLoading, router]);
 
-  // Function definitions BEFORE useEffects that use them
-  const loadAnalysisContext = useCallback(async (sessionId) => {
+  // Load pending suggestions count for badge
+  useEffect(() => {
+    if (user && profile?.couple_id) {
+      loadPendingSuggestionsCount();
+    }
+  }, [user, profile?.couple_id]);
+
+  // Load analysis context if coming from message analysis
+  useEffect(() => {
+    if (fromAnalysisId && user) {
+      loadAnalysisContext(fromAnalysisId);
+    }
+  }, [fromAnalysisId, user]);
+
+  const loadAnalysisContext = async (sessionId) => {
     setLoadingAnalysisContext(true);
     try {
       const response = await fetch(`/api/sessions/${sessionId}`);
@@ -160,34 +173,21 @@ function HomeContent() {
     } finally {
       setLoadingAnalysisContext(false);
     }
-  }, []);
+  };
 
-  const loadPendingSuggestionsCount = useCallback(async () => {
+  const loadPendingSuggestionsCount = async () => {
     if (!profile?.couple_id || !user?.id) return;
     try {
       const response = await fetch(
         `/api/agreements/suggestions?coupleId=${profile.couple_id}&userId=${user.id}`
       );
       const data = await response.json();
+      // Use totalPending which includes both suggestions AND pending_approval agreements
       setPendingSuggestionsCount(data.totalPending || 0);
     } catch (error) {
       console.error("Failed to load suggestions count:", error);
     }
-  }, [profile?.couple_id, user?.id]);
-
-  // Load pending suggestions count for badge
-  useEffect(() => {
-    if (user && profile?.couple_id) {
-      loadPendingSuggestionsCount();
-    }
-  }, [user, profile?.couple_id, loadPendingSuggestionsCount]);
-
-  // Load analysis context if coming from message analysis
-  useEffect(() => {
-    if (fromAnalysisId && user) {
-      loadAnalysisContext(fromAnalysisId);
-    }
-  }, [fromAnalysisId, user, loadAnalysisContext]);
+  };
 
   useEffect(() => {
     if (started && !timerRef.current) {
