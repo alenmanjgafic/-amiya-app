@@ -143,7 +143,8 @@ export const CoupleSessionIllustration = ({ isDarkMode = true }) => {
 
 /**
  * NACHRICHTENANALYSE (Message Analysis)
- * Concept: Magnifying glass over message bubbles with pattern detection
+ * Concept: Abstract - two message shapes with insight rays between them
+ * Minimal style matching Solo/Couple
  */
 export const MessageAnalysisIllustration = ({ isDarkMode = true }) => {
   const c = isDarkMode ? colors.dark : colors.light;
@@ -157,47 +158,45 @@ export const MessageAnalysisIllustration = ({ isDarkMode = true }) => {
           <stop offset="0%" stopColor={c.lavender} />
           <stop offset="100%" stopColor={c.sky} />
         </linearGradient>
-        <linearGradient id={`analysis-lens-${id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={c.mint} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={c.lavender} stopOpacity="0.1" />
-        </linearGradient>
+        <radialGradient id={`analysis-glow-${id}`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={c.lavender} stopOpacity={opacity.med} />
+          <stop offset="100%" stopColor={c.lavender} stopOpacity="0" />
+        </radialGradient>
       </defs>
 
-      {/* Message bubbles in background */}
-      <rect x="25" y="25" width="50" height="28" rx="14" fill={c.surface} opacity={opacity.med} />
-      <rect x="30" y="30" width="40" height="18" rx="9" fill={c.lavender} opacity={opacity.low} />
+      {/* Central glow */}
+      <circle cx="100" cy="60" r="50" fill={`url(#analysis-glow-${id})`} />
 
-      <rect x="125" y="65" width="55" height="28" rx="14" fill={c.surface} opacity={opacity.med} />
-      <rect x="130" y="70" width="45" height="18" rx="9" fill={c.rose} opacity={opacity.low} />
+      {/* Left message bubble - abstract rounded shape */}
+      <ellipse cx="60" cy="55" rx="28" ry="22" fill={c.lavender} opacity={opacity.low} />
+      <ellipse cx="60" cy="55" rx="20" ry="16" fill={c.lavender} opacity={opacity.med} />
+      <ellipse cx="60" cy="55" rx="10" ry="8" fill={c.lavender} opacity={opacity.high} />
 
-      <rect x="35" y="70" width="45" height="24" rx="12" fill={c.surface} opacity={opacity.med} />
-      <rect x="40" y="75" width="35" height="14" rx="7" fill={c.mint} opacity={opacity.low} />
+      {/* Right message bubble */}
+      <ellipse cx="140" cy="65" rx="28" ry="22" fill={c.sky} opacity={opacity.low} />
+      <ellipse cx="140" cy="65" rx="20" ry="16" fill={c.sky} opacity={opacity.med} />
+      <ellipse cx="140" cy="65" rx="10" ry="8" fill={c.sky} opacity={opacity.high} />
 
-      {/* Magnifying glass */}
-      <circle cx="110" cy="50" r="32" fill={`url(#analysis-lens-${id})`} />
-      <circle cx="110" cy="50" r="32" stroke={`url(#analysis-gradient-${id})`} strokeWidth="3" fill="none" opacity={opacity.high} />
-      <circle cx="110" cy="50" r="28" stroke={c.lavender} strokeWidth="1" fill="none" opacity={opacity.med} />
+      {/* Insight connection - the "analysis" happening */}
+      <circle cx="100" cy="60" r="12" fill={`url(#analysis-gradient-${id})`} opacity={opacity.high} />
+      <circle cx="100" cy="60" r="6" fill={isDarkMode ? c.text : '#fff'} opacity="0.9" />
 
-      {/* Handle */}
-      <path d="M132 72 L155 95" stroke={`url(#analysis-gradient-${id})`} strokeWidth="6" strokeLinecap="round" opacity={opacity.high} />
-      <path d="M132 72 L155 95" stroke={c.sky} strokeWidth="3" strokeLinecap="round" opacity={opacity.med} />
+      {/* Connection lines */}
+      <path d="M75 55 L88 58" stroke={c.lavender} strokeWidth="2" strokeLinecap="round" opacity={opacity.med} />
+      <path d="M112 62 L125 65" stroke={c.sky} strokeWidth="2" strokeLinecap="round" opacity={opacity.med} />
 
-      {/* Pattern lines inside lens */}
-      <path d="M92 42 L128 42" stroke={c.mint} strokeWidth="2" strokeLinecap="round" opacity={opacity.med} />
-      <path d="M95 50 L125 50" stroke={c.lavender} strokeWidth="2" strokeLinecap="round" opacity={opacity.high} />
-      <path d="M98 58 L122 58" stroke={c.mint} strokeWidth="2" strokeLinecap="round" opacity={opacity.med} />
-
-      {/* Insight sparkles */}
-      <circle cx="90" cy="35" r="3" fill={c.mint} opacity={opacity.high} />
-      <circle cx="130" cy="38" r="2" fill={c.lavender} opacity={opacity.med} />
-      <circle cx="95" cy="65" r="2" fill={c.sky} opacity={opacity.med} />
+      {/* Floating insight particles */}
+      <circle cx="100" cy="35" r="4" fill={c.mint} opacity={opacity.med} />
+      <circle cx="85" cy="85" r="3" fill={c.lavender} opacity={opacity.low} />
+      <circle cx="115" cy="40" r="3" fill={c.rose} opacity={opacity.low} />
     </svg>
   );
 };
 
 /**
  * NACHRICHTENWRITER (Message Writer / Worte finden)
- * Concept: Pen/pencil writing on a message with flowing creative energy
+ * Concept: Abstract - flowing energy forming into a message shape
+ * Minimal style matching Solo/Couple
  */
 export const MessageWriterIllustration = ({ isDarkMode = true }) => {
   const c = isDarkMode ? colors.dark : colors.light;
@@ -207,44 +206,36 @@ export const MessageWriterIllustration = ({ isDarkMode = true }) => {
   return (
     <svg viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id={`writer-gradient-${id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={`writer-gradient-${id}`} x1="0%" y1="100%" x2="100%" y2="0%">
           <stop offset="0%" stopColor={c.rose} />
           <stop offset="100%" stopColor={c.lavender} />
         </linearGradient>
-        <linearGradient id={`writer-paper-${id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor={isDarkMode ? c.text : '#fff'} stopOpacity="0.1" />
-          <stop offset="100%" stopColor={isDarkMode ? c.text : '#fff'} stopOpacity="0.05" />
-        </linearGradient>
+        <radialGradient id={`writer-glow-${id}`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={c.rose} stopOpacity={opacity.med} />
+          <stop offset="100%" stopColor={c.rose} stopOpacity="0" />
+        </radialGradient>
       </defs>
 
-      {/* Paper/message base */}
-      <rect x="30" y="25" width="100" height="75" rx="12" fill={c.surface} opacity={opacity.med} />
-      <rect x="35" y="30" width="90" height="65" rx="8" fill={`url(#writer-paper-${id})`} />
+      {/* Central glow */}
+      <circle cx="100" cy="60" r="50" fill={`url(#writer-glow-${id})`} />
 
-      {/* Text lines */}
-      <path d="M45 45 L95 45" stroke={c.lavender} strokeWidth="2" strokeLinecap="round" opacity={opacity.med} />
-      <path d="M45 55 L110 55" stroke={c.mint} strokeWidth="2" strokeLinecap="round" opacity={opacity.high} />
-      <path d="M45 65 L85 65" stroke={c.lavender} strokeWidth="2" strokeLinecap="round" opacity={opacity.med} />
-      <path d="M45 75 L100 75" stroke={c.rose} strokeWidth="2" strokeLinecap="round" opacity={opacity.low} />
+      {/* Forming message - abstract rounded rectangle emerging */}
+      <rect x="65" y="40" width="70" height="45" rx="22" fill={c.rose} opacity={opacity.low} />
+      <rect x="75" y="48" width="50" height="30" rx="15" fill={c.rose} opacity={opacity.med} />
 
-      {/* Pen */}
-      <path d="M140 30 L160 75" stroke={`url(#writer-gradient-${id})`} strokeWidth="8" strokeLinecap="round" opacity={opacity.high} />
-      <path d="M140 30 L160 75" stroke={c.rose} strokeWidth="4" strokeLinecap="round" opacity={opacity.med} />
-      <circle cx="160" cy="75" r="4" fill={c.rose} opacity={opacity.high} />
+      {/* Core / origin point - where words come from */}
+      <circle cx="100" cy="63" r="14" fill={`url(#writer-gradient-${id})`} opacity={opacity.high} />
+      <circle cx="100" cy="63" r="7" fill={isDarkMode ? c.text : '#fff'} opacity="0.9" />
 
-      {/* Creative flow / ink trail */}
-      <path d="M155 70 Q165 60 160 50 T170 35" stroke={c.lavender} strokeWidth="2" fill="none" opacity={opacity.med} strokeLinecap="round" />
-      <path d="M158 72 Q175 65 168 55" stroke={c.mint} strokeWidth="1.5" fill="none" opacity={opacity.low} strokeLinecap="round" />
+      {/* Creative flow lines - energy becoming words */}
+      <path d="M55 60 Q65 45 80 55" stroke={c.lavender} strokeWidth="2" fill="none" opacity={opacity.med} strokeLinecap="round" />
+      <path d="M145 60 Q135 75 120 65" stroke={c.lavender} strokeWidth="2" fill="none" opacity={opacity.med} strokeLinecap="round" />
 
-      {/* Sparkles / creativity particles */}
-      <circle cx="170" cy="30" r="4" fill={c.mint} opacity={opacity.high} />
-      <circle cx="175" cy="45" r="3" fill={c.lavender} opacity={opacity.med} />
-      <circle cx="180" cy="60" r="2" fill={c.rose} opacity={opacity.med} />
-      <circle cx="150" cy="20" r="3" fill={c.sky} opacity={opacity.low} />
-
-      {/* Message send indicator */}
-      <circle cx="25" cy="100" r="8" fill={c.mint} opacity={opacity.low} />
-      <path d="M22 100 L25 103 L30 97" stroke={isDarkMode ? c.text : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity={opacity.high} />
+      {/* Floating particles - inspiration */}
+      <circle cx="50" cy="45" r="4" fill={c.lavender} opacity={opacity.med} />
+      <circle cx="150" cy="50" r="4" fill={c.mint} opacity={opacity.med} />
+      <circle cx="60" cy="85" r="3" fill={c.sky} opacity={opacity.low} />
+      <circle cx="140" cy="80" r="3" fill={c.rose} opacity={opacity.low} />
     </svg>
   );
 };
