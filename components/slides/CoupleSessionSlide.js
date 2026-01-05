@@ -1,19 +1,24 @@
 /**
  * COUPLE SESSION SLIDE - components/slides/CoupleSessionSlide.js
  * Start screen for couple voice session
- * Shown only when user is connected to a partner
+ * Navigates to dedicated /session/couple page
  */
 "use client";
+import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
 import { useTheme } from "../../lib/ThemeContext";
 
 export default function CoupleSessionSlide({
   userName = "du",
   partnerName = "Partner",
-  onStartSession,
   isActive = false,
 }) {
   const { tokens } = useTheme();
+  const router = useRouter();
+
+  const handleStartSession = () => {
+    router.push("/session/couple");
+  };
 
   return (
     <div style={{
@@ -59,7 +64,7 @@ export default function CoupleSessionSlide({
 
       {/* Start Session Button */}
       <button
-        onClick={onStartSession}
+        onClick={handleStartSession}
         style={{
           ...tokens.buttons.primaryLarge,
           background: tokens.gradients.primary,

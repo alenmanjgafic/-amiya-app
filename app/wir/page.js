@@ -16,23 +16,15 @@ import {
   Home as HomeIcon,
   Heart,
   ClipboardList,
-  User,
-  Users,
   AlertTriangle,
-  Settings,
   Clock,
   ChevronRight,
-  Timer,
-  BellOff,
-  Sofa,
-  Headphones
 } from "lucide-react";
 
 export default function WirPage() {
   const { user, profile, loading, fetchProfile } = useAuth();
   const { tokens } = useTheme();
   const router = useRouter();
-  const [showPrepModal, setShowPrepModal] = useState(false);
   const [selectedAgreementId, setSelectedAgreementId] = useState(null);
   const [showCreateAgreement, setShowCreateAgreement] = useState(false);
   const [showDisconnect, setShowDisconnect] = useState(false);
@@ -174,15 +166,6 @@ export default function WirPage() {
   const userName = profile?.name || "du";
   const isConnected = !!profile?.couple_id;
 
-  const handleStartCoupleSession = () => {
-    setShowPrepModal(true);
-  };
-
-  const handleConfirmStart = () => {
-    setShowPrepModal(false);
-    router.push("/session/couple");
-  };
-
   return (
     <div style={{
       minHeight: "100vh",
@@ -303,46 +286,6 @@ export default function WirPage() {
             >
               Bestatigen
             </button>
-          </div>
-        )}
-
-        {/* Gemeinsame Session - Direct to couple session */}
-        {isConnected && (
-          <div
-            onClick={handleStartCoupleSession}
-            style={{
-              ...tokens.cards.interactive,
-              padding: "16px 20px",
-              marginBottom: "16px",
-              display: "flex",
-              alignItems: "center",
-              gap: "16px",
-            }}
-          >
-            <div style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: tokens.radii.lg,
-              background: tokens.gradients.primary,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}>
-              <Users size={24} color="white" />
-            </div>
-            <div style={{ flex: 1 }}>
-              <h3 style={{
-                ...tokens.typography.h3,
-                fontSize: "16px",
-                marginBottom: "4px",
-              }}>Gemeinsame Session</h3>
-              <p style={{
-                ...tokens.typography.small,
-                margin: 0,
-              }}>Sprecht zusammen mit Amiya</p>
-            </div>
-            <ChevronRight size={20} color={tokens.colors.text.muted} />
           </div>
         )}
 
@@ -503,68 +446,6 @@ export default function WirPage() {
           <span style={{ fontSize: "12px" }}>Verlauf</span>
         </button>
       </div>
-
-      {/* Preparation Modal */}
-      {showPrepModal && (
-        <div style={tokens.modals.overlay}>
-          <div style={{
-            ...tokens.modals.container,
-            maxWidth: "400px",
-            padding: "32px 24px",
-            textAlign: "center",
-          }}>
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>&#x1F49C;</div>
-            <h2 style={{
-              ...tokens.modals.title,
-              marginBottom: "24px",
-            }}>Bereit für eure Session?</h2>
-
-            <div style={{ textAlign: "left", marginBottom: "24px" }}>
-              {[
-                { icon: "\u23F1\uFE0F", title: "Max. 1 Stunde", text: "Plant genug Zeit ein, ohne Zeitdruck." },
-                { icon: "\uD83D\uDD15", title: "Nicht stören", text: "Handys auf lautlos, voller Fokus auf euch." },
-                { icon: "\uD83D\uDECB\uFE0F", title: "Gemutlicher Ort", text: "Setzt euch bequem hin, nebeneinander." },
-                { icon: "\uD83C\uDFA7", title: "Lautsprecher nutzen", text: "Damit ihr beide Amiya gut hört." },
-              ].map((item, i) => (
-                <div key={i} style={{
-                  display: "flex",
-                  gap: "16px",
-                  marginBottom: "20px",
-                  alignItems: "flex-start",
-                }}>
-                  <span style={{ fontSize: "24px", marginTop: "2px" }}>{item.icon}</span>
-                  <div>
-                    <strong style={{ color: tokens.colors.text.primary }}>{item.title}</strong>
-                    <p style={{
-                      ...tokens.typography.small,
-                      color: tokens.colors.text.secondary,
-                      marginTop: "4px",
-                    }}>{item.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={handleConfirmStart}
-              style={{
-                ...tokens.buttons.primaryLarge,
-                width: "100%",
-                marginBottom: "12px",
-              }}
-            >
-              Session starten
-            </button>
-
-            <button
-              onClick={() => setShowPrepModal(false)}
-              style={tokens.buttons.ghost}
-            >
-              Abbrechen
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Agreement Detail Modal */}
       {selectedAgreementId && (
