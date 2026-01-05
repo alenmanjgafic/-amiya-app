@@ -13,6 +13,7 @@ import SoloSessionSlide from "../components/slides/SoloSessionSlide";
 import CoupleSessionSlide from "../components/slides/CoupleSessionSlide";
 import MessageAnalyzerSlide from "../components/slides/MessageAnalyzerSlide";
 import WordsFinderSlide from "../components/slides/WordsFinderSlide";
+import QuizSlide from "../components/slides/QuizSlide";
 import {
   Home as HomeIcon,
   Heart,
@@ -232,6 +233,9 @@ function HomeContent() {
 
         {/* Slide 4: Words Finder (Message Coach) */}
         <WordsFinderSlide />
+
+        {/* Slide 5: Beziehungskompass Quiz */}
+        <QuizSlide />
       </FeatureCarousel>
 
       {/* Bottom Navigation */}

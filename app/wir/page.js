@@ -12,6 +12,7 @@ import AgreementsList from "../../components/AgreementsList";
 import AgreementDetail from "../../components/AgreementDetail";
 import CreateAgreement from "../../components/CreateAgreement";
 import DisconnectDialog from "../../components/DisconnectDialog";
+import QuizComparisonCard from "../../components/QuizComparisonCard";
 import {
   Home as HomeIcon,
   Heart,
@@ -38,6 +39,10 @@ export default function WirPage() {
   // Stats for header
   const [sessionCount, setSessionCount] = useState(0);
   const [memberSince, setMemberSince] = useState("");
+
+  // Partner profile for quiz comparison
+  const [partnerProfile, setPartnerProfile] = useState(null);
+  const [isQuizSharing, setIsQuizSharing] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -71,6 +76,99 @@ export default function WirPage() {
       loadStats();
     }
   }, [user, profile]);
+
+  // Load partner profile for quiz comparison
+  useEffect(() => {
+    if (user && profile?.partner_id) {
+      loadPartnerProfile();
+    }
+  }, [user, profile?.partner_id, refreshKey]);
+
+  const loadPartnerProfile = async () => {
+    if (!profile?.partner_id) return;
+
+    try {
+      const { supabase } = await import("../../lib/supabase");
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, name, quiz_completed_at, quiz_shared_at, quiz_results")
+        .eq("id", profile.partner_id)
+        .single();
+
+      if (!error && data) {
+        setPartnerProfile(data);
+      }
+    } catch (error) {
+      console.error("Failed to load partner profile:", error);
+    }
+  };
+
+  const handleShareQuiz = async () => {
+    if (!user?.id) return;
+
+    setIsQuizSharing(true);
+
+    try {
+      // Get current session for access token
+      const { supabase } = await import("../../lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        alert("Nicht authentifiziert. Bitte neu einloggen.");
+        return;
+      }
+
+      const response = await fetch("/api/quiz/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          accessToken: session.access_token,
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh profiles to update UI
+        await fetchProfile(user.id);
+        await loadPartnerProfile();
+      } else {
+        const data = await response.json();
+        console.error("Share failed:", data.error);
+        alert("Teilen fehlgeschlagen: " + (data.details || data.error));
+      }
+    } catch (error) {
+      console.error("Failed to share quiz:", error);
+      alert("Fehler beim Teilen: " + error.message);
+    } finally {
+      setIsQuizSharing(false);
+    }
+  };
+
+  const handleUnshareQuiz = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { supabase } = await import("../../lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.access_token) return;
+
+      const response = await fetch("/api/quiz/unshare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          accessToken: session.access_token,
+        }),
+      });
+
+      if (response.ok) {
+        await fetchProfile(user.id);
+      }
+    } catch (error) {
+      console.error("Failed to unshare quiz:", error);
+    }
+  };
 
   const loadStats = async () => {
     try {
@@ -244,6 +342,20 @@ export default function WirPage() {
       </div>
 
       <div style={{ padding: "0 20px" }}>
+        {/* Quiz Comparison Card - Only if connected */}
+        {isConnected && (
+          <div style={{ marginBottom: "16px" }}>
+            <QuizComparisonCard
+              user={user}
+              profile={profile}
+              partnerProfile={partnerProfile}
+              onShare={handleShareQuiz}
+              onUnshare={handleUnshareQuiz}
+              isSharing={isQuizSharing}
+            />
+          </div>
+        )}
+
         {/* Pending Dissolution Banner */}
         {pendingDissolution && (
           <div style={{
@@ -477,6 +589,14 @@ export default function WirPage() {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes scaleIn {
+          0% { transform: scale(0); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
         }
       `}</style>
     </div>

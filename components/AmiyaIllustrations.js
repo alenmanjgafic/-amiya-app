@@ -303,10 +303,81 @@ export const CoupleAgreementsIllustration = ({ isDarkMode = true }) => {
   );
 };
 
+/**
+ * BEZIEHUNGSKOMPASS (Relationship Compass)
+ * Concept: 4 dimension orbs arranged in compass pattern
+ * - Top: Nähe (Lavender)
+ * - Right: Intensität (Rose)
+ * - Bottom: Sicherheit (Mint)
+ * - Left: Autonomie (Sky)
+ * - Center: User core with radiating connections
+ */
+export const CompassIllustration = ({ isDarkMode = true }) => {
+  const c = isDarkMode ? colors.dark : colors.light;
+  const opacity = isDarkMode ? { high: 0.8, med: 0.5, low: 0.3 } : { high: 0.7, med: 0.4, low: 0.2 };
+  const id = isDarkMode ? 'dark' : 'light';
+
+  return (
+    <svg viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id={`compass-gradient-${id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={c.lavender} />
+          <stop offset="50%" stopColor={c.rose} />
+          <stop offset="100%" stopColor={c.mint} />
+        </linearGradient>
+        <radialGradient id={`compass-glow-${id}`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={c.lavender} stopOpacity={opacity.med} />
+          <stop offset="100%" stopColor={c.lavender} stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      {/* Central glow */}
+      <circle cx="100" cy="60" r="50" fill={`url(#compass-glow-${id})`} />
+
+      {/* Connection lines between dimensions */}
+      <path d="M100 25 L100 95" stroke={c.lavender} strokeWidth="1" opacity={opacity.low} />
+      <path d="M55 60 L145 60" stroke={c.sky} strokeWidth="1" opacity={opacity.low} />
+      <path d="M70 35 L130 85" stroke={c.rose} strokeWidth="1" opacity={opacity.low} />
+      <path d="M130 35 L70 85" stroke={c.mint} strokeWidth="1" opacity={opacity.low} />
+
+      {/* Top: Nähe (Lavender) */}
+      <circle cx="100" cy="22" r="16" fill={c.lavender} opacity={opacity.low} />
+      <circle cx="100" cy="22" r="11" fill={c.lavender} opacity={opacity.med} />
+      <circle cx="100" cy="22" r="6" fill={c.lavender} opacity={opacity.high} />
+
+      {/* Right: Intensität (Rose) */}
+      <circle cx="148" cy="60" r="16" fill={c.rose} opacity={opacity.low} />
+      <circle cx="148" cy="60" r="11" fill={c.rose} opacity={opacity.med} />
+      <circle cx="148" cy="60" r="6" fill={c.rose} opacity={opacity.high} />
+
+      {/* Bottom: Sicherheit (Mint) */}
+      <circle cx="100" cy="98" r="16" fill={c.mint} opacity={opacity.low} />
+      <circle cx="100" cy="98" r="11" fill={c.mint} opacity={opacity.med} />
+      <circle cx="100" cy="98" r="6" fill={c.mint} opacity={opacity.high} />
+
+      {/* Left: Autonomie (Sky) */}
+      <circle cx="52" cy="60" r="16" fill={c.sky} opacity={opacity.low} />
+      <circle cx="52" cy="60" r="11" fill={c.sky} opacity={opacity.med} />
+      <circle cx="52" cy="60" r="6" fill={c.sky} opacity={opacity.high} />
+
+      {/* Center: User core */}
+      <circle cx="100" cy="60" r="14" fill={`url(#compass-gradient-${id})`} opacity={opacity.high} />
+      <circle cx="100" cy="60" r="7" fill={isDarkMode ? c.text : '#fff'} opacity="0.9" />
+
+      {/* Floating particles - representing balance */}
+      <circle cx="75" cy="40" r="3" fill={c.lavender} opacity={opacity.med} />
+      <circle cx="125" cy="40" r="3" fill={c.rose} opacity={opacity.med} />
+      <circle cx="75" cy="80" r="3" fill={c.sky} opacity={opacity.med} />
+      <circle cx="125" cy="80" r="3" fill={c.mint} opacity={opacity.med} />
+    </svg>
+  );
+};
+
 export default {
   SoloSessionIllustration,
   CoupleSessionIllustration,
   MessageAnalysisIllustration,
   MessageWriterIllustration,
   CoupleAgreementsIllustration,
+  CompassIllustration,
 };
