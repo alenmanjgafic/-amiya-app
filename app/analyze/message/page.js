@@ -24,7 +24,6 @@ import {
   Home,
   Heart,
   ClipboardList,
-  User,
   PenLine,
   Mic,
   ChevronRight
@@ -874,10 +873,6 @@ function BottomNav({ tokens, router, active }) {
       <button onClick={() => router.push("/history")} style={tokens.buttons.nav(false)}>
         <ClipboardList size={24} />
         <span>Verlauf</span>
-      </button>
-      <button onClick={() => router.push("/profile")} style={tokens.buttons.nav(false)}>
-        <User size={24} />
-        <span>Profil</span>
       </button>
     </div>
   );
