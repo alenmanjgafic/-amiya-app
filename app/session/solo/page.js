@@ -88,6 +88,7 @@ function SoloSessionContent() {
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
+  const mediaStreamRef = useRef(null);
 
   // Auth redirects
   useEffect(() => {
@@ -236,7 +237,8 @@ Frage den User wie er sich dabei fühlt und was er besprechen möchte.
       setCurrentSessionId(session.id);
 
       const { Conversation } = await import("@elevenlabs/client");
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
 
       let sanitizedContext = userContext
         .replace(/\n/g, ' ')
@@ -415,6 +417,13 @@ Frage den User wie er sich dabei fühlt und was er besprechen möchte.
       } catch (e) {}
       conversationRef.current = null;
     }
+
+    // Stop microphone stream (fixes Safari red mic indicator)
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+
     setVoiceState(STATE.IDLE);
 
     if (profile?.auto_analyze !== false) {
@@ -452,9 +461,16 @@ Frage den User wie er sich dabei fühlt und was er besprechen möchte.
     return () => {
       if (conversationRef.current) {
         conversationRef.current.endSession();
+        conversationRef.current = null;
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      // Stop microphone stream (fixes Safari red mic indicator)
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
       }
     };
   }, []);
