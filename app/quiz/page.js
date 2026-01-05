@@ -1,6 +1,6 @@
 /**
  * QUIZ INTRO PAGE - app/quiz/page.js
- * Landing page for Beziehungskompass quiz
+ * Landing page for Archetypen-Quiz
  */
 "use client";
 import { useEffect, Suspense } from "react";
@@ -78,8 +78,8 @@ function QuizIntroContent() {
     },
     {
       icon: Sparkles,
-      title: "Dein Typ",
-      description: "Einer von 11 Beziehungstypen",
+      title: "Dein Archetyp",
+      description: "Einer von 11 Archetypen",
     },
   ];
 
@@ -137,7 +137,7 @@ function QuizIntroContent() {
           fontSize: "28px",
           marginBottom: "8px",
         }}>
-          Beziehungskompass
+          Archetypen-Quiz
         </h1>
 
         <p style={{
@@ -146,7 +146,7 @@ function QuizIntroContent() {
           lineHeight: "1.6",
           marginBottom: "32px",
         }}>
-          Entdecke deinen Beziehungstyp und verstehe deine Bedürfnisse in Partnerschaften besser.
+          Entdecke deinen Archetyp und verstehe deine Bedürfnisse in Partnerschaften besser.
         </p>
 
         {/* Feature Cards */}

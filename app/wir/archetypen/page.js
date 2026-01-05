@@ -1,5 +1,5 @@
 /**
- * KOMPASS COMPARISON PAGE - app/wir/kompass/page.js
+ * ARCHETYPEN COMPARISON PAGE - app/wir/archetypen/page.js
  * Detailed comparison of both partners' quiz results
  */
 "use client";
@@ -8,9 +8,10 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../../lib/AuthContext";
 import { useTheme } from "../../../lib/ThemeContext";
 import { getTypeInfo, analyzePairDynamic } from "../../../lib/quizLogic";
+import { ArchetypeIconMap } from "../../../components/ArchetypeIcons";
 import { ChevronLeft, Sparkles, AlertTriangle, Heart } from "lucide-react";
 
-export default function KompassPage() {
+export default function ArchetypenPage() {
   const { user, profile, loading } = useAuth();
   const { tokens, isDarkMode } = useTheme();
   const router = useRouter();
@@ -147,7 +148,7 @@ export default function KompassPage() {
           ...tokens.typography.h2,
           margin: 0,
         }}>
-          Eure Bindungsstile
+          Eure Archetypen
         </h1>
       </div>
 
@@ -163,9 +164,14 @@ export default function KompassPage() {
         marginBottom: "24px",
       }}>
         <div style={{ textAlign: "center" }}>
-          <span style={{ fontSize: "48px", display: "block", marginBottom: "8px" }}>
-            {userType?.emoji}
-          </span>
+          <div style={{ marginBottom: "8px", display: "flex", justifyContent: "center" }}>
+            {profile?.quiz_results?.primaryType && ArchetypeIconMap[profile.quiz_results.primaryType] && (
+              (() => {
+                const IconComponent = ArchetypeIconMap[profile.quiz_results.primaryType];
+                return <IconComponent size={56} />;
+              })()
+            )}
+          </div>
           <p style={{
             ...tokens.typography.body,
             fontWeight: "600",
@@ -179,9 +185,14 @@ export default function KompassPage() {
         <Sparkles size={24} color={tokens.colors.aurora.lavender} />
 
         <div style={{ textAlign: "center" }}>
-          <span style={{ fontSize: "48px", display: "block", marginBottom: "8px" }}>
-            {partnerType?.emoji}
-          </span>
+          <div style={{ marginBottom: "8px", display: "flex", justifyContent: "center" }}>
+            {partnerProfile?.quiz_results?.primaryType && ArchetypeIconMap[partnerProfile.quiz_results.primaryType] && (
+              (() => {
+                const IconComponent = ArchetypeIconMap[partnerProfile.quiz_results.primaryType];
+                return <IconComponent size={56} />;
+              })()
+            )}
+          </div>
           <p style={{
             ...tokens.typography.body,
             fontWeight: "600",
@@ -489,7 +500,7 @@ export default function KompassPage() {
                   marginBottom: "8px",
                   color: tokens.colors.aurora.lavender,
                 }}>
-                  {userType.emoji} {userName}
+                  {userName}
                 </p>
                 <ul style={{
                   margin: 0,
@@ -521,7 +532,7 @@ export default function KompassPage() {
                   marginBottom: "8px",
                   color: tokens.colors.aurora.rose,
                 }}>
-                  {partnerType.emoji} {partnerName}
+                  {partnerName}
                 </p>
                 <ul style={{
                   margin: 0,

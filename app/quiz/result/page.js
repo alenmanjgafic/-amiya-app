@@ -504,7 +504,7 @@ export default function QuizResultPage() {
           marginBottom: "16px",
           lineHeight: "1.5",
         }}>
-          Dein Beziehungsstil ist einzigartig – kein Typ beschreibt dich zu 100%. Diese Anteile zeigen, wie die restlichen Bindungsstile in dir mitschwingen. Je höher der Wert, desto stärker prägt dich dieser Stil.
+          Dein Archetyp ist einzigartig – kein Typ beschreibt dich zu 100%. Diese Anteile zeigen, wie die restlichen Archetypen in dir mitschwingen. Je höher der Wert, desto stärker prägt dich dieser Stil.
         </p>
 
         <div style={{

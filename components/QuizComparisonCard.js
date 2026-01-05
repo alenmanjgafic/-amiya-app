@@ -1,6 +1,6 @@
 /**
- * QUIZ COMPARISON CARD - components/QuizComparisonCard.js
- * Shows quiz sharing status and comparison in "Wir" section
+ * ARCHETYPEN COMPARISON CARD - components/QuizComparisonCard.js
+ * Shows archetypen quiz sharing status and comparison in "Wir" section
  * "Sealed Letter" concept - both must share to reveal
  */
 "use client";
@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "../lib/ThemeContext";
 import { getTypeInfo, analyzePairDynamic } from "../lib/quizLogic";
 import { Mail, Lock, Check, ChevronRight, Sparkles, Send, Link2, Undo2 } from "lucide-react";
+import { ArchetypeIconMap } from "./ArchetypeIcons";
 
 export default function QuizComparisonCard({
   user,
@@ -77,7 +78,7 @@ export default function QuizComparisonCard({
             <Link2 size={24} color="white" />
           </div>
           <div style={styles.headerText}>
-            <h3 style={styles.title(tokens)}>Bindungsstile</h3>
+            <h3 style={styles.title(tokens)}>Archetypen</h3>
             <p style={styles.subtitle(tokens)}>Vergleicht eure Muster</p>
           </div>
         </div>
@@ -104,7 +105,7 @@ export default function QuizComparisonCard({
             <Link2 size={24} color="white" />
           </div>
           <div style={styles.headerText}>
-            <h3 style={styles.title(tokens)}>Eure Bindungsstile</h3>
+            <h3 style={styles.title(tokens)}>Eure Archetypen</h3>
             <p style={styles.subtitle(tokens)}>Vergleicht eure Muster</p>
           </div>
         </div>
@@ -115,7 +116,12 @@ export default function QuizComparisonCard({
             style={styles.compactTypeBox(tokens)}
             onClick={() => router.push("/quiz/result")}
           >
-            <span style={{ fontSize: "24px" }}>{userType.emoji}</span>
+            {profile?.quiz_results?.primaryType && ArchetypeIconMap[profile.quiz_results.primaryType] && (
+              (() => {
+                const IconComponent = ArchetypeIconMap[profile.quiz_results.primaryType];
+                return <IconComponent size={28} />;
+              })()
+            )}
             <div>
               <span style={styles.compactTypeName(tokens)}>{userType.name}</span>
               <span style={styles.compactTypeUser(tokens)}>{userName}</span>
@@ -125,7 +131,12 @@ export default function QuizComparisonCard({
           <Sparkles size={16} color={tokens.colors.aurora.lavender} />
 
           <div style={styles.compactTypeBox(tokens)}>
-            <span style={{ fontSize: "24px" }}>{partnerType.emoji}</span>
+            {partnerProfile?.quiz_results?.primaryType && ArchetypeIconMap[partnerProfile.quiz_results.primaryType] && (
+              (() => {
+                const IconComponent = ArchetypeIconMap[partnerProfile.quiz_results.primaryType];
+                return <IconComponent size={28} />;
+              })()
+            )}
             <div>
               <span style={styles.compactTypeName(tokens)}>{partnerType.name}</span>
               <span style={styles.compactTypeUser(tokens)}>{partnerName}</span>
@@ -142,7 +153,7 @@ export default function QuizComparisonCard({
         )}
 
         <button
-          onClick={() => router.push("/wir/kompass")}
+          onClick={() => router.push("/wir/archetypen")}
           style={styles.compactButton(tokens)}
         >
           Vergleich ansehen
@@ -161,7 +172,7 @@ export default function QuizComparisonCard({
             <Link2 size={24} color="white" />
           </div>
           <div style={styles.headerText}>
-            <h3 style={styles.title(tokens)}>Bindungsstile</h3>
+            <h3 style={styles.title(tokens)}>Archetypen</h3>
             <p style={styles.subtitle(tokens)}>Vergleicht eure Muster</p>
           </div>
         </div>
@@ -172,7 +183,12 @@ export default function QuizComparisonCard({
             style={styles.clickableTypePreview(tokens)}
             onClick={() => router.push("/quiz/result")}
           >
-            <span style={{ fontSize: "20px" }}>{userType.emoji}</span>
+            {profile?.quiz_results?.primaryType && ArchetypeIconMap[profile.quiz_results.primaryType] && (
+              (() => {
+                const IconComponent = ArchetypeIconMap[profile.quiz_results.primaryType];
+                return <IconComponent size={24} />;
+              })()
+            )}
             <span style={styles.typePreviewText(tokens)}>Du bist: {userType.name}</span>
             <ChevronRight size={16} color={tokens.colors.text.muted} />
           </div>
@@ -229,7 +245,7 @@ export default function QuizComparisonCard({
             <Link2 size={24} color="white" />
           </div>
           <div style={styles.headerText}>
-            <h3 style={styles.title(tokens)}>Bindungsstile</h3>
+            <h3 style={styles.title(tokens)}>Archetypen</h3>
             <p style={styles.subtitle(tokens)}>Vergleicht eure Muster</p>
           </div>
         </div>
@@ -240,7 +256,12 @@ export default function QuizComparisonCard({
             style={styles.clickableTypePreview(tokens)}
             onClick={() => router.push("/quiz/result")}
           >
-            <span style={{ fontSize: "20px" }}>{userType.emoji}</span>
+            {profile?.quiz_results?.primaryType && ArchetypeIconMap[profile.quiz_results.primaryType] && (
+              (() => {
+                const IconComponent = ArchetypeIconMap[profile.quiz_results.primaryType];
+                return <IconComponent size={24} />;
+              })()
+            )}
             <span style={styles.typePreviewText(tokens)}>Du bist: {userType.name}</span>
             <ChevronRight size={16} color={tokens.colors.text.muted} />
           </div>

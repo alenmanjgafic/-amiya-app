@@ -304,7 +304,7 @@ export const CoupleAgreementsIllustration = ({ isDarkMode = true }) => {
 };
 
 /**
- * BEZIEHUNGSKOMPASS (Relationship Compass)
+ * ARCHETYPEN-QUIZ COMPASS ILLUSTRATION
  * Concept: 4 dimension orbs arranged in compass pattern
  * - Top: Nähe (Lavender)
  * - Right: Intensität (Rose)

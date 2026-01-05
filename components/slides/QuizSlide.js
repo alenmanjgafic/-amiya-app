@@ -1,6 +1,6 @@
 /**
  * QUIZ SLIDE - components/slides/QuizSlide.js
- * Entry point for Beziehungskompass quiz
+ * Entry point for Archetypen-Quiz
  */
 "use client";
 import { useRouter } from "next/navigation";
@@ -47,7 +47,7 @@ export default function QuizSlide() {
         fontSize: "24px",
         marginBottom: "8px",
       }}>
-        Beziehungskompass
+        Archetypen-Quiz
       </h2>
 
       <p style={{
@@ -57,8 +57,8 @@ export default function QuizSlide() {
         maxWidth: "280px",
       }}>
         {hasCompleted
-          ? "Dein Beziehungsprofil ansehen"
-          : "Entdecke deinen Beziehungstyp in 5 Minuten"
+          ? "Deinen Archetyp ansehen"
+          : "Entdecke deinen Archetyp in 5 Minuten"
         }
       </p>
 

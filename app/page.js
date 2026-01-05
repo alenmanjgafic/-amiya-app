@@ -234,7 +234,7 @@ function HomeContent() {
         {/* Slide 4: Words Finder (Message Coach) */}
         <WordsFinderSlide />
 
-        {/* Slide 5: Beziehungskompass Quiz */}
+        {/* Slide 5: Archetypen-Quiz */}
         <QuizSlide />
       </FeatureCarousel>
 
