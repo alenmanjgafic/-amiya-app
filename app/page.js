@@ -730,7 +730,6 @@ Frage den User wie er sich dabei fühlt und was er besprechen möchte.
           <SoloSessionSlide
             userName={displayName}
             partnerName={partnerName}
-            onStartSession={startSession}
             analysisError={analysisError}
           />
 

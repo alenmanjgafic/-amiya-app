@@ -286,7 +286,7 @@ export default function MessageAnalyzerPage() {
 
               {/* Voice Session Button */}
               <button
-                onClick={() => router.push(`/?fromAnalysis=${result.sessionId}`)}
+                onClick={() => router.push(`/session/solo?analysisId=${result.sessionId}`)}
                 style={{
                   ...tokens.cards.interactive,
                   display: "flex",

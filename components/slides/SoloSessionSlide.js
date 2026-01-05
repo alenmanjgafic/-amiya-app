@@ -1,20 +1,24 @@
 /**
  * SOLO SESSION SLIDE - components/slides/SoloSessionSlide.js
  * Start screen for solo voice session
- * Only renders the "idle" state - session logic stays in parent
+ * Navigates to dedicated /session/solo page
  */
 "use client";
+import { useRouter } from "next/navigation";
 import { Mic, Headphones } from "lucide-react";
 import { useTheme } from "../../lib/ThemeContext";
 
 export default function SoloSessionSlide({
   userName = "du",
   partnerName = "Partner",
-  onStartSession,
-  isActive = false,
   analysisError = null,
 }) {
   const { tokens } = useTheme();
+  const router = useRouter();
+
+  const handleStartSession = () => {
+    router.push("/session/solo");
+  };
 
   return (
     <div style={{
@@ -83,7 +87,7 @@ export default function SoloSessionSlide({
 
       {/* Start Session Button */}
       <button
-        onClick={onStartSession}
+        onClick={handleStartSession}
         style={tokens.buttons.primaryLarge}
       >
         Session starten
