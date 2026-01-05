@@ -89,6 +89,7 @@ function SoloSessionContent() {
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
   const mediaStreamRef = useRef(null);
+  const endRequestedRef = useRef(false); // Track if user wants to end during connection
 
   // Auth redirects
   useEffect(() => {
@@ -183,6 +184,9 @@ function SoloSessionContent() {
   // Start session
   const startSession = useCallback(async () => {
     if (!user || !profile) return;
+
+    // Reset end request flag at start
+    endRequestedRef.current = false;
 
     setIsStarted(true);
     setVoiceState(STATE.CONNECTING);
@@ -291,8 +295,33 @@ Frage den User wie er sich dabei fühlt und was er besprechen möchte.
 
       conversationRef.current = conversation;
 
+      // Check if user clicked end while we were connecting
+      if (endRequestedRef.current) {
+        console.log("User requested end during connection, cleaning up...");
+        try {
+          await conversation.endSession();
+        } catch (e) {}
+        conversationRef.current = null;
+
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach(track => track.stop());
+          mediaStreamRef.current = null;
+        }
+
+        setVoiceState(STATE.IDLE);
+        router.push("/");
+        return;
+      }
+
     } catch (error) {
       console.error("Failed to start solo session:", error);
+
+      // Clean up media stream on error too
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+      }
+
       alert("Konnte Sitzung nicht starten. Bitte Mikrofon-Zugriff erlauben.");
       setIsStarted(false);
       setVoiceState(STATE.IDLE);
@@ -411,6 +440,12 @@ Frage den User wie er sich dabei fühlt und was er besprechen möchte.
 
   // Handle end button click
   const handleEndClick = useCallback(async () => {
+    // Signal that user wants to end (in case we're still connecting)
+    endRequestedRef.current = true;
+
+    // Check if we're still connecting (conversation not established yet)
+    const wasConnecting = voiceState === STATE.CONNECTING && !conversationRef.current;
+
     if (conversationRef.current) {
       try {
         await conversationRef.current.endSession();
@@ -426,12 +461,18 @@ Frage den User wie er sich dabei fühlt und was er besprechen möchte.
 
     setVoiceState(STATE.IDLE);
 
+    // If we were still connecting, just go home (startSession will also check endRequestedRef)
+    if (wasConnecting) {
+      router.push("/");
+      return;
+    }
+
     if (profile?.auto_analyze !== false) {
       setTimeout(() => endSession(true), 100);
     } else {
       setShowEndDialog(true);
     }
-  }, [profile?.auto_analyze, endSession]);
+  }, [profile?.auto_analyze, endSession, voiceState, router]);
 
   const handleDialogAnalyze = async () => {
     setShowEndDialog(false);
