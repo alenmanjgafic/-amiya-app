@@ -39,6 +39,8 @@ export default function CoupleSessionPage() {
   const conversationRef = useRef(null);
   const timerRef = useRef(null);
   const messagesRef = useRef([]);
+  const mediaStreamRef = useRef(null);
+  const endRequestedRef = useRef(false); // Track if user wants to end during connection
 
   const MAX_SESSION_TIME = 60 * 60; // 1 hour
 
@@ -112,6 +114,9 @@ export default function CoupleSessionPage() {
   const startSession = useCallback(async () => {
     if (!user || !profile) return;
 
+    // Reset end request flag at start
+    endRequestedRef.current = false;
+
     setIsStarted(true);
     setVoiceState(STATE.CONNECTING);
     messagesRef.current = [];
@@ -144,7 +149,8 @@ export default function CoupleSessionPage() {
       setCurrentSessionId(session.id);
 
       const { Conversation } = await import("@elevenlabs/client");
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
 
       console.log("Couple context length:", userContext.length);
 
@@ -205,8 +211,33 @@ export default function CoupleSessionPage() {
 
       conversationRef.current = conversation;
 
+      // Check if user clicked end while we were connecting
+      if (endRequestedRef.current) {
+        console.log("User requested end during connection, cleaning up...");
+        try {
+          await conversation.endSession();
+        } catch (e) {}
+        conversationRef.current = null;
+
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach(track => track.stop());
+          mediaStreamRef.current = null;
+        }
+
+        setVoiceState(STATE.IDLE);
+        router.push("/wir");
+        return;
+      }
+
     } catch (error) {
       console.error("Failed to start couple session:", error);
+
+      // Clean up media stream on error too
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+      }
+
       alert("Konnte Sitzung nicht starten. Bitte Mikrofon-Zugriff erlauben.");
       setIsStarted(false);
       setVoiceState(STATE.IDLE);
@@ -221,6 +252,12 @@ export default function CoupleSessionPage() {
   }, [authLoading, user, profile, isStarted, startSession]);
 
   const handleEndClick = useCallback(async () => {
+    // Signal that user wants to end (in case we're still connecting)
+    endRequestedRef.current = true;
+
+    // Check if we're still connecting (conversation not established yet)
+    const wasConnecting = voiceState === STATE.CONNECTING && !conversationRef.current;
+
     if (conversationRef.current) {
       try {
         await conversationRef.current.endSession();
@@ -229,7 +266,20 @@ export default function CoupleSessionPage() {
       }
       conversationRef.current = null;
     }
+
+    // Stop microphone stream (fixes Safari red mic indicator)
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+
     setVoiceState(STATE.IDLE);
+
+    // If we were still connecting, just go home (startSession will also check endRequestedRef)
+    if (wasConnecting) {
+      router.push("/wir");
+      return;
+    }
 
     // Check if auto_analyze is enabled
     if (profile?.auto_analyze !== false) {
@@ -299,7 +349,7 @@ export default function CoupleSessionPage() {
       // Manual mode: show dialog
       setShowEndDialog(true);
     }
-  }, [profile, currentSessionId, router]);
+  }, [profile, currentSessionId, router, voiceState]);
 
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
@@ -468,9 +518,16 @@ export default function CoupleSessionPage() {
     return () => {
       if (conversationRef.current) {
         conversationRef.current.endSession();
+        conversationRef.current = null;
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      // Stop microphone stream (fixes Safari red mic indicator)
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
       }
     };
   }, []);
