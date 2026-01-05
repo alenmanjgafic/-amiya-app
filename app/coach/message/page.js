@@ -53,12 +53,29 @@ export default function MessageCoachPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Load analysis context on mount
+  // Load analysis context on mount (or start standalone mode)
   useEffect(() => {
     if (sessionId && user) {
       loadContext();
+    } else if (user && profile) {
+      // Standalone mode - no analysis context
+      initStandaloneMode();
     }
-  }, [sessionId, user]);
+  }, [sessionId, user, profile]);
+
+  const initStandaloneMode = () => {
+    const partnerName = profile?.partner_name || "deinem Partner";
+    setMessages([
+      {
+        role: "assistant",
+        content: `Hi! Ich bin hier, um dir zu helfen, die richtigen Worte zu finden.
+
+Was möchtest du ${partnerName} sagen? Erzähl mir einfach, worum es geht - ich helfe dir dann, es klar und einfühlsam zu formulieren.`,
+        type: "text",
+      },
+    ]);
+    setLoading(false);
+  };
 
   const loadContext = async () => {
     try {
@@ -270,17 +287,6 @@ Du kannst es mir einfach erzählen - in deinen eigenen Worten, auch wenn es noch
       <div style={styles.loadingContainer}>
         <Loader2 size={32} style={styles.spinner} />
         <p>Lade Kontext...</p>
-      </div>
-    );
-  }
-
-  if (!analysisContext) {
-    return (
-      <div style={styles.errorContainer}>
-        <p>Konnte Analyse nicht laden.</p>
-        <button onClick={() => router.back()} style={styles.backButton}>
-          Zurück
-        </button>
       </div>
     );
   }

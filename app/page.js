@@ -12,6 +12,7 @@ import FeatureCarousel from "../components/FeatureCarousel";
 import SoloSessionSlide from "../components/slides/SoloSessionSlide";
 import CoupleSessionSlide from "../components/slides/CoupleSessionSlide";
 import MessageAnalyzerSlide from "../components/slides/MessageAnalyzerSlide";
+import WordsFinderSlide from "../components/slides/WordsFinderSlide";
 import {
   Home as HomeIcon,
   Heart,
@@ -228,6 +229,9 @@ function HomeContent() {
 
         {/* Slide 3: Message Analyzer */}
         <MessageAnalyzerSlide />
+
+        {/* Slide 4: Words Finder (Message Coach) */}
+        <WordsFinderSlide />
       </FeatureCarousel>
 
       {/* Bottom Navigation */}
