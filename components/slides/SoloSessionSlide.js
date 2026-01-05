@@ -5,15 +5,16 @@
  */
 "use client";
 import { useRouter } from "next/navigation";
-import { Mic, Headphones } from "lucide-react";
+import { Headphones } from "lucide-react";
 import { useTheme } from "../../lib/ThemeContext";
+import { SoloSessionIllustration } from "../AmiyaIllustrations";
 
 export default function SoloSessionSlide({
   userName = "du",
   partnerName = "Partner",
   analysisError = null,
 }) {
-  const { tokens } = useTheme();
+  const { tokens, isDarkMode } = useTheme();
   const router = useRouter();
 
   const handleStartSession = () => {
@@ -29,19 +30,13 @@ export default function SoloSessionSlide({
       padding: "32px 20px",
       textAlign: "center",
     }}>
-      {/* Session Type Icon */}
+      {/* Illustration */}
       <div style={{
-        width: "80px",
-        height: "80px",
-        background: tokens.gradients.speaking,
-        borderRadius: tokens.radii.xl,
-        margin: "0 auto 20px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        boxShadow: tokens.shadows.glow(tokens.colors.aurora.lavender),
+        width: "200px",
+        height: "120px",
+        marginBottom: "16px",
       }}>
-        <Mic size={36} color="white" />
+        <SoloSessionIllustration isDarkMode={isDarkMode} />
       </div>
 
       <h2 style={{

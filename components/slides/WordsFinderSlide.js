@@ -5,11 +5,11 @@
  */
 "use client";
 import { useRouter } from "next/navigation";
-import { PenLine } from "lucide-react";
 import { useTheme } from "../../lib/ThemeContext";
+import { MessageWriterIllustration } from "../AmiyaIllustrations";
 
 export default function WordsFinderSlide() {
-  const { tokens } = useTheme();
+  const { tokens, isDarkMode } = useTheme();
   const router = useRouter();
 
   const handleStart = () => {
@@ -25,19 +25,13 @@ export default function WordsFinderSlide() {
       padding: "32px 20px",
       textAlign: "center",
     }}>
-      {/* Icon */}
+      {/* Illustration */}
       <div style={{
-        width: "80px",
-        height: "80px",
-        background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
-        borderRadius: tokens.radii.xl,
-        margin: "0 auto 20px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        boxShadow: tokens.shadows.glow(tokens.colors.aurora.lavender),
+        width: "200px",
+        height: "120px",
+        marginBottom: "16px",
       }}>
-        <PenLine size={36} color="white" />
+        <MessageWriterIllustration isDarkMode={isDarkMode} />
       </div>
 
       <h2 style={{

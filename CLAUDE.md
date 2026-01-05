@@ -55,8 +55,11 @@
   /history/              # Session-Verlauf (alle Session-Typen)
   /wir/                  # Paar-Features ("Wir"-Bereich)
     /connect/            # Paar-Verbindung via Code
-  /session/couple/       # Couple Session (Voice)
-  /analyze/message/      # Nachrichtenanalyse (Text)
+  /session/
+    /solo/               # Solo Session (Voice) - Dedicated page
+    /couple/             # Couple Session (Voice)
+  /analyze/message/      # Nachrichtenanalyse (Text einfügen + analysieren)
+  /coach/message/        # Message Coach ("Worte finden")
   /api/                  # Backend API Routes
 
 /components              # React Komponenten
@@ -70,6 +73,7 @@
     SoloSessionSlide.js  # Solo Voice Session starten
     CoupleSessionSlide.js # Couple Session starten
     MessageAnalyzerSlide.js # Nachrichtenanalyse starten
+    WordsFinderSlide.js  # Worte finden (Message Coach)
 
 /lib                     # Shared Utilities
   AuthContext.js         # Auth State + Profile Management
@@ -284,6 +288,7 @@ Die Nachrichtenanalyse ermöglicht es Usern, Chat-Verläufe aus WhatsApp, iMessa
 4. Klickt "Analysieren"
 5. Claude analysiert die Kommunikation
 6. Ergebnis wird als Session gespeichert (type: "message_analysis")
+7. Optional: "Darüber sprechen" → Solo Session mit Analyse-Kontext
 ```
 
 **Analyse-Methodik (Gottman + NVC):**
@@ -309,10 +314,11 @@ Die Analyse kombiniert zwei therapeutische Frameworks:
 - Konkrete Verbesserungsvorschläge
 - Alternative Formulierungen (NVC-basiert)
 
-**API Route:** `/api/analyze/message`
+**API Route:** `/api/message-analyze`
 - POST: Analysiert eingefügten Text
 - Speichert als Session mit `type: "message_analysis"`
 - Nutzt Claude claude-sonnet-4-20250514 für Analyse
+- Ruft `/api/memory/update` nach Analyse (speichert Erkenntnisse)
 
 **Session-Speicherung:**
 ```javascript
@@ -334,10 +340,69 @@ Die Analyse kombiniert zwei therapeutische Frameworks:
 - Ergebnis inline angezeigt (kein Modal)
 - "Im Verlauf speichern" erfolgt automatisch
 
+**"Darüber sprechen" Button:**
+- Erscheint nach erfolgreicher Analyse
+- Navigiert zu `/session/solo?analysisId={sessionId}`
+- Solo Session lädt Analyse-Kontext und startet mit Bezug darauf
+
 **Privacy:**
 - Eingefügter Text wird NICHT im Memory gespeichert
 - Nur die Analyse (ohne Original-Chat) bleibt im Kontext
 - User kann Session jederzeit löschen
+
+---
+
+### 7. Worte finden (Message Coach)
+
+"Worte finden" ermöglicht es Usern, direkt mit Amiyas Message Coach zu sprechen, ohne vorherige Nachrichtenanalyse.
+
+**Konzept:**
+- User hat Gedanken/Gefühle die er dem Partner mitteilen möchte
+- Amiya hilft, diese in klare Worte zu fassen
+- Betonung: User formuliert, AI unterstützt (nicht umgekehrt)
+
+**Zugang:**
+- Via Home-Carousel (4. Slide "Worte finden")
+- Direktlink: `/coach/message`
+
+**UI-Slide:**
+```
+"Worte finden"
+"Deine Gedanken, klar formuliert."
+[Nachricht verfassen] Button
+"Amiya hilft dir, das auszudrücken was du sagen möchtest"
+```
+
+**Message Coach Page (`/coach/message`):**
+
+Zwei Modi:
+1. **Mit Analyse-Kontext** (von "Darüber sprechen" Button)
+   - Lädt vorherige Nachrichtenanalyse
+   - Konversation startet mit Bezug auf die Analyse
+
+2. **Standalone Mode** (von "Worte finden" Slide)
+   - Kein Kontext
+   - Freier Einstieg: "Was möchtest du sagen?"
+
+**Flow (Standalone):**
+```
+1. User öffnet "Worte finden"
+2. Amiya fragt: "Was möchtest du deinem Partner sagen?"
+3. User beschreibt Situation/Gefühle
+4. Amiya hilft bei Formulierung
+5. Iteratives Verfeinern bis User zufrieden
+6. Optional: Kopieren der finalen Nachricht
+```
+
+**Technische Komponenten:**
+- `/components/slides/WordsFinderSlide.js` - Carousel Slide
+- `/app/coach/message/page.js` - Message Coach Page (beide Modi)
+
+**Philosophie:**
+- AI gibt NICHT vor was zu schreiben ist
+- AI hilft Gedanken zu ordnen und klar zu formulieren
+- User behält volle Kontrolle über die Nachricht
+- Partner soll nicht das Gefühl haben "AI schreibt"
 
 ---
 
@@ -527,6 +592,8 @@ created_at      timestamp
 - [x] Solo Voice Sessions mit ElevenLabs
 - [x] Couple Sessions
 - [x] Nachrichtenanalyse (Chat-Text mit Gottman + NVC)
+- [x] "Darüber sprechen" - Von Analyse direkt in Solo Session mit Kontext
+- [x] "Worte finden" - Message Coach ohne vorherige Analyse
 - [x] Memory System mit Consent
 - [x] Session-Analyse mit Agreement-Detection
 - [x] Session-Viability-Check (zu kurze Sessions werden abgelehnt)
@@ -536,7 +603,7 @@ created_at      timestamp
 - [x] Paar-Verbindung via Invite-Codes
 - [x] Paar-Trennung mit Learnings-Option
 - [x] Session History (mit visueller Unterscheidung pro Typ)
-- [x] Home-Carousel (swipeable mit Solo/Couple/Message Slides)
+- [x] Home-Carousel (swipeable mit Solo/Couple/Message/Worte finden Slides)
 - [x] Light/Dark Mode (Amiya Aurora Design System)
 - [x] Lucide Icons (statt Emojis)
 
@@ -545,6 +612,50 @@ created_at      timestamp
 - **Kontext-Limit:** 4000 Zeichen für ElevenLabs Dynamic Variables
 - **Analyse:** Solo max 400 Wörter, Couple detaillierter
 - **Check-ins:** Werden proaktiv in Couple Sessions angesprochen
+
+### Technical Debt: Memory-Integration Nachrichtenanalyse
+
+**Status:** Nachrichtenanalyse ist NICHT vollständig in das Memory-System integriert.
+
+**Aktueller Stand:**
+| Funktion | Status | Details |
+|----------|--------|---------|
+| Memory UPDATE | ✅ Funktioniert | `/api/memory/update` akzeptiert `message_analysis` Sessions |
+| Memory GET | ❌ Fehlt | `/api/memory/get` lädt KEINE `message_analysis` Sessions |
+| Solo ← Message | ❌ Fehlt | Solo Sessions kennen vorherige Nachrichtenanalysen NICHT |
+| Couple ← Message | ❌ Bewusst | Soll nicht implementiert werden |
+
+**Auswirkung:**
+- Wenn User eine Nachricht analysiert, werden Erkenntnisse in `personal_context` gespeichert
+- Aber: Nächste Solo Session lädt diese Erkenntnisse nicht in den Kontext
+- Das bedeutet: Amiya "vergisst" die Nachrichtenanalyse
+
+**Identifizierte Architektur-Probleme:**
+
+1. **Inkonsistente Feldnamen:**
+   - Solo/Couple Sessions: `summary_for_coach` für Coach-Summary
+   - Message Analysis: `analysis` (kein separates Coach-Summary)
+   - Memory GET filtert auf `summary_for_coach.not.is.null` → findet keine message_analysis
+
+2. **Unbegrenztes JSONB-Wachstum:**
+   - `personal_context` in `profiles` wächst mit jeder Session
+   - Keine Cleanup-Logik für alte Einträge
+   - Bei aktiven Usern wird das Feld sehr gross (50KB+)
+
+3. **Claude macht JSON-Manipulation:**
+   - Memory UPDATE lässt Claude bestehenden JSONB erweitern
+   - Risiko: Bestehende Daten können beschädigt werden
+   - Keine Versionierung oder Rollback
+
+**Empfohlene Fixes (nicht implementiert):**
+
+1. **Quick Fix:** Memory GET erweitern für `message_analysis` Sessions
+2. **Mittelfristig:** Konsistente Feldnamen (`summary_for_coach` überall)
+3. **Langfristig:** JSONB-Cleanup-Logik (älteste Einträge entfernen)
+
+**Entscheidung:** Architektur bleibt vorerst so. Bei Product-Market-Fit Refactoring planen.
+
+---
 
 ### Potenzielle Erweiterungen
 

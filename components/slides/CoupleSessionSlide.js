@@ -7,13 +7,14 @@
 import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
 import { useTheme } from "../../lib/ThemeContext";
+import { CoupleSessionIllustration } from "../AmiyaIllustrations";
 
 export default function CoupleSessionSlide({
   userName = "du",
   partnerName = "Partner",
   isActive = false,
 }) {
-  const { tokens } = useTheme();
+  const { tokens, isDarkMode } = useTheme();
   const router = useRouter();
 
   const handleStartSession = () => {
@@ -29,19 +30,13 @@ export default function CoupleSessionSlide({
       padding: "32px 20px",
       textAlign: "center",
     }}>
-      {/* Session Type Icon */}
+      {/* Illustration */}
       <div style={{
-        width: "80px",
-        height: "80px",
-        background: tokens.gradients.primary,
-        borderRadius: tokens.radii.xl,
-        margin: "0 auto 20px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        boxShadow: tokens.shadows.glow(tokens.colors.aurora.rose),
+        width: "200px",
+        height: "120px",
+        marginBottom: "16px",
       }}>
-        <Users size={36} color="white" />
+        <CoupleSessionIllustration isDarkMode={isDarkMode} />
       </div>
 
       <h2 style={{

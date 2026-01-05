@@ -4,13 +4,14 @@
  */
 "use client";
 import { useRouter } from "next/navigation";
-import { MessageSquare, Camera, Type } from "lucide-react";
+import { Camera, Type } from "lucide-react";
 import { useTheme } from "../../lib/ThemeContext";
+import { MessageAnalysisIllustration } from "../AmiyaIllustrations";
 
 export default function MessageAnalyzerSlide({
   isActive = false,
 }) {
-  const { tokens } = useTheme();
+  const { tokens, isDarkMode } = useTheme();
   const router = useRouter();
 
   const handleAnalyze = () => {
@@ -26,19 +27,13 @@ export default function MessageAnalyzerSlide({
       padding: "32px 20px",
       textAlign: "center",
     }}>
-      {/* Session Type Icon */}
+      {/* Illustration */}
       <div style={{
-        width: "80px",
-        height: "80px",
-        background: `linear-gradient(135deg, ${tokens.colors.aurora.sky} 0%, ${tokens.colors.aurora.lavender} 100%)`,
-        borderRadius: tokens.radii.xl,
-        margin: "0 auto 20px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        boxShadow: tokens.shadows.glow(tokens.colors.aurora.sky),
+        width: "200px",
+        height: "120px",
+        marginBottom: "16px",
       }}>
-        <MessageSquare size={36} color="white" />
+        <MessageAnalysisIllustration isDarkMode={isDarkMode} />
       </div>
 
       <h2 style={{

@@ -367,10 +367,6 @@ export default function HistoryPage() {
           <ClipboardList size={24} />
           <span>Verlauf</span>
         </button>
-        <button onClick={() => router.push("/profile")} style={tokens.buttons.nav(false)}>
-          <User size={24} />
-          <span>Profil</span>
-        </button>
       </div>
 
       {/* Analysis Modal */}
