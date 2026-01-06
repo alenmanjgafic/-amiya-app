@@ -65,8 +65,11 @@ export default function ChapterContentPage() {
           (p) => (p.chapter_id || p.bite_id) === chapterId
         );
 
-        if (chapterProgress && chapterProgress.current_screen) {
-          setCurrentScreen(chapterProgress.current_screen);
+        if (chapterProgress && chapterProgress.current_screen !== undefined) {
+          // Cap to valid range - if completed, start from beginning for review
+          const maxValidScreen = result.chapter.content.screens.length - 1;
+          const savedScreen = chapterProgress.current_screen;
+          setCurrentScreen(savedScreen > maxValidScreen ? 0 : savedScreen);
         }
       } catch (error) {
         console.error("Failed to load chapter:", error);
