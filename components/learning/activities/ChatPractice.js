@@ -445,10 +445,32 @@ export default function ChatPractice({
           >
             {turnCount} von {maxTurns} Runden
           </span>
+
+          {/* Early finish button - show after at least 1 turn */}
+          {turnCount >= 1 && !isLoading && (
+            <button
+              onClick={() => {
+                setFeedback("Du hast die Übung vorzeitig beendet. Komm gerne zurück um weiter zu üben!");
+                setIsComplete(true);
+              }}
+              style={{
+                padding: "6px 12px",
+                background: "transparent",
+                border: `1px solid ${tokens.colors.text.muted}30`,
+                borderRadius: "8px",
+                color: tokens.colors.text.muted,
+                fontSize: "12px",
+                cursor: "pointer",
+              }}
+            >
+              Übung beenden
+            </button>
+          )}
+
           <div
             style={{
               height: "4px",
-              width: "100px",
+              width: "80px",
               background: tokens.colors.bg.surface,
               borderRadius: "2px",
               overflow: "hidden",
