@@ -1029,6 +1029,38 @@ Key Token-Kategorien:
 - `tokens.shadows.*` - Schatten (soft, medium, large, glow)
 - `tokens.fonts.*` - Schriftarten (display, body)
 
+#### ⚠️ DESIGN SYSTEM REGELN (WICHTIG!)
+
+**NIEMALS hardcoded Farben oder Gradients verwenden!**
+
+```javascript
+// ❌ FALSCH - Hardcoded Gradient
+background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}, ${tokens.colors.aurora.lavender})`
+
+// ✅ RICHTIG - Design Token
+background: tokens.gradients.primary
+```
+
+**Verfügbare Gradient-Tokens:**
+
+| Token | Farben | Verwendung |
+|-------|--------|------------|
+| `tokens.gradients.primary` | mint → lavender | Buttons, CTAs |
+| `tokens.gradients.primaryHorizontal` | mint → lavender (90°) | Progress bars |
+| `tokens.gradients.surface` | mint → lavender (20%) | Selected states |
+| `tokens.gradients.surfaceLight` | mint → lavender (10%) | Subtle highlights |
+| `tokens.gradients.surfaceSubtle` | mint → lavender (15%/10%) | Very subtle |
+| `tokens.gradients.mint` | mint → lavender | Alias für primary |
+| `tokens.gradients.mintSurface` | mint → lavender (20%) | Success/completed states |
+| `tokens.gradients.rose` | lavender → rose | Chat bubbles, Akzente |
+| `tokens.gradients.roseSurface` | lavender → rose (20%) | Rose highlights |
+| `tokens.gradients.speaking` | lavender → rose | Voice session status |
+
+**Warum?**
+- Farben können zentral in `lib/ThemeContext.js` geändert werden
+- Light/Dark Mode funktioniert automatisch
+- Konsistentes Design über alle Komponenten
+
 ---
 
 ## Dokumentation
