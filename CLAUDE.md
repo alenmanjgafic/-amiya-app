@@ -13,8 +13,10 @@
 1. **Solo Sessions** - Ein Partner spricht alleine mit Amiya (Voice)
 2. **Couple Sessions** - Beide Partner gemeinsam in einer moderierten Session (Voice)
 3. **Nachrichtenanalyse** - Chat-Nachrichten (WhatsApp, iMessage, etc.) analysieren lassen
-4. **Agreements** - Paare können Vereinbarungen treffen und tracken
-5. **Memory System** - Kontextbewusstes Coaching über Sessions hinweg
+4. **Worte finden** - Message Coach hilft bei der Formulierung von Nachrichten
+5. **Archetypen-Quiz** - 24 Fragen zu 4 Dimensionen → einer von 11 Beziehungstypen
+6. **Agreements** - Paare können Vereinbarungen treffen und tracken
+7. **Memory System** - Kontextbewusstes Coaching über Sessions hinweg
 
 ---
 
@@ -55,11 +57,15 @@
   /history/              # Session-Verlauf (alle Session-Typen)
   /wir/                  # Paar-Features ("Wir"-Bereich)
     /connect/            # Paar-Verbindung via Code
+    /archetypen/         # Paar-Vergleich der Archetypen
   /session/
     /solo/               # Solo Session (Voice) - Dedicated page
     /couple/             # Couple Session (Voice)
   /analyze/message/      # Nachrichtenanalyse (Text einfügen + analysieren)
   /coach/message/        # Message Coach ("Worte finden")
+  /quiz/                 # Archetypen-Quiz
+    /questions/          # 24 Quiz-Fragen
+    /result/             # Ergebnis-Seite
   /api/                  # Backend API Routes
 
 /components              # React Komponenten
@@ -69,17 +75,21 @@
   CreateAgreement.js     # Neue Vereinbarung erstellen
   AnalysisView.js        # Session-Analyse anzeigen
   DisconnectDialog.js    # Paar-Trennung verwalten
+  ArchetypeIcons.js      # SVG Icons für 11 Archetypen
+  QuizComparisonCard.js  # Quiz-Sharing Status in "Wir"
   /slides/               # Carousel Slides
     SoloSessionSlide.js  # Solo Voice Session starten
     CoupleSessionSlide.js # Couple Session starten
     MessageAnalyzerSlide.js # Nachrichtenanalyse starten
     WordsFinderSlide.js  # Worte finden (Message Coach)
+    QuizSlide.js         # Archetypen-Quiz starten
 
 /lib                     # Shared Utilities
   AuthContext.js         # Auth State + Profile Management
   ThemeContext.js        # Theme Provider (Light/Dark Mode)
   sessions.js            # Session CRUD Service
   supabase.js            # Supabase Client
+  quizLogic.js           # Archetypen-Quiz Logik, Fragen, Typen, Scoring
 ```
 
 ---
@@ -406,6 +416,164 @@ Zwei Modi:
 
 ---
 
+### 8. Archetypen-Quiz
+
+Das Archetypen-Quiz hilft Usern, ihren Beziehungstyp zu entdecken und mit dem Partner zu vergleichen.
+
+**Konzept:**
+- 24 Fragen zu 4 Dimensionen
+- Ergebnis: Einer von 11 Archetypen
+- "Sealed Letter" Sharing: Beide Partner teilen unabhängig, dann wird der Vergleich freigeschaltet
+
+**Zugang:**
+- Via Home-Carousel (5. Slide "Archetypen-Quiz")
+- Direktlink: `/quiz`
+- Nach Completion: `/quiz/result`
+- Paar-Vergleich: `/wir/archetypen`
+
+#### Die 4 Dimensionen
+
+| Dimension | Schlüssel | Farbe | Bedeutung |
+|-----------|-----------|-------|-----------|
+| **Nähe** | `naehe` | Lavender | Bedürfnis nach emotionaler Verbundenheit |
+| **Autonomie** | `autonomie` | Sky | Bedürfnis nach Unabhängigkeit und eigenem Raum |
+| **Intensität** | `intensitaet` | Rose | Bedürfnis nach Leidenschaft und Aufregung |
+| **Sicherheit** | `sicherheit` | Mint | Bedürfnis nach Stabilität und Verlässlichkeit |
+
+Jede Dimension wird mit 6 Fragen gemessen (24 total). Antworten auf 7-Punkt-Skala. Invertierte Items werden automatisch umgerechnet.
+
+#### Die 11 Archetypen
+
+**4 Basis-Typen** (dominante einzelne Dimension):
+
+| Archetyp | Dimension | Kurzformel |
+|----------|-----------|------------|
+| **Der Verbinder** | Nähe | "Lass mich ganz nah ran" |
+| **Der Entdecker** | Autonomie | "Liebe mich, aber lass mich fliegen" |
+| **Die Liebende** | Intensität | "Halt die Flamme am Brennen" |
+| **Der Beschützer** | Sicherheit | "Gib mir Boden unter den Füssen" |
+
+**6 Kombinations-Typen** (Top 2 Dimensionen nahe beieinander):
+
+| Archetyp | Dimensionen | Kurzformel |
+|----------|-------------|------------|
+| **Der Weise** | Nähe + Autonomie | "Verbunden, aber eigenständig" |
+| **Der Künstler** | Nähe + Intensität | "Alles oder nichts" |
+| **Der Heiler** | Nähe + Sicherheit | "Sicher geborgen, tief verbunden" |
+| **Der Rebell** | Autonomie + Intensität | "Frei und leidenschaftlich" |
+| **Der Denker** | Autonomie + Sicherheit | "Stabil und eigenständig" |
+| **Der Krieger** | Intensität + Sicherheit | "Beständige Leidenschaft" |
+
+**1 Balance-Typ** (alle Dimensionen ähnlich):
+
+| Archetyp | Bedingung | Kurzformel |
+|----------|-----------|------------|
+| **Der Wanderer** | Range < 20 | "Flexibel und ausgewogen" |
+
+#### Scoring-Algorithmus
+
+```javascript
+// 1. Rohwerte: Summe pro Dimension (6 Fragen × 1-7 = 6-42)
+// 2. Normalisierung: ((raw - 6) / 36) × 100 = 0-100%
+// 3. Typ-Bestimmung:
+//    - Range < 20 → Wanderer (balanced)
+//    - Top1 - Top2 < 10 → Kombi-Typ
+//    - Sonst → Einzel-Typ
+```
+
+#### Type Affinity (Facetten)
+
+Zeigt wie stark der User zu JEDEM Typ passt, nicht nur seinem primären:
+
+```javascript
+// Ideal-Profile pro Typ (0-1 pro Dimension)
+typeProfiles = {
+  verbinder: { naehe: 1, autonomie: 0, intensitaet: 0.3, sicherheit: 0.3 },
+  rebell: { naehe: 0.2, autonomie: 0.8, intensitaet: 0.8, sicherheit: 0.2 },
+  // ...
+}
+
+// Ähnlichkeit = gewichtete Distanz zum Ideal-Profil
+```
+
+#### Sharing-Mechanismus ("Sealed Letter")
+
+**Konzept:** Beide Partner machen das Quiz unabhängig. Erst wenn BEIDE teilen, wird der Vergleich freigeschaltet.
+
+**States:**
+1. User hat Quiz nicht gemacht → "Quiz starten" Button
+2. User completed, nicht geteilt → Eigenes Ergebnis sichtbar + "Teilen" Button
+3. User geteilt, Partner nicht → Warte-Status
+4. Beide geteilt → Vergleich freigeschaltet!
+
+**DB Felder (profiles):**
+- `quiz_completed_at` - Timestamp wann Quiz abgeschlossen
+- `quiz_shared_at` - Timestamp wann mit Partner geteilt
+- `quiz_results` - JSONB mit Antworten, Scores, Typ
+
+```javascript
+// quiz_results Struktur
+{
+  version: "1.0",
+  completedAt: "2024-...",
+  answers: { N1: 5, N2: 6, ... },
+  scores: {
+    raw: { naehe: 32, autonomie: 28, ... },
+    normalized: { naehe: 72, autonomie: 61, ... }
+  },
+  primaryType: "verbinder",
+  secondaryType: "liebende" // oder null bei Kombi-Typen
+}
+```
+
+#### Paar-Dynamiken
+
+Wenn beide geteilt haben, werden automatisch Dynamiken analysiert:
+
+```javascript
+// Differenz > 30% pro Dimension → Spannungsfeld
+analyzePairDynamic(partner1Scores, partner2Scores)
+// Returns: [{ type: "tension", area: "naehe", title: "...", tip: "..." }]
+```
+
+**Spannungsfelder:**
+- Unterschiedliche Nähe-Bedürfnisse
+- Unterschiedliche Raum-Bedürfnisse
+- Unterschiedliche Intensitäts-Level
+- Unterschiedliche Stabilitäts-Bedürfnisse
+
+**Stärken:**
+- Wenn keine grossen Differenzen → "Gut ausbalanciert"
+
+#### Technische Dateien
+
+| Datei | Beschreibung |
+|-------|--------------|
+| `/lib/quizLogic.js` | Alle Quiz-Logik, Fragen, Typen, Scoring |
+| `/components/ArchetypeIcons.js` | SVG Icons für alle 11 Archetypen (Aurora-Stil) |
+| `/components/slides/QuizSlide.js` | Home-Carousel Slide |
+| `/components/QuizComparisonCard.js` | "Wir"-Bereich Card mit Sharing-Status |
+| `/app/quiz/page.js` | Quiz Intro |
+| `/app/quiz/questions/page.js` | 24 Fragen UI |
+| `/app/quiz/result/page.js` | Ergebnis-Seite |
+| `/app/wir/archetypen/page.js` | Paar-Vergleich |
+
+#### Archetypen-Icons
+
+Jeder Archetyp hat ein eigenes SVG-Icon im Aurora-Stil:
+
+```javascript
+import { ArchetypeIconMap } from "../components/ArchetypeIcons";
+
+// Verwendung:
+const IconComponent = ArchetypeIconMap["verbinder"];
+<IconComponent size={56} />
+```
+
+Icons sind Aurora-Gradient-basiert und funktionieren in Light/Dark Mode.
+
+---
+
 ## DB Schema Übersicht
 
 ### profiles
@@ -422,6 +590,9 @@ personal_context jsonb            -- Privater Kontext (Solo Sessions)
 coaching_profile jsonb            -- Adaptive Coaching (Kommunikationsstil, etc.)
 couple_id       uuid (FK)         -- Verknüpfung zum Couple
 partner_id      uuid (FK)         -- ID des Partners
+quiz_completed_at timestamp       -- Wann Archetypen-Quiz abgeschlossen
+quiz_shared_at  timestamp         -- Wann Quiz-Ergebnis mit Partner geteilt
+quiz_results    jsonb             -- Antworten, Scores, primaryType, secondaryType
 privacy_accepted_at timestamp
 terms_accepted_at timestamp
 created_at      timestamp
@@ -594,6 +765,9 @@ created_at      timestamp
 - [x] Nachrichtenanalyse (Chat-Text mit Gottman + NVC)
 - [x] "Darüber sprechen" - Von Analyse direkt in Solo Session mit Kontext
 - [x] "Worte finden" - Message Coach ohne vorherige Analyse
+- [x] Archetypen-Quiz (24 Fragen, 4 Dimensionen, 11 Typen)
+- [x] Quiz-Sharing ("Sealed Letter" - beide müssen teilen für Vergleich)
+- [x] Paar-Vergleich der Archetypen mit Dynamik-Analyse
 - [x] Memory System mit Consent
 - [x] Session-Analyse mit Agreement-Detection
 - [x] Session-Viability-Check (zu kurze Sessions werden abgelehnt)
@@ -603,9 +777,10 @@ created_at      timestamp
 - [x] Paar-Verbindung via Invite-Codes
 - [x] Paar-Trennung mit Learnings-Option
 - [x] Session History (mit visueller Unterscheidung pro Typ)
-- [x] Home-Carousel (swipeable mit Solo/Couple/Message/Worte finden Slides)
+- [x] Home-Carousel (swipeable mit Solo/Couple/Message/Worte finden/Quiz Slides)
 - [x] Light/Dark Mode (Amiya Aurora Design System)
 - [x] Lucide Icons (statt Emojis)
+- [x] Custom Archetype Icons (Aurora-Stil SVGs)
 
 ### Bekannte Limitierungen
 
