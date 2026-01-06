@@ -104,10 +104,11 @@ export default function ChapterContentPage() {
         }),
       });
 
-      // Also save to localStorage for immediate UI feedback
-      if (typeof window !== "undefined") {
+      // Also save to localStorage for immediate UI feedback (user-specific)
+      if (typeof window !== "undefined" && user?.id) {
         try {
-          const stored = localStorage.getItem("amiya_chapter_progress");
+          const storageKey = `amiya_chapter_progress_${user.id}`;
+          const stored = localStorage.getItem(storageKey);
           const progress = stored ? JSON.parse(stored) : {};
           if (!progress[seriesId]) progress[seriesId] = {};
           progress[seriesId][chapter.id] = {
@@ -115,7 +116,7 @@ export default function ChapterContentPage() {
             contentCompleted: completed,
             currentScreen: screenIndex,
           };
-          localStorage.setItem("amiya_chapter_progress", JSON.stringify(progress));
+          localStorage.setItem(storageKey, JSON.stringify(progress));
         } catch (e) {
           console.error("LocalStorage error:", e);
         }

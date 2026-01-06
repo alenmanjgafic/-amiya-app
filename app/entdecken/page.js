@@ -28,22 +28,25 @@ export default function EntdeckenPage() {
   const [expandedSeries, setExpandedSeries] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(true);
 
-  // Helper: Load progress from localStorage
-  const getLocalProgress = () => {
-    if (typeof window === "undefined") return {};
+  // Helper: Get user-specific localStorage key
+  const getStorageKey = (userId) => `amiya_chapter_progress_${userId}`;
+
+  // Helper: Load progress from localStorage (user-specific)
+  const getLocalProgress = (userId) => {
+    if (typeof window === "undefined" || !userId) return {};
     try {
-      const stored = localStorage.getItem("amiya_chapter_progress");
+      const stored = localStorage.getItem(getStorageKey(userId));
       return stored ? JSON.parse(stored) : {};
     } catch {
       return {};
     }
   };
 
-  // Helper: Save progress to localStorage
-  const saveLocalProgress = (newProgress) => {
-    if (typeof window === "undefined") return;
+  // Helper: Save progress to localStorage (user-specific)
+  const saveLocalProgress = (userId, newProgress) => {
+    if (typeof window === "undefined" || !userId) return;
     try {
-      localStorage.setItem("amiya_chapter_progress", JSON.stringify(newProgress));
+      localStorage.setItem(getStorageKey(userId), JSON.stringify(newProgress));
     } catch (e) {
       console.error("Failed to save local progress:", e);
     }
@@ -83,8 +86,8 @@ export default function EntdeckenPage() {
         console.error("Failed to load progress from API:", error);
       }
 
-      // Merge with localStorage
-      const localProgress = getLocalProgress();
+      // Merge with localStorage (user-specific)
+      const localProgress = getLocalProgress(user.id);
       for (const [seriesId, chapters] of Object.entries(localProgress)) {
         if (!grouped[seriesId]) {
           grouped[seriesId] = {};

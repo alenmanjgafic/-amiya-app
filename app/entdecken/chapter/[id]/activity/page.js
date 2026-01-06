@@ -81,10 +81,11 @@ export default function ChapterActivityPage() {
 
         if (chapterProgress?.content_completed) {
           setContentCompleted(true);
-        } else {
-          // Also check localStorage
+        } else if (user?.id) {
+          // Also check localStorage (user-specific)
           try {
-            const stored = localStorage.getItem("amiya_chapter_progress");
+            const storageKey = `amiya_chapter_progress_${user.id}`;
+            const stored = localStorage.getItem(storageKey);
             const localProgress = stored ? JSON.parse(stored) : {};
             if (localProgress[result.series.id]?.[chapterId]?.contentCompleted) {
               setContentCompleted(true);
@@ -122,17 +123,18 @@ export default function ChapterActivityPage() {
         }),
       });
 
-      // Save to localStorage
-      if (typeof window !== "undefined") {
+      // Save to localStorage (user-specific)
+      if (typeof window !== "undefined" && user?.id) {
         try {
-          const stored = localStorage.getItem("amiya_chapter_progress");
+          const storageKey = `amiya_chapter_progress_${user.id}`;
+          const stored = localStorage.getItem(storageKey);
           const progress = stored ? JSON.parse(stored) : {};
           if (!progress[seriesId]) progress[seriesId] = {};
           progress[seriesId][chapter.id] = {
             ...progress[seriesId][chapter.id],
             activityCompleted: true,
           };
-          localStorage.setItem("amiya_chapter_progress", JSON.stringify(progress));
+          localStorage.setItem(storageKey, JSON.stringify(progress));
         } catch (e) {
           console.error("LocalStorage error:", e);
         }
