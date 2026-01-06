@@ -1,6 +1,7 @@
 /**
  * ENTDECKEN PAGE - app/entdecken/page.js
- * Learning series overview with progress tracking
+ * Learning series overview with Chapter-based progress tracking
+ * Updated for Content + Activity structure
  */
 "use client";
 
@@ -10,7 +11,7 @@ import { useAuth } from "../../lib/AuthContext";
 import { useTheme } from "../../lib/ThemeContext";
 import { ALL_SERIES } from "../../lib/learning-content";
 import SeriesCard from "../../components/learning/SeriesCard";
-import BiteCard from "../../components/learning/BiteCard";
+import ChapterCard from "../../components/learning/ChapterCard";
 import ActiveChallenges from "../../components/learning/ActiveChallenges";
 import { EntdeckenIcon } from "../../components/learning/LearningIcons";
 import {
@@ -31,7 +32,7 @@ export default function EntdeckenPage() {
   const getLocalProgress = () => {
     if (typeof window === "undefined") return {};
     try {
-      const stored = localStorage.getItem("amiya_bite_progress");
+      const stored = localStorage.getItem("amiya_chapter_progress");
       return stored ? JSON.parse(stored) : {};
     } catch {
       return {};
@@ -42,7 +43,7 @@ export default function EntdeckenPage() {
   const saveLocalProgress = (newProgress) => {
     if (typeof window === "undefined") return;
     try {
-      localStorage.setItem("amiya_bite_progress", JSON.stringify(newProgress));
+      localStorage.setItem("amiya_chapter_progress", JSON.stringify(newProgress));
     } catch (e) {
       console.error("Failed to save local progress:", e);
     }
@@ -67,49 +68,50 @@ export default function EntdeckenPage() {
         const data = await response.json();
 
         // Group by series from API
+        // Progress now tracks: chapter_id, content_completed, activity_completed
         (data.progress || []).forEach((p) => {
           if (!grouped[p.series_id]) {
-            grouped[p.series_id] = [];
+            grouped[p.series_id] = {};
           }
-          grouped[p.series_id].push(p);
+          grouped[p.series_id][p.bite_id || p.chapter_id] = {
+            contentCompleted: p.content_completed || p.status === "completed",
+            activityCompleted: p.activity_completed || false,
+            currentScreen: p.current_screen || 0,
+          };
         });
       } catch (error) {
         console.error("Failed to load progress from API:", error);
       }
 
-      // Merge with localStorage (localStorage takes precedence for completed bites)
+      // Merge with localStorage
       const localProgress = getLocalProgress();
-      for (const [seriesId, bites] of Object.entries(localProgress)) {
+      for (const [seriesId, chapters] of Object.entries(localProgress)) {
         if (!grouped[seriesId]) {
-          grouped[seriesId] = [];
+          grouped[seriesId] = {};
         }
-        for (const [biteId, status] of Object.entries(bites)) {
-          const existingIndex = grouped[seriesId].findIndex(p => p.bite_id === biteId);
-          if (existingIndex >= 0) {
-            // If localStorage says completed, trust that
-            if (status === "completed") {
-              grouped[seriesId][existingIndex].status = "completed";
-            }
+        for (const [chapterId, chapterProgress] of Object.entries(chapters)) {
+          if (!grouped[seriesId][chapterId]) {
+            grouped[seriesId][chapterId] = chapterProgress;
           } else {
-            // Add from localStorage
-            grouped[seriesId].push({
-              bite_id: biteId,
-              series_id: seriesId,
-              status: status,
-              current_screen: 0,
-            });
+            // Merge: if local says completed, trust that
+            if (chapterProgress.contentCompleted) {
+              grouped[seriesId][chapterId].contentCompleted = true;
+            }
+            if (chapterProgress.activityCompleted) {
+              grouped[seriesId][chapterId].activityCompleted = true;
+            }
           }
         }
       }
 
       setProgress(grouped);
 
-      // Auto-expand series that has in-progress bites or completed bites
-      for (const [seriesId, seriesProgress] of Object.entries(grouped)) {
-        const hasInProgress = seriesProgress.some(
-          (p) => p.status === "in_progress" || p.status === "completed"
+      // Auto-expand series with progress
+      for (const [seriesId, chaptersProgress] of Object.entries(grouped)) {
+        const hasProgress = Object.values(chaptersProgress).some(
+          (p) => p.contentCompleted || p.activityCompleted
         );
-        if (hasInProgress) {
+        if (hasProgress) {
           setExpandedSeries(seriesId);
           break;
         }
@@ -123,109 +125,68 @@ export default function EntdeckenPage() {
     }
   }, [user?.id]);
 
-  // Initialize progress for first series if needed
-  const initializeSeriesProgress = async (seriesId) => {
-    if (!user?.id) return;
-
-    const series = ALL_SERIES.find((s) => s.id === seriesId);
-    if (!series) return;
-
-    // Check if first bite already has progress
-    const existingProgress = progress[seriesId] || [];
-    if (existingProgress.length > 0) return;
-
-    try {
-      // Create available status for first bite
-      await fetch("/api/learning/progress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user.id,
-          biteId: series.bites[0].id,
-          seriesId,
-          status: "available",
-        }),
-      });
-
-      // Refresh progress
-      const response = await fetch(`/api/learning/progress?userId=${user.id}`);
-      const data = await response.json();
-
-      const grouped = {};
-      (data.progress || []).forEach((p) => {
-        if (!grouped[p.series_id]) {
-          grouped[p.series_id] = [];
-        }
-        grouped[p.series_id].push(p);
-      });
-
-      setProgress(grouped);
-    } catch (error) {
-      console.error("Failed to initialize progress:", error);
-    }
-  };
-
   // Handle series click
-  const handleSeriesClick = async (series) => {
+  const handleSeriesClick = (series) => {
     if (expandedSeries === series.id) {
       setExpandedSeries(null);
     } else {
-      await initializeSeriesProgress(series.id);
       setExpandedSeries(series.id);
     }
   };
 
-  // Handle bite click
-  const handleBiteClick = (bite, seriesId) => {
-    router.push(`/entdecken/bite/${bite.id}?series=${seriesId}`);
+  // Handle content click - go to content player
+  const handleContentClick = (chapter, seriesId) => {
+    router.push(`/entdecken/chapter/${chapter.id}/content?series=${seriesId}`);
   };
 
-  // Get bite status
-  const getBiteStatus = (biteId, seriesId) => {
-    const seriesProgress = progress[seriesId] || [];
-    const biteProgress = seriesProgress.find((p) => p.bite_id === biteId);
+  // Handle activity click - go to activity player
+  const handleActivityClick = (chapter, seriesId) => {
+    router.push(`/entdecken/chapter/${chapter.id}/activity?series=${seriesId}`);
+  };
+
+  // Get chapter status
+  const getChapterProgress = (chapterId, seriesId) => {
+    const seriesProgress = progress[seriesId] || {};
+    return seriesProgress[chapterId] || {
+      contentCompleted: false,
+      activityCompleted: false,
+      currentScreen: 0,
+    };
+  };
+
+  // Check if chapter is locked (previous chapter not completed)
+  const isChapterLocked = (chapter, seriesId) => {
+    // First chapter is never locked
+    if (chapter.number === 1) return false;
+
     const series = ALL_SERIES.find((s) => s.id === seriesId);
+    if (!series) return true;
 
-    if (!series) {
-      return { status: "locked", currentScreen: 0 };
+    // Find previous chapter
+    const prevChapter = series.chapters.find((c) => c.number === chapter.number - 1);
+    if (!prevChapter) return false;
+
+    // Check if previous chapter is fully completed (content + activity)
+    const prevProgress = getChapterProgress(prevChapter.id, seriesId);
+    return !(prevProgress.contentCompleted && prevProgress.activityCompleted);
+  };
+
+  // Calculate series completion percentage
+  const getSeriesCompletionPercent = (seriesId) => {
+    const series = ALL_SERIES.find((s) => s.id === seriesId);
+    if (!series) return 0;
+
+    const seriesProgress = progress[seriesId] || {};
+    let completed = 0;
+    const total = series.chapters.length * 2; // content + activity for each
+
+    for (const chapter of series.chapters) {
+      const chapterProgress = seriesProgress[chapter.id] || {};
+      if (chapterProgress.contentCompleted) completed++;
+      if (chapterProgress.activityCompleted) completed++;
     }
 
-    // Find bite index in series
-    const biteIndex = series.bites.findIndex((b) => b.id === biteId);
-
-    // First bite is always available
-    if (biteIndex === 0) {
-      if (biteProgress) {
-        return {
-          status: biteProgress.status,
-          currentScreen: biteProgress.current_screen || 0,
-        };
-      }
-      return { status: "available", currentScreen: 0 };
-    }
-
-    // For other bites: check if previous bite is completed
-    const previousBite = series.bites[biteIndex - 1];
-    const previousProgress = seriesProgress.find((p) => p.bite_id === previousBite.id);
-    const previousCompleted = previousProgress?.status === "completed";
-
-    if (biteProgress) {
-      // If we have progress, use it - but upgrade to available if previous is done
-      if (biteProgress.status === "locked" && previousCompleted) {
-        return { status: "available", currentScreen: 0 };
-      }
-      return {
-        status: biteProgress.status,
-        currentScreen: biteProgress.current_screen || 0,
-      };
-    }
-
-    // No progress yet - available if previous is completed, otherwise locked
-    if (previousCompleted) {
-      return { status: "available", currentScreen: 0 };
-    }
-
-    return { status: "locked", currentScreen: 0 };
+    return Math.round((completed / total) * 100);
   };
 
   if (authLoading || loadingProgress) {
@@ -305,32 +266,31 @@ export default function EntdeckenPage() {
         }}
       >
         {ALL_SERIES.map((series) => {
-          const seriesProgress = progress[series.id] || [];
           const isExpanded = expandedSeries === series.id;
+          const completionPercent = getSeriesCompletionPercent(series.id);
 
           return (
             <SeriesCard
               key={series.id}
               series={series}
-              progress={seriesProgress}
+              progress={[]} // Legacy prop, not used for display
+              completionPercent={completionPercent}
               onClick={() => handleSeriesClick(series)}
               isExpanded={isExpanded}
             >
-              {/* Bites rendered inside the SeriesCard frame */}
-              {series.bites.map((bite, index) => {
-                const { status, currentScreen } = getBiteStatus(
-                  bite.id,
-                  series.id
-                );
+              {/* Chapters rendered inside the SeriesCard frame */}
+              {series.chapters.map((chapter) => {
+                const chapterProgress = getChapterProgress(chapter.id, series.id);
+                const locked = isChapterLocked(chapter, series.id);
 
                 return (
-                  <BiteCard
-                    key={bite.id}
-                    bite={bite}
-                    status={status}
-                    currentScreen={currentScreen}
-                    onClick={() => handleBiteClick(bite, series.id)}
-                    index={index}
+                  <ChapterCard
+                    key={chapter.id}
+                    chapter={chapter}
+                    progress={chapterProgress}
+                    onContentClick={() => handleContentClick(chapter, series.id)}
+                    onActivityClick={() => handleActivityClick(chapter, series.id)}
+                    isLocked={locked}
                   />
                 );
               })}

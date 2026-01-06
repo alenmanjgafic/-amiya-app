@@ -12,17 +12,18 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 export default function SeriesCard({
   series,
   progress = [],
+  completionPercent = 0, // New: pass completion percent directly
   onClick,
   isExpanded = false,
-  children, // Bites are passed as children
+  children, // Chapters are passed as children
 }) {
   const { tokens } = useTheme();
 
-  const totalBites = series.bites.length;
-  const completedBites = progress.filter((p) => p.status === "completed").length;
-  const progressPercent = totalBites > 0 ? (completedBites / totalBites) * 100 : 0;
-  const isStarted = progress.length > 0 || completedBites > 0;
-  const isCompleted = completedBites === totalBites && totalBites > 0;
+  // Support both chapters (new) and bites (legacy)
+  const totalItems = series.chapters?.length || series.bites?.length || 0;
+  const progressPercent = completionPercent;
+  const isStarted = progressPercent > 0;
+  const isCompleted = progressPercent >= 100;
 
   const IconComponent = SeriesIconMap[series.id];
 
@@ -176,7 +177,7 @@ export default function SeriesCard({
                     fontSize: "12px",
                   }}
                 >
-                  {totalBites} Lektionen
+                  {totalItems} Kapitel
                 </span>
                 <span
                   style={{
@@ -250,9 +251,11 @@ export default function SeriesCard({
                       fontWeight: isStarted ? "600" : "400",
                     }}
                   >
-                    {isStarted
-                      ? `${completedBites} von ${totalBites} abgeschlossen`
-                      : "Noch nicht gestartet"}
+                    {isCompleted
+                      ? "Alle Kapitel abgeschlossen"
+                      : isStarted
+                        ? "In Bearbeitung"
+                        : "Noch nicht gestartet"}
                   </p>
                   <p
                     style={{

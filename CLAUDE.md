@@ -14,9 +14,10 @@
 2. **Couple Sessions** - Beide Partner gemeinsam in einer moderierten Session (Voice)
 3. **Nachrichtenanalyse** - Chat-Nachrichten (WhatsApp, iMessage, etc.) analysieren lassen
 4. **Worte finden** - Message Coach hilft bei der Formulierung von Nachrichten
-5. **Archetypen-Quiz** - 24 Fragen zu 4 Dimensionen → einer von 11 Beziehungstypen
-6. **Agreements** - Paare können Vereinbarungen treffen und tracken
-7. **Memory System** - Kontextbewusstes Coaching über Sessions hinweg
+5. **Entdecken** - Lernmodule mit Theorie und praktischen Übungen (therapeutischer Tonfall)
+6. **Archetypen-Quiz** - 24 Fragen zu 4 Dimensionen → einer von 11 Beziehungstypen
+7. **Agreements** - Paare können Vereinbarungen treffen und tracken
+8. **Memory System** - Kontextbewusstes Coaching über Sessions hinweg
 
 ---
 
@@ -50,7 +51,7 @@
 /app                      # Next.js App Router
   /page.js               # Home mit Feature-Carousel
   /auth/                 # Login/Signup
-  /profile/              # Benutzereinstellungen
+  /profile/              # Benutzereinstellungen + Verlauf-Link
   /onboarding/           # Ersteinrichtung (3 Schritte)
     /memory/             # Schritt 2: Memory Consent
     /analysis/           # Schritt 3: Analyse-Einstellungen
@@ -58,6 +59,8 @@
   /wir/                  # Paar-Features ("Wir"-Bereich)
     /connect/            # Paar-Verbindung via Code
     /archetypen/         # Paar-Vergleich der Archetypen
+  /entdecken/            # Lernmodule Übersicht
+    /bite/[id]/          # Einzelnes Bite abspielen (BitePlayer)
   /session/
     /solo/               # Solo Session (Voice) - Dedicated page
     /couple/             # Couple Session (Voice)
@@ -67,6 +70,7 @@
     /questions/          # 24 Quiz-Fragen
     /result/             # Ergebnis-Seite
   /api/                  # Backend API Routes
+    /learning/           # Entdecken APIs (progress, responses, challenges)
 
 /components              # React Komponenten
   FeatureCarousel.js     # Swipeable Carousel für Home
@@ -83,6 +87,23 @@
     MessageAnalyzerSlide.js # Nachrichtenanalyse starten
     WordsFinderSlide.js  # Worte finden (Message Coach)
     QuizSlide.js         # Archetypen-Quiz starten
+  /learning/             # Entdecken-Komponenten
+    BitePlayer.js        # Swipeable Lesson-Player
+    TheoryScreen.js      # Theorie-Karten mit SVG-Shapes
+    ExerciseScreen.js    # Exercise-Router
+    SeriesCard.js        # Serien-Karte (expandable mit Bites)
+    BiteCard.js          # Einzelne Lektion in Liste
+    ProgressDots.js      # Fortschritts-Anzeige
+    ActiveChallenges.js  # Challenge-Tracking
+    LearningIcons.js     # Aurora-Stil SVG Icons
+    /exercises/          # Übungstypen
+      SingleSelect.js    # Einzelauswahl
+      MultiSelect.js     # Mehrfachauswahl
+      FreeText.js        # Freitext-Eingabe
+      Reflection.js      # Reflexion (zeigt vorherige Antworten)
+      Summary.js         # Zusammenfassung
+      ChallengeOffer.js  # Challenge annehmen
+      Completion.js      # Abschluss-Screen
 
 /lib                     # Shared Utilities
   AuthContext.js         # Auth State + Profile Management
@@ -90,6 +111,9 @@
   sessions.js            # Session CRUD Service
   supabase.js            # Supabase Client
   quizLogic.js           # Archetypen-Quiz Logik, Fragen, Typen, Scoring
+  /learning-content/     # Lerninhalt als JS-Dateien
+    index.js             # Export aller Serien
+    healthy-conflict.js  # Serie "Gesunder Konflikt" (5 Bites)
 ```
 
 ---
@@ -571,6 +595,83 @@ const IconComponent = ArchetypeIconMap["verbinder"];
 ```
 
 Icons sind Aurora-Gradient-basiert und funktionieren in Light/Dark Mode.
+
+---
+
+### 9. Entdecken (Lernmodule)
+
+"Entdecken" bietet strukturierte Lernmodule mit Theorie und praktischen Übungen.
+
+**Konzept:**
+- Serien mit mehreren "Bites" (kurze Lektionen, je ~4 Min)
+- Jeder Bite: Theorie-Screens + interaktive Übungen
+- Challenges für praktische Anwendung im Alltag
+- Fortschritt wird pro User gespeichert
+
+**Zugang:**
+- Via Bottom-Navigation (3. Tab "Entdecken")
+- Ersetzt den alten "Verlauf" Tab (Verlauf → Profil verschoben)
+
+**Erste Serie: "Gesunder Konflikt" (5 Bites):**
+
+| Bite | Titel | Inhalt |
+|------|-------|--------|
+| 1 | Typische Stolperfallen | Die 4 Muster (Kritik, Verteidigung, Mauern, Verachtung) |
+| 2 | Sanft einsteigen | Ich + Gefühl + Wunsch Formel |
+| 3 | Wirklich zuhören | Spiegeln, Validieren, Nachfragen |
+| 4 | Wieder zueinander finden | Brücken bauen nach Streit |
+| 5 | Euer Weg | Zusammenfassung + persönlicher Plan |
+
+**Content-Prinzipien (therapeutischer Tonfall):**
+- Hoffnung zuerst ("Das könnt ihr lernen")
+- Normalisierung ("Das kennen viele Paare")
+- Weiche Sprache (keine Anklagen, keine Dramatik)
+- Fokus auf was Paare TUN können
+- Keine Statistiken oder Forschernamen
+- Wie ein Therapeut spricht, nicht wie eine Vorlesung
+
+**Screen-Typen:**
+
+1. **Theory** - Theorie-Karte mit Emoji + Text + abstraktem SVG-Shape
+2. **SingleSelect** - Einzelauswahl (z.B. "Welches Muster erkennst du?")
+3. **MultiSelect** - Mehrfachauswahl
+4. **FreeText** - Freitext-Eingabe
+5. **Reflection** - Zeigt vorherige Antworten + Insights
+6. **Summary** - Zusammenfassung aller Antworten
+7. **ChallengeOffer** - Challenge zum Annehmen
+8. **Completion** - Abschluss-Feier
+
+**Challenges:**
+- User kann Challenges annehmen (optional)
+- Werden in localStorage gespeichert
+- Anzeige auf Entdecken-Seite (ActiveChallenges Komponente)
+- Completion mit Bestätigungs-Popup
+
+**Fortschritt-Speicherung:**
+- API: `/api/learning/progress` (GET/POST)
+- API: `/api/learning/responses` (POST)
+- API: `/api/learning/challenges` (GET/POST)
+- Fallback: localStorage wenn API fehlschlägt
+- Sequential Unlock: Bite 2 erst nach Bite 1 abgeschlossen
+
+**UI-Design:**
+- Card-basiert mit Aurora-Styling
+- Bites innerhalb des Serien-Rahmens (expandable)
+- Progress-Dots für Fortschritt im Bite
+- Aurora-Gradient Icons (LearningIcons.js)
+
+**Technische Dateien:**
+
+| Datei | Beschreibung |
+|-------|--------------|
+| `/lib/learning-content/healthy-conflict.js` | Serie-Definition mit allen Bites |
+| `/lib/learning-content/index.js` | Export aller Serien |
+| `/components/learning/BitePlayer.js` | Swipeable Lesson-Player |
+| `/components/learning/TheoryScreen.js` | Theorie mit abstrakten Shapes |
+| `/components/learning/exercises/*.js` | Alle Übungstypen |
+| `/components/learning/SeriesCard.js` | Expandable Serie mit Bites |
+| `/app/entdecken/page.js` | Übersichtsseite |
+| `/app/entdecken/bite/[id]/page.js` | Bite abspielen |
 
 ---
 

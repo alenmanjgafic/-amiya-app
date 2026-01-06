@@ -49,17 +49,29 @@ export async function GET(request) {
 }
 
 /**
- * POST - Create or update progress for a bite
- * Body: { userId, biteId, seriesId, status, currentScreen }
+ * POST - Create or update progress for a bite/chapter
+ * Body: { userId, biteId/chapterId, seriesId, status, currentScreen, contentCompleted, activityCompleted }
  */
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { userId, biteId, seriesId, status, currentScreen } = body;
+    const {
+      userId,
+      biteId,
+      chapterId,
+      seriesId,
+      status,
+      currentScreen,
+      contentCompleted,
+      activityCompleted
+    } = body;
 
-    if (!userId || !biteId || !seriesId) {
+    // Support both biteId (legacy) and chapterId (new)
+    const itemId = chapterId || biteId;
+
+    if (!userId || !itemId || !seriesId) {
       return NextResponse.json(
-        { error: "userId, biteId, and seriesId required" },
+        { error: "userId, biteId/chapterId, and seriesId required" },
         { status: 400 }
       );
     }
@@ -67,14 +79,14 @@ export async function POST(request) {
     // Build update object
     const updateData = {
       user_id: userId,
-      bite_id: biteId,
+      bite_id: itemId, // Using bite_id column for backwards compatibility
       series_id: seriesId,
     };
 
+    // Legacy status handling
     if (status) {
       updateData.status = status;
 
-      // Set timestamps based on status
       if (status === "in_progress" && !updateData.started_at) {
         updateData.started_at = new Date().toISOString();
       }
@@ -85,6 +97,24 @@ export async function POST(request) {
 
     if (currentScreen !== undefined) {
       updateData.current_screen = currentScreen;
+    }
+
+    // New chapter-based progress fields
+    if (contentCompleted !== undefined) {
+      updateData.content_completed = contentCompleted;
+      if (contentCompleted) {
+        updateData.content_completed_at = new Date().toISOString();
+      }
+    }
+
+    if (activityCompleted !== undefined) {
+      updateData.activity_completed = activityCompleted;
+      if (activityCompleted) {
+        updateData.activity_completed_at = new Date().toISOString();
+        // Also set legacy status to completed when activity is done
+        updateData.status = "completed";
+        updateData.completed_at = new Date().toISOString();
+      }
     }
 
     // Upsert - create or update
@@ -101,9 +131,9 @@ export async function POST(request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // If bite completed, unlock next bite
-    if (status === "completed") {
-      await unlockNextBite(userId, biteId, seriesId);
+    // If chapter fully completed (both content and activity), unlock next
+    if (activityCompleted || status === "completed") {
+      await unlockNextBite(userId, itemId, seriesId);
     }
 
     return NextResponse.json({ progress: data });
@@ -114,11 +144,11 @@ export async function POST(request) {
 }
 
 /**
- * Helper: Unlock the next bite in sequence
+ * Helper: Unlock the next bite/chapter in sequence
  */
-async function unlockNextBite(userId, completedBiteId, seriesId) {
+async function unlockNextBite(userId, completedItemId, seriesId) {
   try {
-    // Get bite order from content
+    // Get content from healthy-conflict
     const { HEALTHY_CONFLICT_SERIES } = await import(
       "../../../../lib/learning-content/healthy-conflict"
     );
@@ -126,22 +156,37 @@ async function unlockNextBite(userId, completedBiteId, seriesId) {
     // For now, only handle healthy-conflict series
     if (seriesId !== "healthy-conflict") return;
 
-    const completedBite = HEALTHY_CONFLICT_SERIES.bites.find(
-      (b) => b.id === completedBiteId
+    // Try to find as chapter first (new structure)
+    let completedItem = HEALTHY_CONFLICT_SERIES.chapters?.find(
+      (c) => c.id === completedItemId
     );
-    if (!completedBite) return;
+    let nextItem = null;
 
-    const nextBite = HEALTHY_CONFLICT_SERIES.bites.find(
-      (b) => b.order === completedBite.order + 1
-    );
-    if (!nextBite) return;
+    if (completedItem) {
+      // Found as chapter - get next chapter
+      nextItem = HEALTHY_CONFLICT_SERIES.chapters?.find(
+        (c) => c.number === completedItem.number + 1
+      );
+    } else {
+      // Try legacy bites structure
+      completedItem = HEALTHY_CONFLICT_SERIES.bites?.find(
+        (b) => b.id === completedItemId
+      );
+      if (completedItem) {
+        nextItem = HEALTHY_CONFLICT_SERIES.bites?.find(
+          (b) => b.order === completedItem.order + 1
+        );
+      }
+    }
 
-    // Check if next bite progress exists
+    if (!nextItem) return;
+
+    // Check if next item progress exists
     const { data: existing } = await supabase
       .from("user_bite_progress")
       .select("id, status")
       .eq("user_id", userId)
-      .eq("bite_id", nextBite.id)
+      .eq("bite_id", nextItem.id)
       .single();
 
     // Only unlock if locked or doesn't exist
@@ -149,7 +194,7 @@ async function unlockNextBite(userId, completedBiteId, seriesId) {
       await supabase.from("user_bite_progress").upsert(
         {
           user_id: userId,
-          bite_id: nextBite.id,
+          bite_id: nextItem.id,
           series_id: seriesId,
           status: "available",
         },
@@ -157,7 +202,7 @@ async function unlockNextBite(userId, completedBiteId, seriesId) {
       );
     }
   } catch (error) {
-    console.error("Error unlocking next bite:", error);
+    console.error("Error unlocking next item:", error);
   }
 }
 
@@ -173,12 +218,17 @@ export async function initializeSeriesProgress(userId, seriesId) {
       "../../../../lib/learning-content/healthy-conflict"
     );
 
-    // First bite is available, rest are locked
-    const progressEntries = HEALTHY_CONFLICT_SERIES.bites.map((bite, index) => ({
+    // Support both chapters (new) and bites (legacy)
+    const items = HEALTHY_CONFLICT_SERIES.chapters || HEALTHY_CONFLICT_SERIES.bites || [];
+
+    // First item is available, rest are locked
+    const progressEntries = items.map((item, index) => ({
       user_id: userId,
-      bite_id: bite.id,
+      bite_id: item.id,
       series_id: seriesId,
       status: index === 0 ? "available" : "locked",
+      content_completed: false,
+      activity_completed: false,
     }));
 
     const { error } = await supabase
