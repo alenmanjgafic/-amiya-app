@@ -17,8 +17,8 @@ import QuizSlide from "../components/slides/QuizSlide";
 import {
   Home as HomeIcon,
   Heart,
-  ClipboardList,
 } from "lucide-react";
+import { EntdeckenIcon } from "../components/learning/LearningIcons";
 
 // Wrapper for Suspense (useSearchParams requires it in child components)
 export default function Home() {
@@ -253,9 +253,9 @@ function HomeContent() {
           </div>
           <span>Wir</span>
         </button>
-        <button onClick={() => router.push("/history")} style={tokens.buttons.nav(false)}>
-          <ClipboardList size={24} color={tokens.colors.text.muted} />
-          <span>Verlauf</span>
+        <button onClick={() => router.push("/entdecken")} style={tokens.buttons.nav(false)}>
+          <EntdeckenIcon size={24} active={false} />
+          <span>Entdecken</span>
         </button>
       </div>
     </div>

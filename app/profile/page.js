@@ -9,7 +9,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/AuthContext";
 import { useTheme } from "../../lib/ThemeContext";
-import { ArrowLeft, Sun, Moon, Check, BarChart3, LogOut, Users, ChevronRight } from "lucide-react";
+import { ChevronLeft, Sun, Moon, Check, BarChart3, LogOut, Users, ChevronRight, ClipboardList, Home as HomeIcon, Heart } from "lucide-react";
+import { EntdeckenIcon } from "../../components/learning/LearningIcons";
 import DisconnectDialog from "../../components/DisconnectDialog";
 
 export default function ProfilePage() {
@@ -93,52 +94,59 @@ export default function ProfilePage() {
   }
 
   return (
-    <div style={tokens.layout.page}>
+    <div style={{
+      ...tokens.layout.page,
+      padding: 0,
+      paddingBottom: "100px",
+    }}>
+      {/* Header */}
       <div style={{
-        ...tokens.cards.elevated,
-        ...tokens.layout.container,
+        padding: "16px 20px",
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
       }}>
-        {/* Header */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "16px",
-          marginBottom: "24px",
-        }}>
-          <button
-            onClick={() => router.push("/")}
-            style={{
-              ...tokens.buttons.ghost,
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <ArrowLeft size={20} /> Zuruck
-          </button>
-          <h1 style={{
-            ...tokens.typography.h1,
-            fontSize: "24px",
-            marginBottom: 0,
-          }}>Profil</h1>
-        </div>
+        <button
+          onClick={() => router.push("/")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "36px",
+            height: "36px",
+            background: tokens.colors.bg.elevated,
+            border: "none",
+            borderRadius: "10px",
+            cursor: "pointer",
+          }}
+        >
+          <ChevronLeft size={20} color={tokens.colors.text.secondary} />
+        </button>
+        <h1 style={{
+          ...tokens.typography.h1,
+          margin: 0,
+          fontSize: "20px",
+        }}>Profil</h1>
+      </div>
 
+      {/* Content */}
+      <div style={{ padding: "0 20px" }}>
         {/* Avatar */}
         <div style={{
           display: "flex",
           justifyContent: "center",
-          marginBottom: "32px",
+          marginBottom: "24px",
         }}>
           <div style={{
-            width: "80px",
-            height: "80px",
+            width: "72px",
+            height: "72px",
             borderRadius: "50%",
             background: tokens.gradients.primary,
             color: "white",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: "32px",
+            fontSize: "28px",
             fontWeight: "bold",
             fontFamily: tokens.fonts.display,
           }}>
@@ -280,6 +288,32 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* Session History Section */}
+        <div style={tokens.layout.section}>
+          <div
+            onClick={() => router.push("/history")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              padding: "12px 0",
+              cursor: "pointer",
+            }}
+          >
+            <ClipboardList size={20} color={tokens.colors.aurora.lavender} />
+            <div style={{ flex: 1 }}>
+              <p style={{
+                ...tokens.inputs.label,
+                marginBottom: "2px",
+              }}>Session-Verlauf</p>
+              <p style={tokens.typography.small}>
+                Vergangene Sessions und Analysen
+              </p>
+            </div>
+            <ChevronRight size={20} color={tokens.colors.text.muted} />
+          </div>
+        </div>
+
         {/* Connection Management - Only if connected */}
         {isConnected && (
           <div style={tokens.layout.section}>
@@ -331,6 +365,22 @@ export default function ProfilePage() {
             Abmelden
           </button>
         </div>
+      </div>
+
+      {/* Bottom Navigation */}
+      <div style={tokens.layout.navBar}>
+        <button onClick={() => router.push("/")} style={tokens.buttons.nav(false)}>
+          <HomeIcon size={24} />
+          <span>Home</span>
+        </button>
+        <button onClick={() => router.push("/wir")} style={tokens.buttons.nav(false)}>
+          <Heart size={24} />
+          <span>Wir</span>
+        </button>
+        <button onClick={() => router.push("/entdecken")} style={tokens.buttons.nav(false)}>
+          <EntdeckenIcon size={24} active={false} />
+          <span>Entdecken</span>
+        </button>
       </div>
 
       {/* Disconnect Dialog */}

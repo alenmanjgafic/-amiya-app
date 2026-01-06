@@ -13,13 +13,14 @@ import AnalysisView from "../../components/AnalysisView";
 import {
   Home as HomeIcon,
   Heart,
-  ClipboardList,
   User,
   Users,
   LayoutList,
   MessageSquare,
   Mic,
+  ChevronLeft,
 } from "lucide-react";
+import { EntdeckenIcon } from "../../components/learning/LearningIcons";
 
 export default function HistoryPage() {
   const { user, profile, loading: authLoading } = useAuth();
@@ -175,12 +176,31 @@ export default function HistoryPage() {
     }}>
       {/* Header */}
       <div style={{
-        padding: "24px 20px 16px",
-        textAlign: "center",
+        padding: "16px 20px",
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
       }}>
+        <button
+          onClick={() => router.push("/profile")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "36px",
+            height: "36px",
+            background: tokens.colors.bg.elevated,
+            border: "none",
+            borderRadius: "10px",
+            cursor: "pointer",
+          }}
+        >
+          <ChevronLeft size={20} color={tokens.colors.text.secondary} />
+        </button>
         <h1 style={{
           ...tokens.typography.h1,
           margin: 0,
+          fontSize: "20px",
         }}>Verlauf</h1>
       </div>
 
@@ -363,9 +383,9 @@ export default function HistoryPage() {
           <Heart size={24} />
           <span>Wir</span>
         </button>
-        <button style={tokens.buttons.nav(true)}>
-          <ClipboardList size={24} />
-          <span>Verlauf</span>
+        <button onClick={() => router.push("/entdecken")} style={tokens.buttons.nav(false)}>
+          <EntdeckenIcon size={24} active={false} />
+          <span>Entdecken</span>
         </button>
       </div>
 

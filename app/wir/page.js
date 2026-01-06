@@ -16,11 +16,11 @@ import QuizComparisonCard from "../../components/QuizComparisonCard";
 import {
   Home as HomeIcon,
   Heart,
-  ClipboardList,
   AlertTriangle,
   Clock,
   ChevronRight,
 } from "lucide-react";
+import { EntdeckenIcon } from "../../components/learning/LearningIcons";
 
 export default function WirPage() {
   const { user, profile, loading, fetchProfile } = useAuth();
@@ -538,24 +538,24 @@ export default function WirPage() {
 
       </div>
 
-      {/* Bottom Navigation - 3 tabs (Profile is in header on each page) */}
+      {/* Bottom Navigation - 3 tabs */}
       <div style={tokens.layout.navBar}>
         <button onClick={() => router.push("/")} style={tokens.buttons.nav(false)}>
-          <HomeIcon size={24} />
-          <span style={{ fontSize: "12px" }}>Home</span>
+          <HomeIcon size={24} color={tokens.colors.text.muted} />
+          <span>Home</span>
         </button>
         <button style={tokens.buttons.nav(true)}>
           <div style={{ position: "relative", display: "inline-block" }}>
-            <Heart size={24} />
+            <Heart size={24} color={tokens.colors.aurora.lavender} />
             {pendingSuggestions.length > 0 && (
               <span style={tokens.badges.notification}>{pendingSuggestions.length}</span>
             )}
           </div>
-          <span style={{ fontSize: "12px", fontWeight: "600" }}>Wir</span>
+          <span style={{ color: tokens.colors.aurora.lavender, fontWeight: "600" }}>Wir</span>
         </button>
-        <button onClick={() => router.push("/history")} style={tokens.buttons.nav(false)}>
-          <ClipboardList size={24} />
-          <span style={{ fontSize: "12px" }}>Verlauf</span>
+        <button onClick={() => router.push("/entdecken")} style={tokens.buttons.nav(false)}>
+          <EntdeckenIcon size={24} active={false} />
+          <span>Entdecken</span>
         </button>
       </div>
 
