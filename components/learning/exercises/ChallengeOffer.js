@@ -106,7 +106,7 @@ export default function ChallengeOffer({
               justifyContent: "center",
               width: "52px",
               height: "52px",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.rose}15 0%, ${tokens.colors.aurora.lavender}15 100%)`,
+              background: tokens.gradients.surfaceLight,
               borderRadius: "14px",
               marginBottom: "14px",
             }}
@@ -233,7 +233,7 @@ export default function ChallengeOffer({
             onClick={handleAccept}
             style={{
               ...tokens.buttons.primary,
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.rose} 0%, ${tokens.colors.aurora.lavender} 100%)`,
+              background: tokens.gradients.primary,
             }}
           >
             Challenge annehmen

@@ -514,7 +514,7 @@ export default function WirPage() {
               width: "80px",
               height: "80px",
               borderRadius: "50%",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}20 0%, ${tokens.colors.aurora.rose}20 100%)`,
+              background: tokens.gradients.surface,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",

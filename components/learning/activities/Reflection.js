@@ -141,7 +141,7 @@ export default function Reflection({
             width: "64px",
             height: "64px",
             borderRadius: "50%",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}20 0%, ${tokens.colors.aurora.lavender}20 100%)`,
+            background: tokens.gradients.mintSurface,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -175,7 +175,7 @@ export default function Reflection({
           onClick={() => onComplete?.({ responses, completed: true })}
           style={{
             padding: "16px 32px",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+            background: tokens.gradients.primary,
             border: "none",
             borderRadius: "12px",
             color: "#fff",
@@ -246,7 +246,7 @@ export default function Reflection({
             style={{
               height: "100%",
               width: `${progress}%`,
-              background: `linear-gradient(90deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+              background: tokens.gradients.primaryHorizontal,
               borderRadius: "2px",
               transition: "width 0.3s ease",
             }}
@@ -260,7 +260,7 @@ export default function Reflection({
           width: "48px",
           height: "48px",
           borderRadius: "50%",
-          background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}20 0%, ${tokens.colors.aurora.rose}20 100%)`,
+          background: tokens.gradients.surface,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -338,7 +338,7 @@ export default function Reflection({
                 style={{
                   padding: "14px 16px",
                   background: isSelected
-                    ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender}15 0%, ${tokens.colors.aurora.rose}10 100%)`
+                    ? tokens.gradients.surfaceSubtle
                     : tokens.colors.bg.surface,
                   border: isSelected
                     ? `2px solid ${tokens.colors.aurora.lavender}`
@@ -451,7 +451,7 @@ export default function Reflection({
             flex: 1,
             padding: "16px",
             background: isSectionComplete
-              ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`
+              ? tokens.gradients.primary
               : tokens.colors.bg.surface,
             border: "none",
             borderRadius: "12px",

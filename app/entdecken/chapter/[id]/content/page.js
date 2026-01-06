@@ -250,7 +250,7 @@ export default function ChapterContentPage() {
       <div
         style={{
           padding: "12px 20px",
-          background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}10 0%, ${tokens.colors.aurora.rose}10 100%)`,
+          background: tokens.gradients.surfaceLight,
         }}
       >
         <p
@@ -309,7 +309,7 @@ export default function ChapterContentPage() {
             width: "100%",
             padding: "16px",
             background: canContinue()
-              ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`
+              ? tokens.gradients.primary
               : tokens.colors.bg.surface,
             border: "none",
             borderRadius: "12px",

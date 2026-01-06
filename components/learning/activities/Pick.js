@@ -121,7 +121,7 @@ export default function Pick({
               width: "64px",
               height: "64px",
               borderRadius: "50%",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}20 0%, ${tokens.colors.aurora.lavender}20 100%)`,
+              background: tokens.gradients.mintSurface,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -241,7 +241,7 @@ export default function Pick({
             style={{
               flex: 1,
               padding: "14px",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+              background: tokens.gradients.primary,
               border: "none",
               borderRadius: "12px",
               color: "#fff",
@@ -314,7 +314,7 @@ export default function Pick({
             style={{
               height: "100%",
               width: `${progress}%`,
-              background: `linear-gradient(90deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+              background: tokens.gradients.primaryHorizontal,
               borderRadius: "2px",
               transition: "width 0.3s ease",
             }}
@@ -398,7 +398,7 @@ export default function Pick({
                 style={{
                   padding: "16px",
                   background: isSelected
-                    ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender}15 0%, ${tokens.colors.aurora.rose}10 100%)`
+                    ? tokens.gradients.surfaceSubtle
                     : tokens.colors.bg.surface,
                   border: isSelected
                     ? `2px solid ${tokens.colors.aurora.lavender}`
@@ -498,7 +498,7 @@ export default function Pick({
             flex: 1,
             padding: "16px",
             background: isStepComplete
-              ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`
+              ? tokens.gradients.primary
               : tokens.colors.bg.surface,
             border: "none",
             borderRadius: "12px",

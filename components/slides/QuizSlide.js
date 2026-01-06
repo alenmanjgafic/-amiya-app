@@ -67,7 +67,7 @@ export default function QuizSlide() {
         onClick={handleStart}
         style={{
           ...tokens.buttons.primaryLarge,
-          background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+          background: tokens.gradients.primary,
           display: "flex",
           alignItems: "center",
           gap: "8px",

@@ -40,9 +40,9 @@ export default function SeriesCard({
           borderRadius: "20px",
           padding: "2px",
           background: isCompleted
-            ? `linear-gradient(135deg, ${tokens.colors.aurora.mint} 0%, ${tokens.colors.aurora.lavender} 100%)`
+            ? tokens.gradients.mint
             : isStarted
-              ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`
+              ? tokens.gradients.primary
               : tokens.colors.bg.elevated,
         }}
       >
@@ -224,8 +224,8 @@ export default function SeriesCard({
                       height: "100%",
                       width: `${progressPercent}%`,
                       background: isCompleted
-                        ? `linear-gradient(90deg, ${tokens.colors.aurora.mint} 0%, ${tokens.colors.aurora.lavender} 100%)`
-                        : `linear-gradient(90deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+                        ? tokens.gradients.mintHorizontal
+                        : tokens.gradients.primaryHorizontal,
                       borderRadius: "4px",
                       transition: "width 0.5s ease-out",
                     }}

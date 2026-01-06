@@ -207,7 +207,7 @@ export default function ChapterActivityPage() {
           onClick={() => router.push(`/entdecken/chapter/${chapterId}/content?series=${seriesId}`)}
           style={{
             padding: "14px 24px",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+            background: tokens.gradients.primary,
             border: "none",
             borderRadius: "12px",
             color: "#fff",

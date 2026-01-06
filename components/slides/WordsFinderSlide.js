@@ -56,7 +56,7 @@ export default function WordsFinderSlide() {
         onClick={handleStart}
         style={{
           ...tokens.buttons.primaryLarge,
-          background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+          background: tokens.gradients.primary,
         }}
       >
         Nachricht verfassen

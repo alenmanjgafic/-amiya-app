@@ -75,7 +75,7 @@ export default function ChapterCard({
         style={{
           display: "inline-block",
           padding: "4px 12px",
-          background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}20 0%, ${tokens.colors.aurora.rose}20 100%)`,
+          background: tokens.gradients.surface,
           borderRadius: "12px",
           marginBottom: "12px",
         }}
@@ -129,7 +129,7 @@ export default function ChapterCard({
           disabled={isLocked}
           style={{
             padding: "16px",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}15 0%, ${tokens.colors.aurora.rose}10 100%)`,
+            background: tokens.gradients.surfaceSubtle,
             borderRadius: "14px",
             border: contentCompleted
               ? `2px solid ${tokens.colors.aurora.mint}40`

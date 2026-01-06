@@ -66,7 +66,7 @@ export default function Nudge({
             width: "80px",
             height: "80px",
             borderRadius: "50%",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}20 0%, ${tokens.colors.aurora.lavender}20 100%)`,
+            background: tokens.gradients.mintSurface,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -144,7 +144,7 @@ export default function Nudge({
           onClick={handleComplete}
           style={{
             padding: "16px 32px",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+            background: tokens.gradients.primary,
             border: "none",
             borderRadius: "12px",
             color: "#fff",
@@ -188,7 +188,7 @@ export default function Nudge({
               width: "48px",
               height: "48px",
               borderRadius: "50%",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}20 0%, ${tokens.colors.aurora.rose}20 100%)`,
+              background: tokens.gradients.surface,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -271,7 +271,7 @@ export default function Nudge({
               width: "100%",
               padding: "16px",
               background: reflectionText.trim()
-                ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`
+                ? tokens.gradients.primary
                 : tokens.colors.bg.surface,
               border: "none",
               borderRadius: "12px",
@@ -320,7 +320,7 @@ export default function Nudge({
               width: "48px",
               height: "48px",
               borderRadius: "50%",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}20 0%, ${tokens.colors.aurora.lavender}20 100%)`,
+              background: tokens.gradients.mintSurface,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -381,7 +381,7 @@ export default function Nudge({
                 style={{
                   padding: "14px 16px",
                   background: isSelected
-                    ? `linear-gradient(135deg, ${tokens.colors.aurora.mint}15 0%, ${tokens.colors.aurora.lavender}10 100%)`
+                    ? tokens.gradients.mintSurface
                     : tokens.colors.bg.surface,
                   border: isSelected
                     ? `2px solid ${tokens.colors.aurora.mint}`
@@ -470,7 +470,7 @@ export default function Nudge({
               width: "100%",
               padding: "16px",
               background: hasSelection
-                ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`
+                ? tokens.gradients.primary
                 : tokens.colors.bg.surface,
               border: "none",
               borderRadius: "12px",

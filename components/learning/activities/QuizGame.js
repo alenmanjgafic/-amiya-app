@@ -88,8 +88,8 @@ export default function QuizGame({
             height: "120px",
             borderRadius: "50%",
             background: isPassing
-              ? `linear-gradient(135deg, ${tokens.colors.aurora.mint}20 0%, ${tokens.colors.aurora.lavender}20 100%)`
-              : `linear-gradient(135deg, ${tokens.colors.aurora.rose}20 0%, ${tokens.colors.aurora.lavender}20 100%)`,
+              ? tokens.gradients.mintSurface
+              : tokens.gradients.surface,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -169,7 +169,7 @@ export default function QuizGame({
               onClick={() => onComplete({ score: finalScore, total: totalQuestions, completed: true })}
               style={{
                 padding: "14px 24px",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+                background: tokens.gradients.primary,
                 border: "none",
                 borderRadius: "12px",
                 color: "#fff",
@@ -237,7 +237,7 @@ export default function QuizGame({
             style={{
               height: "100%",
               width: `${progress}%`,
-              background: `linear-gradient(90deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+              background: tokens.gradients.primaryHorizontal,
               borderRadius: "2px",
               transition: "width 0.3s ease",
             }}
@@ -442,7 +442,7 @@ export default function QuizGame({
               width: "100%",
               padding: "16px",
               background: selectedAnswer !== null
-                ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`
+                ? tokens.gradients.primary
                 : tokens.colors.bg.surface,
               border: "none",
               borderRadius: "12px",
@@ -460,7 +460,7 @@ export default function QuizGame({
             style={{
               width: "100%",
               padding: "16px",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+              background: tokens.gradients.primary,
               border: "none",
               borderRadius: "12px",
               color: "#fff",

@@ -179,7 +179,7 @@ export default function ActiveChallenges() {
             style={{
               position: "absolute",
               inset: 0,
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}30 0%, ${tokens.colors.aurora.lavender}30 100%)`,
+              background: tokens.gradients.mintSurface,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -309,7 +309,7 @@ export default function ActiveChallenges() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}20 0%, ${tokens.colors.aurora.mint}10 100%)`,
+                background: tokens.gradients.mintSurface,
                 border: "none",
                 borderRadius: "10px",
                 cursor: isBeingCompleted ? "default" : "pointer",
@@ -363,7 +363,7 @@ export default function ActiveChallenges() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: `linear-gradient(135deg, ${tokens.colors.aurora.rose}15 0%, ${tokens.colors.aurora.lavender}15 100%)`,
+                background: tokens.gradients.surfaceLight,
                 borderRadius: "10px",
               }}
             >
@@ -448,7 +448,7 @@ export default function ActiveChallenges() {
                   fontSize: "13px",
                   fontWeight: "500",
                   background: activeTab === "active"
-                    ? `linear-gradient(135deg, ${tokens.colors.aurora.rose}20 0%, ${tokens.colors.aurora.lavender}20 100%)`
+                    ? tokens.gradients.surface
                     : "transparent",
                   color: activeTab === "active"
                     ? tokens.colors.aurora.rose
@@ -469,7 +469,7 @@ export default function ActiveChallenges() {
                   fontSize: "13px",
                   fontWeight: "500",
                   background: activeTab === "completed"
-                    ? `linear-gradient(135deg, ${tokens.colors.aurora.mint}20 0%, ${tokens.colors.aurora.lavender}20 100%)`
+                    ? tokens.gradients.mintSurface
                     : "transparent",
                   color: activeTab === "completed"
                     ? tokens.colors.aurora.mint
@@ -562,7 +562,7 @@ export default function ActiveChallenges() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}20 0%, ${tokens.colors.aurora.lavender}20 100%)`,
+                  background: tokens.gradients.mintSurface,
                   borderRadius: "50%",
                 }}
               >
@@ -607,7 +607,7 @@ export default function ActiveChallenges() {
                 onClick={handleConfirmComplete}
                 style={{
                   ...tokens.buttons.primary,
-                  background: `linear-gradient(135deg, ${tokens.colors.aurora.mint} 0%, ${tokens.colors.aurora.lavender} 100%)`,
+                  background: tokens.gradients.mint,
                 }}
               >
                 Ja, abschliessen

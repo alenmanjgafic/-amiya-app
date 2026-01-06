@@ -70,7 +70,7 @@ export default function Completion({ exercise, onComplete }) {
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}15 0%, ${tokens.colors.aurora.lavender}15 100%)`,
+                  background: tokens.gradients.mintSurface,
                   borderRadius: "50%",
                   border: `2px solid ${tokens.colors.aurora.mint}30`,
                 }}

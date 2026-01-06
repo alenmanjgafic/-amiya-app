@@ -244,7 +244,7 @@ export default function Reflection({
           <div
             style={{
               padding: "16px",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}10 0%, ${tokens.colors.aurora.rose}10 100%)`,
+              background: tokens.gradients.surfaceLight,
               borderRadius: "14px",
               marginBottom: "12px",
             }}

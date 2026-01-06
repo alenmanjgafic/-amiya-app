@@ -87,7 +87,7 @@ export default function MessageAnalyzerSlide({
         onClick={handleAnalyze}
         style={{
           ...tokens.buttons.primaryLarge,
-          background: `linear-gradient(135deg, ${tokens.colors.aurora.sky} 0%, ${tokens.colors.aurora.lavender} 100%)`,
+          background: tokens.gradients.primary,
         }}
       >
         Nachricht analysieren

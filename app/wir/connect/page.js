@@ -73,7 +73,7 @@ export default function ConnectPage() {
           width: "100px",
           height: "100px",
           borderRadius: "50%",
-          background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}20 0%, ${tokens.colors.aurora.rose}20 100%)`,
+          background: tokens.gradients.surface,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -211,7 +211,7 @@ export default function ConnectPage() {
           style={{
             width: "100%",
             padding: "16px",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+            background: tokens.gradients.primary,
             border: "none",
             borderRadius: "12px",
             color: "#fff",

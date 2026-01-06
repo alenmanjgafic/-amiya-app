@@ -256,7 +256,7 @@ export default function MessageAnalyzerPage() {
                   width: "48px",
                   height: "48px",
                   borderRadius: "12px",
-                  background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
+                  background: tokens.gradients.primary,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

@@ -147,7 +147,7 @@ export default function ChatPractice({
               width: "64px",
               height: "64px",
               borderRadius: "50%",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}20 0%, ${tokens.colors.aurora.lavender}20 100%)`,
+              background: tokens.gradients.mintSurface,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -237,7 +237,7 @@ export default function ChatPractice({
             style={{
               flex: 1,
               padding: "14px",
-              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+              background: tokens.gradients.primary,
               border: "none",
               borderRadius: "12px",
               color: "#fff",
@@ -272,7 +272,7 @@ export default function ChatPractice({
         <div
           style={{
             padding: "16px 20px",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}10 0%, ${tokens.colors.aurora.rose}10 100%)`,
+            background: tokens.gradients.surfaceLight,
             borderBottom: `1px solid ${tokens.colors.aurora.lavender}20`,
           }}
         >
@@ -366,7 +366,7 @@ export default function ChatPractice({
                 borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
                 background:
                   msg.role === "user"
-                    ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`
+                    ? tokens.gradients.primary
                     : tokens.colors.bg.surface,
                 color: msg.role === "user" ? "#fff" : tokens.colors.text.primary,
               }}
@@ -459,7 +459,7 @@ export default function ChatPractice({
               style={{
                 height: "100%",
                 width: `${(turnCount / maxTurns) * 100}%`,
-                background: `linear-gradient(90deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+                background: tokens.gradients.primaryHorizontal,
                 transition: "width 0.3s ease",
               }}
             />
@@ -511,7 +511,7 @@ export default function ChatPractice({
               borderRadius: "50%",
               background:
                 input.trim() && !isLoading
-                  ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`
+                  ? tokens.gradients.primary
                   : tokens.colors.bg.surface,
               border: "none",
               cursor: input.trim() && !isLoading ? "pointer" : "not-allowed",

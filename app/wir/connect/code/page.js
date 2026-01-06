@@ -262,14 +262,14 @@ export default function CodePage() {
 
   // Custom styles for code sections using token colors
   const codeSectionPink = {
-    background: `linear-gradient(135deg, ${tokens.colors.aurora.rose}20 0%, ${tokens.colors.aurora.lavender}25 100%)`,
+    background: tokens.gradients.surface,
     borderRadius: tokens.radii.xl,
     padding: "24px",
     textAlign: "center",
   };
 
   const codeSectionBlue = {
-    background: `linear-gradient(135deg, ${tokens.colors.aurora.sky}20 0%, ${tokens.colors.aurora.lavender}25 100%)`,
+    background: tokens.gradients.mintSurface,
     borderRadius: tokens.radii.xl,
     padding: "24px",
     textAlign: "center",

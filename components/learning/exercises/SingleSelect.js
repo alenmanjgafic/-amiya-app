@@ -84,7 +84,7 @@ export default function SingleSelect({
                   gap: "14px",
                   padding: "14px 16px",
                   background: isSelected
-                    ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender}15 0%, ${tokens.colors.aurora.rose}10 100%)`
+                    ? tokens.gradients.surfaceSubtle
                     : tokens.colors.bg.surface,
                   border: isSelected
                     ? `1.5px solid ${tokens.colors.aurora.lavender}60`
@@ -154,7 +154,7 @@ export default function SingleSelect({
                       ? "none"
                       : `2px solid ${tokens.colors.text.muted}30`,
                     background: isSelected
-                      ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`
+                      ? tokens.gradients.primary
                       : "transparent",
                     display: "flex",
                     alignItems: "center",

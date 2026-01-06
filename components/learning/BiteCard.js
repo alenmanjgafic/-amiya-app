@@ -48,7 +48,7 @@ export default function BiteCard({
         gap: "12px",
         padding: "14px 16px",
         background: isInProgress
-          ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender}12 0%, ${tokens.colors.aurora.rose}08 100%)`
+          ? tokens.gradients.surfaceSubtle
           : isCompleted
             ? `${tokens.colors.aurora.mint}08`
             : tokens.colors.bg.surface,
@@ -75,7 +75,7 @@ export default function BiteCard({
             top: 0,
             bottom: 0,
             width: "3px",
-            background: `linear-gradient(180deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+            background: `linear-gradient(180deg, ${tokens.colors.aurora.lavender}, ${tokens.colors.aurora.rose})`,
           }}
         />
       )}
@@ -90,9 +90,9 @@ export default function BiteCard({
           alignItems: "center",
           justifyContent: "center",
           background: isCompleted
-            ? `linear-gradient(135deg, ${tokens.colors.aurora.mint}20 0%, ${tokens.colors.aurora.mint}10 100%)`
+            ? tokens.gradients.mintSurface
             : isInProgress
-              ? `linear-gradient(135deg, ${tokens.colors.aurora.lavender}20 0%, ${tokens.colors.aurora.rose}20 100%)`
+              ? tokens.gradients.surface
               : isAvailable
                 ? `${tokens.colors.aurora.lavender}15`
                 : tokens.colors.bg.surface,
