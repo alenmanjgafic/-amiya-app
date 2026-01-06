@@ -510,7 +510,18 @@ export default function WirPage() {
             textAlign: "center",
             marginBottom: "16px",
           }}>
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>&#x1F491;</div>
+            <div style={{
+              width: "80px",
+              height: "80px",
+              borderRadius: "50%",
+              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}20 0%, ${tokens.colors.aurora.rose}20 100%)`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 20px",
+            }}>
+              <Heart size={40} color={tokens.colors.aurora.lavender} />
+            </div>
             <h2 style={tokens.typography.h2}>Mehr gemeinsam erleben</h2>
             <p style={{
               fontSize: "16px",
@@ -518,7 +529,7 @@ export default function WirPage() {
               fontWeight: "500",
               margin: "0 0 16px 0",
             }}>
-              Naher. Tiefer. Muhelos.
+              Näher. Tiefer. Mühelos.
             </p>
             <p style={{
               ...tokens.typography.body,
