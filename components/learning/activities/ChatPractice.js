@@ -446,11 +446,15 @@ export default function ChatPractice({
             {turnCount} von {maxTurns} Runden
           </span>
 
-          {/* Early finish button - show after at least 1 turn */}
-          {turnCount >= 1 && !isLoading && (
+          {/* Skip/End button - always visible */}
+          {!isLoading && (
             <button
               onClick={() => {
-                setFeedback("Du hast die Übung vorzeitig beendet. Komm gerne zurück um weiter zu üben!");
+                setFeedback(
+                  turnCount === 0
+                    ? "Du hast die Übung übersprungen. Du kannst sie jederzeit nachholen!"
+                    : "Du hast die Übung vorzeitig beendet. Komm gerne zurück um weiter zu üben!"
+                );
                 setIsComplete(true);
               }}
               style={{
@@ -463,7 +467,7 @@ export default function ChatPractice({
                 cursor: "pointer",
               }}
             >
-              Übung beenden
+              {turnCount === 0 ? "Überspringen" : "Beenden"}
             </button>
           )}
 
