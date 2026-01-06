@@ -446,31 +446,6 @@ export default function ChatPractice({
             {turnCount} von {maxTurns} Runden
           </span>
 
-          {/* Skip/End button - always visible */}
-          {!isLoading && (
-            <button
-              onClick={() => {
-                setFeedback(
-                  turnCount === 0
-                    ? "Du hast die Übung übersprungen. Du kannst sie jederzeit nachholen!"
-                    : "Du hast die Übung vorzeitig beendet. Komm gerne zurück um weiter zu üben!"
-                );
-                setIsComplete(true);
-              }}
-              style={{
-                padding: "6px 12px",
-                background: "transparent",
-                border: `1px solid ${tokens.colors.text.muted}30`,
-                borderRadius: "8px",
-                color: tokens.colors.text.muted,
-                fontSize: "12px",
-                cursor: "pointer",
-              }}
-            >
-              {turnCount === 0 ? "Überspringen" : "Beenden"}
-            </button>
-          )}
-
           <div
             style={{
               height: "4px",
@@ -552,6 +527,33 @@ export default function ChatPractice({
             />
           </button>
         </div>
+
+        {/* Skip button - below input */}
+        {!isLoading && (
+          <button
+            onClick={() => {
+              setFeedback(
+                turnCount === 0
+                  ? "Du hast die Übung übersprungen. Du kannst sie jederzeit nachholen!"
+                  : "Du hast die Übung vorzeitig beendet. Komm gerne zurück um weiter zu üben!"
+              );
+              setIsComplete(true);
+            }}
+            style={{
+              width: "100%",
+              marginTop: "12px",
+              padding: "10px",
+              background: "transparent",
+              border: "none",
+              color: tokens.colors.text.muted,
+              fontSize: "13px",
+              cursor: "pointer",
+              textAlign: "center",
+            }}
+          >
+            {turnCount === 0 ? "Übung überspringen" : "Übung beenden"}
+          </button>
+        )}
       </div>
 
       {/* CSS Animation */}
