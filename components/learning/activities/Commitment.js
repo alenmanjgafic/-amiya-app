@@ -1,34 +1,32 @@
 /**
  * COMMITMENT - components/learning/activities/Commitment.js
- * Creates an Agreement from selected rules/commitments
+ * Personal reflection on relationship rules - serves as conversation starter
  * Used for Chapter 7: Ground Rules
+ *
+ * NOTE: This does NOT create an agreement directly.
+ * Instead, it helps the user reflect on what's important to them,
+ * then encourages them to discuss with their partner.
  */
 "use client";
 
 import { useState } from "react";
 import { useTheme } from "../../../lib/ThemeContext";
-import { useAuth } from "../../../lib/AuthContext";
-import { CheckCircle, Handshake, ArrowRight, AlertCircle, Calendar } from "lucide-react";
+import { CheckCircle, MessageCircle, ArrowRight, Sparkles, Heart } from "lucide-react";
 
 export default function Commitment({
   chapterId,
   options = [],
   minSelections = 2,
   maxSelections = 3,
-  title = "Wähle deine Vereinbarungen",
-  subtitle = "",
-  agreementConfig = {},
+  title = "Was ist dir wichtig?",
+  subtitle = "Wähle die Regeln die DIR am wichtigsten sind",
   onComplete,
 }) {
   const { tokens } = useTheme();
-  const { user, profile } = useAuth();
 
   const [selected, setSelected] = useState([]);
   const [customText, setCustomText] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState(null);
   const [isComplete, setIsComplete] = useState(false);
-  const [createdAgreement, setCreatedAgreement] = useState(null);
 
   const canSubmit = selected.length >= minSelections && selected.length <= maxSelections;
 
@@ -40,213 +38,243 @@ export default function Commitment({
     }
   };
 
-  const handleSubmit = async () => {
-    if (!canSubmit || isSubmitting) return;
-
-    // Check if user has a partner
-    if (!profile?.couple_id) {
-      setError("Du brauchst einen verbundenen Partner für Vereinbarungen.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError(null);
-
-    try {
-      // Build agreement from selections
-      const selectedOptions = options.filter((opt) => selected.includes(opt.id));
-      const descriptions = selectedOptions.map((opt) => `• ${opt.label}`).join("\n");
-
-      const agreementTitle = agreementConfig.title || "Unsere Konflikt-Spielregeln";
-      const agreementDescription = customText
-        ? `${descriptions}\n\nEigene Ergänzung:\n${customText}`
-        : descriptions;
-
-      const response = await fetch("/api/agreements", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          coupleId: profile.couple_id,
-          userId: user.id,
-          title: agreementTitle,
-          description: agreementDescription,
-          underlyingNeed: agreementConfig.underlyingNeed || "Konstruktive Konfliktlösung",
-          type: "commitment",
-          checkInFrequencyDays: agreementConfig.checkInDays || 14,
-          themes: ["conflict", "communication", "learning"],
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setCreatedAgreement(data.agreement);
-      setIsComplete(true);
-    } catch (err) {
-      console.error("Commitment error:", err);
-      setError(err.message || "Konnte Vereinbarung nicht speichern");
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    setIsComplete(true);
   };
 
   const handleComplete = () => {
     if (onComplete) {
       onComplete({
-        agreementId: createdAgreement?.id,
         selectedOptions: selected,
         customText,
       });
     }
   };
 
-  // Success screen
-  if (isComplete && createdAgreement) {
-    const checkInDate = new Date(createdAgreement.next_check_in_at);
-    const formattedDate = checkInDate.toLocaleDateString("de-DE", {
-      day: "numeric",
-      month: "long",
-    });
+  // Get selected option objects for summary
+  const selectedOptions = options.filter((opt) => selected.includes(opt.id));
 
+  // Success/Summary screen
+  if (isComplete) {
     return (
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "60vh",
+          minHeight: "100%",
           padding: "24px",
-          textAlign: "center",
         }}
       >
-        {/* Success Icon */}
+        {/* Header */}
         <div
           style={{
-            width: "80px",
-            height: "80px",
-            borderRadius: "50%",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}20 0%, ${tokens.colors.aurora.lavender}20 100%)`,
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
             marginBottom: "24px",
           }}
         >
-          <Handshake size={40} color={tokens.colors.aurora.mint} />
+          <div
+            style={{
+              width: "64px",
+              height: "64px",
+              borderRadius: "50%",
+              background: `linear-gradient(135deg, ${tokens.colors.aurora.mint}20 0%, ${tokens.colors.aurora.lavender}20 100%)`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: "16px",
+            }}
+          >
+            <Sparkles size={32} color={tokens.colors.aurora.mint} />
+          </div>
+
+          <h2
+            style={{
+              ...tokens.typography.h2,
+              margin: "0 0 8px 0",
+              textAlign: "center",
+            }}
+          >
+            Deine Auswahl
+          </h2>
+
+          <p
+            style={{
+              ...tokens.typography.body,
+              color: tokens.colors.text.muted,
+              margin: 0,
+              textAlign: "center",
+            }}
+          >
+            Diese Punkte sind dir wichtig
+          </p>
         </div>
 
-        <h2
+        {/* Selected items summary */}
+        <div
           style={{
-            ...tokens.typography.h2,
-            margin: "0 0 8px 0",
+            background: tokens.colors.bg.surface,
+            borderRadius: "16px",
+            padding: "20px",
+            marginBottom: "20px",
           }}
         >
-          Vereinbarung erstellt!
-        </h2>
+          {selectedOptions.map((option, index) => (
+            <div
+              key={option.id}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "12px",
+                padding: "12px 0",
+                borderBottom: index < selectedOptions.length - 1
+                  ? `1px solid ${tokens.colors.bg.elevated}`
+                  : "none",
+              }}
+            >
+              <CheckCircle
+                size={20}
+                color={tokens.colors.aurora.mint}
+                style={{ flexShrink: 0, marginTop: "2px" }}
+              />
+              <div>
+                <p
+                  style={{
+                    fontSize: "15px",
+                    fontWeight: "600",
+                    color: tokens.colors.text.primary,
+                    margin: "0 0 4px 0",
+                  }}
+                >
+                  {option.label}
+                </p>
+                {option.description && (
+                  <p
+                    style={{
+                      fontSize: "13px",
+                      color: tokens.colors.text.muted,
+                      margin: 0,
+                    }}
+                  >
+                    {option.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
 
-        <p
-          style={{
-            ...tokens.typography.body,
-            color: tokens.colors.text.secondary,
-            margin: "0 0 24px 0",
-            maxWidth: "300px",
-          }}
-        >
-          Eure neuen Konflikt-Spielregeln wurden gespeichert
-        </p>
+          {customText && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "12px",
+                paddingTop: "12px",
+                borderTop: `1px solid ${tokens.colors.bg.elevated}`,
+              }}
+            >
+              <Heart
+                size={20}
+                color={tokens.colors.aurora.rose}
+                style={{ flexShrink: 0, marginTop: "2px" }}
+              />
+              <div>
+                <p
+                  style={{
+                    fontSize: "13px",
+                    color: tokens.colors.text.muted,
+                    margin: "0 0 4px 0",
+                  }}
+                >
+                  Eigene Ergänzung
+                </p>
+                <p
+                  style={{
+                    fontSize: "15px",
+                    color: tokens.colors.text.primary,
+                    margin: 0,
+                  }}
+                >
+                  {customText}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
 
-        {/* Check-in reminder */}
+        {/* Next step hint */}
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             gap: "12px",
-            padding: "16px 20px",
-            background: tokens.colors.bg.surface,
+            padding: "16px",
+            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender}10 0%, ${tokens.colors.aurora.rose}10 100%)`,
             borderRadius: "12px",
-            marginBottom: "32px",
+            marginBottom: "24px",
           }}
         >
-          <Calendar size={20} color={tokens.colors.aurora.lavender} />
-          <div style={{ textAlign: "left" }}>
-            <p
-              style={{
-                fontSize: "13px",
-                color: tokens.colors.text.muted,
-                margin: 0,
-              }}
-            >
-              Nächster Check-in
-            </p>
+          <MessageCircle
+            size={24}
+            color={tokens.colors.aurora.lavender}
+            style={{ flexShrink: 0 }}
+          />
+          <div>
             <p
               style={{
                 fontSize: "15px",
                 fontWeight: "600",
                 color: tokens.colors.text.primary,
-                margin: 0,
+                margin: "0 0 6px 0",
               }}
             >
-              {formattedDate}
+              Nächster Schritt
+            </p>
+            <p
+              style={{
+                fontSize: "14px",
+                color: tokens.colors.text.secondary,
+                margin: 0,
+                lineHeight: "1.5",
+              }}
+            >
+              Besprich diese Punkte mit deinem Partner. Findet heraus, was euch beiden wichtig ist.
+              Ihr könnt dann gemeinsam unter "Wir" eine Vereinbarung erstellen.
             </p>
           </div>
         </div>
 
-        {/* Status info */}
-        {createdAgreement.status === "pending_approval" && (
-          <div
+        {/* Complete button */}
+        <div style={{ marginTop: "auto" }}>
+          <button
+            onClick={handleComplete}
             style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "10px",
-              padding: "14px",
-              background: `${tokens.colors.aurora.lavender}10`,
+              width: "100%",
+              padding: "16px",
+              background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
+              border: "none",
               borderRadius: "12px",
-              marginBottom: "24px",
-              maxWidth: "320px",
+              color: "#fff",
+              fontSize: "16px",
+              fontWeight: "600",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
             }}
           >
-            <AlertCircle size={18} color={tokens.colors.aurora.lavender} style={{ flexShrink: 0, marginTop: "2px" }} />
-            <p
-              style={{
-                fontSize: "13px",
-                color: tokens.colors.text.secondary,
-                margin: 0,
-                lineHeight: "1.5",
-                textAlign: "left",
-              }}
-            >
-              Dein Partner muss die Vereinbarung noch bestätigen. Er/sie sieht sie unter "Wir".
-            </p>
-          </div>
-        )}
-
-        <button
-          onClick={handleComplete}
-          style={{
-            padding: "16px 32px",
-            background: `linear-gradient(135deg, ${tokens.colors.aurora.lavender} 0%, ${tokens.colors.aurora.rose} 100%)`,
-            border: "none",
-            borderRadius: "12px",
-            color: "#fff",
-            fontSize: "16px",
-            fontWeight: "600",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
-          Fertig
-          <ArrowRight size={18} />
-        </button>
+            Kapitel abschliessen
+            <ArrowRight size={18} />
+          </button>
+        </div>
       </div>
     );
   }
 
+  // Selection screen
   return (
     <div
       style={{
@@ -284,7 +312,32 @@ export default function Commitment({
             margin: "12px 0 0 0",
           }}
         >
-          Wähle {minSelections}-{maxSelections} Regeln
+          Wähle {minSelections}-{maxSelections} Punkte
+        </p>
+      </div>
+
+      {/* Info banner */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          padding: "12px 14px",
+          background: `${tokens.colors.aurora.mint}10`,
+          borderRadius: "10px",
+          marginBottom: "20px",
+        }}
+      >
+        <MessageCircle size={18} color={tokens.colors.aurora.mint} style={{ flexShrink: 0 }} />
+        <p
+          style={{
+            fontSize: "13px",
+            color: tokens.colors.text.secondary,
+            margin: 0,
+            lineHeight: "1.4",
+          }}
+        >
+          Dies ist deine persönliche Reflexion. Besprecht eure Auswahl anschliessend gemeinsam.
         </p>
       </div>
 
@@ -388,7 +441,7 @@ export default function Commitment({
         <textarea
           value={customText}
           onChange={(e) => setCustomText(e.target.value)}
-          placeholder="Füge eine eigene Regel hinzu..."
+          placeholder="Was ist dir sonst noch wichtig?"
           rows={3}
           style={{
             width: "100%",
@@ -401,6 +454,7 @@ export default function Commitment({
             resize: "none",
             outline: "none",
             fontFamily: "inherit",
+            boxSizing: "border-box",
           }}
         />
       </div>
@@ -424,33 +478,11 @@ export default function Commitment({
         </span>
       </div>
 
-      {/* Error */}
-      {error && (
-        <div
-          style={{
-            padding: "12px 16px",
-            background: `${tokens.colors.aurora.rose}10`,
-            borderRadius: "10px",
-            marginBottom: "16px",
-          }}
-        >
-          <p
-            style={{
-              fontSize: "14px",
-              color: tokens.colors.aurora.rose,
-              margin: 0,
-            }}
-          >
-            {error}
-          </p>
-        </div>
-      )}
-
       {/* Submit */}
       <div style={{ marginTop: "auto" }}>
         <button
           onClick={handleSubmit}
-          disabled={!canSubmit || isSubmitting}
+          disabled={!canSubmit}
           style={{
             width: "100%",
             padding: "16px",
@@ -469,29 +501,9 @@ export default function Commitment({
             gap: "8px",
           }}
         >
-          {isSubmitting ? (
-            <>
-              <div style={tokens.loaders?.spinner?.(18) || { width: 18, height: 18 }} />
-              Speichern...
-            </>
-          ) : (
-            <>
-              <Handshake size={20} />
-              Als Vereinbarung speichern
-            </>
-          )}
+          Weiter
+          <ArrowRight size={18} />
         </button>
-
-        <p
-          style={{
-            fontSize: "12px",
-            color: tokens.colors.text.muted,
-            margin: "12px 0 0 0",
-            textAlign: "center",
-          }}
-        >
-          Check-in in 14 Tagen
-        </p>
       </div>
     </div>
   );
