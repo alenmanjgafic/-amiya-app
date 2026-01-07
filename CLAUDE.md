@@ -933,6 +933,15 @@ created_at      timestamp
 
 ---
 
+### Offene Diskussionen (TODO)
+
+**Couple Session ohne Partner-Verbindung freischalten?**
+- Aktuell: Couple Sessions nur möglich wenn beide Partner App nutzen und verbunden sind
+- Problem: Paare wo nur einer die App hat, können keine Couple Session machen
+- Überlegung: Couple Session als "Session über eure Beziehung" (ihr-Form) ohne technische Verbindung
+- Abhängigkeiten: Sessions-Tabelle (couple_id), History, Agreements, Memory System, Wir-Seite
+- Status: **Muss noch besprochen werden**
+
 ### Potenzielle Erweiterungen
 
 - Push Notifications für Check-in Reminders
