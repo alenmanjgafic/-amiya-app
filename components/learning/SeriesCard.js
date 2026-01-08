@@ -5,6 +5,7 @@
  */
 "use client";
 
+import Image from "next/image";
 import { useTheme } from "../../lib/ThemeContext";
 import { SeriesIconMap, CheckCircleIcon } from "./LearningIcons";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -54,25 +55,87 @@ export default function SeriesCard({
             overflow: "hidden",
           }}
         >
-          {/* Subtle Background Gradient */}
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              right: 0,
-              width: "150px",
-              height: "150px",
-              background: `radial-gradient(circle at top right, ${series.color}15 0%, transparent 70%)`,
-              pointerEvents: "none",
-            }}
-          />
+          {/* Hero Image */}
+          {series.image && (
+            <div
+              style={{
+                position: "relative",
+                height: "140px",
+                width: "100%",
+              }}
+            >
+              <Image
+                src={series.image}
+                alt={series.title}
+                fill
+                style={{ objectFit: "cover" }}
+              />
+              {/* Gradient overlay for text readability */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "linear-gradient(to bottom, transparent 0%, transparent 50%, rgba(0,0,0,0.6) 100%)",
+                }}
+              />
+              {/* Title on image */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "12px",
+                  left: "16px",
+                  right: "16px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <h3
+                    style={{
+                      ...tokens.typography.h3,
+                      margin: 0,
+                      fontSize: "20px",
+                      color: "#fff",
+                      textShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                    }}
+                  >
+                    {series.title}
+                  </h3>
+                  {isCompleted && <CheckCircleIcon size={20} />}
+                </div>
+                <p
+                  style={{
+                    ...tokens.typography.small,
+                    margin: 0,
+                    marginTop: "2px",
+                    color: "rgba(255,255,255,0.85)",
+                  }}
+                >
+                  {series.subtitle}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Subtle Background Gradient - only when no image */}
+          {!series.image && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                right: 0,
+                width: "150px",
+                height: "150px",
+                background: `radial-gradient(circle at top right, ${series.color}15 0%, transparent 70%)`,
+                pointerEvents: "none",
+              }}
+            />
+          )}
 
           {/* Header Section - Clickable */}
           <button
             onClick={onClick}
             style={{
               width: "100%",
-              padding: "20px",
+              padding: series.image ? "16px" : "20px",
               background: "transparent",
               border: "none",
               cursor: "pointer",
@@ -80,82 +143,84 @@ export default function SeriesCard({
             }}
           >
             <div style={{ position: "relative" }}>
-              {/* Header Row */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                {/* Icon Container */}
+              {/* Header Row - only show full header when no image */}
+              {!series.image && (
                 <div
                   style={{
-                    flexShrink: 0,
-                    width: "56px",
-                    height: "56px",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    background: `linear-gradient(135deg, ${series.color}20 0%, ${series.color}10 100%)`,
-                    borderRadius: "16px",
-                    boxShadow: `0 4px 12px ${series.color}20`,
+                    gap: "16px",
+                    marginBottom: "16px",
                   }}
                 >
-                  {IconComponent ? (
-                    <IconComponent size={36} />
-                  ) : (
-                    <span style={{ fontSize: "28px" }}>{series.icon}</span>
-                  )}
-                </div>
-
-                {/* Title & Meta */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <h3
-                      style={{
-                        ...tokens.typography.h3,
-                        margin: 0,
-                        fontSize: "18px",
-                      }}
-                    >
-                      {series.title}
-                    </h3>
-                    {isCompleted && <CheckCircleIcon size={20} />}
-                  </div>
-                  <p
+                  {/* Icon Container */}
+                  <div
                     style={{
-                      ...tokens.typography.small,
-                      margin: 0,
-                      marginTop: "2px",
-                      color: tokens.colors.text.muted,
+                      flexShrink: 0,
+                      width: "56px",
+                      height: "56px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: `linear-gradient(135deg, ${series.color}20 0%, ${series.color}10 100%)`,
+                      borderRadius: "16px",
+                      boxShadow: `0 4px 12px ${series.color}20`,
                     }}
                   >
-                    {series.subtitle}
-                  </p>
-                </div>
+                    {IconComponent ? (
+                      <IconComponent size={36} />
+                    ) : (
+                      <span style={{ fontSize: "28px" }}>{series.icon}</span>
+                    )}
+                  </div>
 
-                {/* Expand Indicator */}
-                <div
-                  style={{
-                    flexShrink: 0,
-                    width: "32px",
-                    height: "32px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: tokens.colors.bg.surface,
-                    borderRadius: "10px",
-                  }}
-                >
-                  {isExpanded ? (
-                    <ChevronUp size={18} color={tokens.colors.text.muted} />
-                  ) : (
-                    <ChevronDown size={18} color={tokens.colors.text.muted} />
-                  )}
+                  {/* Title & Meta */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <h3
+                        style={{
+                          ...tokens.typography.h3,
+                          margin: 0,
+                          fontSize: "18px",
+                        }}
+                      >
+                        {series.title}
+                      </h3>
+                      {isCompleted && <CheckCircleIcon size={20} />}
+                    </div>
+                    <p
+                      style={{
+                        ...tokens.typography.small,
+                        margin: 0,
+                        marginTop: "2px",
+                        color: tokens.colors.text.muted,
+                      }}
+                    >
+                      {series.subtitle}
+                    </p>
+                  </div>
+
+                  {/* Expand Indicator */}
+                  <div
+                    style={{
+                      flexShrink: 0,
+                      width: "32px",
+                      height: "32px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: tokens.colors.bg.surface,
+                      borderRadius: "10px",
+                    }}
+                  >
+                    {isExpanded ? (
+                      <ChevronUp size={18} color={tokens.colors.text.muted} />
+                    ) : (
+                      <ChevronDown size={18} color={tokens.colors.text.muted} />
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Stats Pills */}
               <div
@@ -205,6 +270,28 @@ export default function SeriesCard({
                   >
                     ✓ Abgeschlossen
                   </span>
+                )}
+
+                {/* Expand Indicator - for image variant */}
+                {series.image && (
+                  <div
+                    style={{
+                      marginLeft: "auto",
+                      width: "28px",
+                      height: "28px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: tokens.colors.bg.surface,
+                      borderRadius: "8px",
+                    }}
+                  >
+                    {isExpanded ? (
+                      <ChevronUp size={16} color={tokens.colors.text.muted} />
+                    ) : (
+                      <ChevronDown size={16} color={tokens.colors.text.muted} />
+                    )}
+                  </div>
                 )}
               </div>
 

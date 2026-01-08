@@ -5,9 +5,10 @@
  */
 "use client";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useAuth } from "../lib/AuthContext";
 import { useTheme } from "../lib/ThemeContext";
-import { Handshake, Clock, ChevronRight } from "lucide-react";
+import { Clock, ChevronRight, Plus } from "lucide-react";
 
 export default function AgreementsList({ onSelectAgreement, onCreateNew }) {
   const { user, profile } = useAuth();
@@ -104,65 +105,137 @@ export default function AgreementsList({ onSelectAgreement, onCreateNew }) {
     !(a.status === "pending_approval" && !a.approved_by?.includes(user?.id))
   );
 
-  return (
-    <div style={{ marginBottom: "24px" }}>
-      {/* Header - Same layout as Gemeinsame Session */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "16px",
-        marginBottom: "16px",
-      }}>
+  // Empty state - stacked card style
+  if (agreements.length === 0) {
+    return (
+      <div style={{ marginBottom: "24px" }}>
+        {/* Stacked Image */}
         <div style={{
-          width: "48px",
-          height: "48px",
-          borderRadius: tokens.radii.lg,
-          background: tokens.colors.aurora.mint,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
+          position: "relative",
+          height: "140px",
+          marginBottom: "16px",
+          borderRadius: "12px",
+          overflow: "hidden",
         }}>
-          <Handshake size={24} color="white" />
+          <Image
+            src="/images/agreements-01.jpg"
+            alt="Vereinbarungen"
+            fill
+            style={{ objectFit: "cover" }}
+          />
         </div>
-        <div style={{ flex: 1 }}>
+
+        {/* Title + Subtitle */}
+        <div style={{ marginBottom: "20px" }}>
           <h3 style={{
-            ...tokens.typography.h3,
-            fontSize: "16px",
+            fontSize: "18px",
+            fontWeight: "600",
+            color: tokens.colors.text.primary,
+            margin: 0,
             marginBottom: "4px",
           }}>Eure Vereinbarungen</h3>
           <p style={{
-            ...tokens.typography.small,
+            fontSize: "14px",
+            color: tokens.colors.text.muted,
             margin: 0,
           }}>Gemeinsame Abmachungen</p>
+        </div>
+
+        {/* Empty message with button */}
+        <p style={{
+          ...tokens.typography.body,
+          color: tokens.colors.text.muted,
+          textAlign: "center",
+          margin: "0 0 16px 0",
+        }}>
+          Noch keine Vereinbarungen
+        </p>
+        <button onClick={onCreateNew} style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "6px",
+          width: "100%",
+          padding: "14px 16px",
+          background: tokens.colors.aurora.lavender,
+          color: "white",
+          border: "none",
+          borderRadius: tokens.radii.md,
+          fontSize: "15px",
+          fontWeight: "500",
+          cursor: "pointer",
+        }}>
+          Vereinbarung erstellen
+          <Plus size={16} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: "24px" }}>
+      {/* Stacked Image */}
+      <div style={{
+        position: "relative",
+        height: "140px",
+        marginBottom: "16px",
+        borderRadius: "12px",
+        overflow: "hidden",
+      }}>
+        <Image
+          src="/images/agreements-01.jpg"
+          alt="Vereinbarungen"
+          fill
+          style={{ objectFit: "cover" }}
+        />
+      </div>
+
+      {/* Title + Subtitle + Button */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: "20px",
+      }}>
+        <div>
+          <h3 style={{
+            fontSize: "18px",
+            fontWeight: "600",
+            color: tokens.colors.text.primary,
+            margin: 0,
+            marginBottom: "4px",
+          }}>Eure Vereinbarungen</h3>
+          <p style={{
+            fontSize: "14px",
+            color: tokens.colors.text.muted,
+            margin: 0,
+          }}>{agreements.length} Abmachung{agreements.length !== 1 ? "en" : ""}</p>
         </div>
         <button onClick={onCreateNew} style={tokens.buttons.primarySmall}>
           + Neue
         </button>
       </div>
 
-      {/* Filter Tabs - Only show when there are agreements */}
-      {agreements.length > 0 && (
-        <div style={{
-          display: "flex",
-          gap: "8px",
-          marginBottom: "16px",
-        }}>
-          {[
-            { key: "active", label: "Aktiv" },
-            { key: "achieved", label: "Erreicht" },
-            { key: "all", label: "Alle" }
-          ].map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setFilter(tab.key)}
-              style={tokens.buttons.tab(filter === tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Filter Tabs */}
+      <div style={{
+        display: "flex",
+        gap: "8px",
+        marginBottom: "16px",
+      }}>
+        {[
+          { key: "active", label: "Aktiv" },
+          { key: "achieved", label: "Erreicht" },
+          { key: "all", label: "Alle" }
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setFilter(tab.key)}
+            style={tokens.buttons.tab(filter === tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       {/* Needs Approval Section */}
       {needsApproval.length > 0 && (
@@ -225,20 +298,7 @@ export default function AgreementsList({ onSelectAgreement, onCreateNew }) {
       )}
 
       {/* Agreements List */}
-      {otherAgreements.length === 0 && needsApproval.length === 0 ? (
-        <div style={{
-          textAlign: "center",
-          padding: "16px",
-          color: tokens.colors.text.muted,
-        }}>
-          <p style={{
-            ...tokens.typography.small,
-            margin: 0,
-          }}>
-            Noch keine Vereinbarungen
-          </p>
-        </div>
-      ) : (
+      {otherAgreements.length > 0 && (
         <div style={{
           display: "flex",
           flexDirection: "column",

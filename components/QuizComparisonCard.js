@@ -6,9 +6,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useTheme } from "../lib/ThemeContext";
 import { getTypeInfo, analyzePairDynamic } from "../lib/quizLogic";
-import { Mail, Lock, Check, ChevronRight, Sparkles, Send, Link2, Undo2 } from "lucide-react";
+import { Mail, Lock, Check, ChevronRight, Sparkles, Send, Undo2 } from "lucide-react";
 import { ArchetypeIconMap } from "./ArchetypeIcons";
 
 export default function QuizComparisonCard({
@@ -73,13 +74,21 @@ export default function QuizComparisonCard({
   if (!userCompleted) {
     return (
       <div style={styles.card(tokens)}>
-        <div style={styles.header(tokens)}>
-          <div style={styles.iconBox(tokens)}>
-            <Link2 size={24} color="white" />
-          </div>
-          <div style={styles.headerText}>
-            <h3 style={styles.title(tokens)}>Archetypen</h3>
-            <p style={styles.subtitle(tokens)}>Vergleicht eure Muster</p>
+        {/* Stacked Image */}
+        <div style={styles.stackedImageContainer}>
+          <Image
+            src="/images/quiz-01.jpg"
+            alt="Archetypen"
+            fill
+            style={{ objectFit: "cover" }}
+          />
+        </div>
+
+        {/* Title + Subtitle */}
+        <div style={styles.stackedContent}>
+          <div>
+            <h3 style={styles.stackedTitle(tokens)}>Archetypen</h3>
+            <p style={styles.stackedSubtitle(tokens)}>Vergleicht eure Muster</p>
           </div>
         </div>
 
@@ -100,13 +109,21 @@ export default function QuizComparisonCard({
 
     return (
       <div style={styles.card(tokens)}>
-        <div style={styles.header(tokens)}>
-          <div style={styles.iconBox(tokens)}>
-            <Link2 size={24} color="white" />
-          </div>
-          <div style={styles.headerText}>
-            <h3 style={styles.title(tokens)}>Eure Archetypen</h3>
-            <p style={styles.subtitle(tokens)}>Vergleicht eure Muster</p>
+        {/* Stacked Image */}
+        <div style={styles.stackedImageContainer}>
+          <Image
+            src="/images/quiz-01.jpg"
+            alt="Archetypen"
+            fill
+            style={{ objectFit: "cover" }}
+          />
+        </div>
+
+        {/* Title + Subtitle */}
+        <div style={styles.stackedContent}>
+          <div>
+            <h3 style={styles.stackedTitle(tokens)}>Eure Archetypen</h3>
+            <p style={styles.stackedSubtitle(tokens)}>Vergleicht eure Muster</p>
           </div>
         </div>
 
@@ -167,13 +184,21 @@ export default function QuizComparisonCard({
   if (userCompleted && !userShared) {
     return (
       <div style={styles.card(tokens)}>
-        <div style={styles.header(tokens)}>
-          <div style={styles.iconBox(tokens)}>
-            <Link2 size={24} color="white" />
-          </div>
-          <div style={styles.headerText}>
-            <h3 style={styles.title(tokens)}>Archetypen</h3>
-            <p style={styles.subtitle(tokens)}>Vergleicht eure Muster</p>
+        {/* Stacked Image */}
+        <div style={styles.stackedImageContainer}>
+          <Image
+            src="/images/quiz-01.jpg"
+            alt="Archetypen"
+            fill
+            style={{ objectFit: "cover" }}
+          />
+        </div>
+
+        {/* Title + Subtitle */}
+        <div style={styles.stackedContent}>
+          <div>
+            <h3 style={styles.stackedTitle(tokens)}>Archetypen</h3>
+            <p style={styles.stackedSubtitle(tokens)}>Vergleicht eure Muster</p>
           </div>
         </div>
 
@@ -240,13 +265,21 @@ export default function QuizComparisonCard({
   if (userShared && !partnerShared) {
     return (
       <div style={styles.card(tokens)}>
-        <div style={styles.header(tokens)}>
-          <div style={styles.iconBox(tokens)}>
-            <Link2 size={24} color="white" />
-          </div>
-          <div style={styles.headerText}>
-            <h3 style={styles.title(tokens)}>Archetypen</h3>
-            <p style={styles.subtitle(tokens)}>Vergleicht eure Muster</p>
+        {/* Stacked Image */}
+        <div style={styles.stackedImageContainer}>
+          <Image
+            src="/images/quiz-01.jpg"
+            alt="Archetypen"
+            fill
+            style={{ objectFit: "cover" }}
+          />
+        </div>
+
+        {/* Title + Subtitle */}
+        <div style={styles.stackedContent}>
+          <div>
+            <h3 style={styles.stackedTitle(tokens)}>Archetypen</h3>
+            <p style={styles.stackedSubtitle(tokens)}>Vergleicht eure Muster</p>
           </div>
         </div>
 
@@ -314,7 +347,7 @@ export default function QuizComparisonCard({
 const styles = {
   card: (tokens) => ({
     ...tokens.cards.elevated,
-    padding: "16px",
+    padding: "20px",
   }),
 
   header: (tokens) => ({
@@ -324,32 +357,34 @@ const styles = {
     marginBottom: "16px",
   }),
 
-  iconBox: (tokens) => ({
-    width: "48px",
-    height: "48px",
-    borderRadius: tokens.radii.lg,
-    background: tokens.colors.aurora.lavender,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  }),
-
-  headerText: {
-    flex: 1,
+  // Stacked Card Style (Option 2)
+  stackedImageContainer: {
+    position: "relative",
+    height: "140px",
+    marginBottom: "16px",
+    borderRadius: "12px",
+    overflow: "hidden",
   },
 
-  title: (tokens) => ({
-    ...tokens.typography.h3,
-    fontSize: "16px",
+  stackedContent: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "20px",
+  },
+
+  stackedTitle: (tokens) => ({
+    fontSize: "18px",
+    fontWeight: "600",
+    color: tokens.colors.text.primary,
     margin: 0,
-    marginBottom: "2px",
+    marginBottom: "4px",
   }),
 
-  subtitle: (tokens) => ({
-    ...tokens.typography.small,
-    margin: 0,
+  stackedSubtitle: (tokens) => ({
+    fontSize: "14px",
     color: tokens.colors.text.muted,
+    margin: 0,
   }),
 
   compactButton: (tokens) => ({
@@ -358,12 +393,12 @@ const styles = {
     justifyContent: "center",
     gap: "6px",
     width: "100%",
-    padding: "10px 16px",
+    padding: "14px 16px",
     background: tokens.colors.aurora.lavender,
     color: "white",
     border: "none",
     borderRadius: tokens.radii.md,
-    fontSize: "14px",
+    fontSize: "15px",
     fontWeight: "500",
     cursor: "pointer",
   }),

@@ -1,17 +1,18 @@
 /**
  * MESSAGE ANALYZER SLIDE - components/slides/MessageAnalyzerSlide.js
  * Entry point for message/chat analysis feature
+ * Full-bleed image with text overlay
  */
 "use client";
 import { useRouter } from "next/navigation";
 import { Camera, Type } from "lucide-react";
+import Image from "next/image";
 import { useTheme } from "../../lib/ThemeContext";
-import { MessageAnalysisIllustration } from "../AmiyaIllustrations";
 
 export default function MessageAnalyzerSlide({
   isActive = false,
 }) {
-  const { tokens, isDarkMode } = useTheme();
+  const { tokens } = useTheme();
   const router = useRouter();
 
   const handleAnalyze = () => {
@@ -20,87 +21,124 @@ export default function MessageAnalyzerSlide({
 
   return (
     <div style={{
+      position: "relative",
+      height: "420px",
       display: "flex",
       flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "32px 20px",
-      textAlign: "center",
     }}>
-      {/* Illustration */}
+      {/* Full-bleed background image */}
       <div style={{
-        width: "200px",
-        height: "120px",
-        marginBottom: "16px",
+        position: "absolute",
+        inset: 0,
+        zIndex: 0,
       }}>
-        <MessageAnalysisIllustration isDarkMode={isDarkMode} />
+        <Image
+          src="/images/messageanalyse-01.jpg"
+          alt="Nachrichtenanalyse"
+          fill
+          style={{ objectFit: "cover" }}
+        />
+        {/* Gradient overlay - only bottom for text readability */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(to bottom, transparent 0%, transparent 50%, rgba(0,0,0,0.7) 100%)",
+        }} />
       </div>
 
-      <h2 style={{
-        ...tokens.typography.h2,
-        fontSize: "24px",
-        marginBottom: "8px",
-      }}>
-        Nachrichtenanalyse
-      </h2>
-
-      <p style={{
-        ...tokens.typography.body,
-        marginBottom: "24px",
-        lineHeight: "1.6",
-        maxWidth: "280px",
-      }}>
-        Lass Amiya deine Chat-Nachrichten<br />
-        analysieren und verbessern.
-      </p>
-
-      {/* Input type indicators */}
+      {/* Content overlay */}
       <div style={{
+        position: "relative",
+        zIndex: 1,
+        flex: 1,
         display: "flex",
-        gap: "24px",
-        marginBottom: "32px",
+        flexDirection: "column",
+        justifyContent: "flex-end",
+        padding: "24px 20px",
       }}>
+        <h2 style={{
+          fontSize: "26px",
+          fontWeight: "700",
+          color: "#fff",
+          margin: "0 0 6px 0",
+          textShadow: "0 2px 8px rgba(0,0,0,0.3)",
+          fontFamily: tokens.fonts.display,
+        }}>
+          Nachrichtenanalyse
+        </h2>
+
+        <p style={{
+          fontSize: "15px",
+          color: "rgba(255,255,255,0.9)",
+          margin: "0 0 16px 0",
+          lineHeight: "1.5",
+          textShadow: "0 1px 4px rgba(0,0,0,0.3)",
+        }}>
+          Lass Amiya deine Chat-Nachrichten analysieren und verbessern.
+        </p>
+
+        {/* Input type indicators */}
         <div style={{
           display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          color: tokens.colors.text.muted,
-          fontSize: "14px",
+          gap: "16px",
+          marginBottom: "16px",
         }}>
-          <Camera size={18} />
-          <span>Screenshot</span>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            color: "rgba(255,255,255,0.8)",
+            fontSize: "13px",
+          }}>
+            <Camera size={16} />
+            <span>Screenshot</span>
+          </div>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            color: "rgba(255,255,255,0.8)",
+            fontSize: "13px",
+          }}>
+            <Type size={16} />
+            <span>Text</span>
+          </div>
         </div>
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          color: tokens.colors.text.muted,
-          fontSize: "14px",
+
+        {/* Analyze Button */}
+        <button
+          onClick={handleAnalyze}
+          style={{
+            width: "100%",
+            padding: "14px 24px",
+            background: "rgba(255,255,255,0.95)",
+            border: "none",
+            borderRadius: "12px",
+            color: tokens.colors.aurora.lavender,
+            fontSize: "16px",
+            fontWeight: "600",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+            transition: "transform 0.2s ease",
+          }}
+        >
+          Nachricht analysieren
+        </button>
+
+        {/* Privacy hint */}
+        <p style={{
+          fontSize: "11px",
+          color: "rgba(255,255,255,0.6)",
+          marginTop: "12px",
+          textAlign: "center",
         }}>
-          <Type size={18} />
-          <span>Text</span>
-        </div>
+          Screenshots werden nicht gespeichert - nur die Analyse.
+        </p>
       </div>
-
-      {/* Analyze Button */}
-      <button
-        onClick={handleAnalyze}
-        style={{
-          ...tokens.buttons.primaryLarge,
-          background: tokens.gradients.primary,
-        }}
-      >
-        Nachricht analysieren
-      </button>
-
-      {/* Privacy hint */}
-      <p style={{
-        ...tokens.typography.small,
-        marginTop: "24px",
-        maxWidth: "280px",
-      }}>
-        Screenshots werden nicht gespeichert - nur die Analyse.
-      </p>
     </div>
   );
 }

@@ -1,7 +1,6 @@
 /**
  * ENTDECKEN PAGE - app/entdecken/page.js
- * Learning series overview with Chapter-based progress tracking
- * Updated for Content + Activity structure
+ * Learning series overview with carousel
  */
 "use client";
 
@@ -10,8 +9,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/AuthContext";
 import { useTheme } from "../../lib/ThemeContext";
 import { ALL_SERIES } from "../../lib/learning-content";
-import SeriesCard from "../../components/learning/SeriesCard";
-import ChapterCard from "../../components/learning/ChapterCard";
+import FeatureCarousel from "../../components/FeatureCarousel";
+import LearningSeriesSlide from "../../components/slides/LearningSeriesSlide";
 import ActiveChallenges from "../../components/learning/ActiveChallenges";
 import { EntdeckenIcon } from "../../components/learning/LearningIcons";
 import {
@@ -25,7 +24,6 @@ export default function EntdeckenPage() {
   const router = useRouter();
 
   const [progress, setProgress] = useState({});
-  const [expandedSeries, setExpandedSeries] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(true);
 
   // Helper: Get user-specific localStorage key
@@ -39,16 +37,6 @@ export default function EntdeckenPage() {
       return stored ? JSON.parse(stored) : {};
     } catch {
       return {};
-    }
-  };
-
-  // Helper: Save progress to localStorage (user-specific)
-  const saveLocalProgress = (userId, newProgress) => {
-    if (typeof window === "undefined" || !userId) return;
-    try {
-      localStorage.setItem(getStorageKey(userId), JSON.stringify(newProgress));
-    } catch (e) {
-      console.error("Failed to save local progress:", e);
     }
   };
 
@@ -71,7 +59,6 @@ export default function EntdeckenPage() {
         const data = await response.json();
 
         // Group by series from API
-        // Progress now tracks: chapter_id, content_completed, activity_completed
         (data.progress || []).forEach((p) => {
           if (!grouped[p.series_id]) {
             grouped[p.series_id] = {};
@@ -96,7 +83,6 @@ export default function EntdeckenPage() {
           if (!grouped[seriesId][chapterId]) {
             grouped[seriesId][chapterId] = chapterProgress;
           } else {
-            // Merge: if local says completed, trust that
             if (chapterProgress.contentCompleted) {
               grouped[seriesId][chapterId].contentCompleted = true;
             }
@@ -108,18 +94,6 @@ export default function EntdeckenPage() {
       }
 
       setProgress(grouped);
-
-      // Auto-expand series with progress
-      for (const [seriesId, chaptersProgress] of Object.entries(grouped)) {
-        const hasProgress = Object.values(chaptersProgress).some(
-          (p) => p.contentCompleted || p.activityCompleted
-        );
-        if (hasProgress) {
-          setExpandedSeries(seriesId);
-          break;
-        }
-      }
-
       setLoadingProgress(false);
     };
 
@@ -128,68 +102,22 @@ export default function EntdeckenPage() {
     }
   }, [user?.id]);
 
-  // Handle series click
-  const handleSeriesClick = (series) => {
-    if (expandedSeries === series.id) {
-      setExpandedSeries(null);
-    } else {
-      setExpandedSeries(series.id);
-    }
-  };
-
-  // Handle content click - go to content player
-  const handleContentClick = (chapter, seriesId) => {
-    router.push(`/entdecken/chapter/${chapter.id}/content?series=${seriesId}`);
-  };
-
-  // Handle activity click - go to activity player
-  const handleActivityClick = (chapter, seriesId) => {
-    router.push(`/entdecken/chapter/${chapter.id}/activity?series=${seriesId}`);
-  };
-
-  // Get chapter status
-  const getChapterProgress = (chapterId, seriesId) => {
-    const seriesProgress = progress[seriesId] || {};
-    return seriesProgress[chapterId] || {
-      contentCompleted: false,
-      activityCompleted: false,
-      currentScreen: 0,
-    };
-  };
-
-  // Check if chapter is locked (previous chapter not completed)
-  const isChapterLocked = (chapter, seriesId) => {
-    // First chapter is never locked
-    if (chapter.number === 1) return false;
-
+  // Calculate completed chapters for a series
+  const getCompletedChaptersCount = (seriesId) => {
     const series = ALL_SERIES.find((s) => s.id === seriesId);
-    if (!series) return true;
-
-    // Find previous chapter
-    const prevChapter = series.chapters.find((c) => c.number === chapter.number - 1);
-    if (!prevChapter) return false;
-
-    // Check if previous chapter is fully completed (content + activity)
-    const prevProgress = getChapterProgress(prevChapter.id, seriesId);
-    return !(prevProgress.contentCompleted && prevProgress.activityCompleted);
-  };
-
-  // Calculate series completion percentage
-  const getSeriesCompletionPercent = (seriesId) => {
-    const series = ALL_SERIES.find((s) => s.id === seriesId);
-    if (!series) return 0;
+    if (!series || !series.chapters) return 0;
 
     const seriesProgress = progress[seriesId] || {};
     let completed = 0;
-    const total = series.chapters.length * 2; // content + activity for each
 
     for (const chapter of series.chapters) {
       const chapterProgress = seriesProgress[chapter.id] || {};
-      if (chapterProgress.contentCompleted) completed++;
-      if (chapterProgress.activityCompleted) completed++;
+      if (chapterProgress.contentCompleted && chapterProgress.activityCompleted) {
+        completed++;
+      }
     }
 
-    return Math.round((completed / total) * 100);
+    return completed;
   };
 
   if (authLoading || loadingProgress) {
@@ -218,29 +146,15 @@ export default function EntdeckenPage() {
       {/* Header */}
       <div
         style={{
-          padding: "20px",
-          textAlign: "center",
+          padding: "24px 20px 20px",
         }}
       >
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "56px",
-            height: "56px",
-            background: `${tokens.colors.aurora.lavender}15`,
-            borderRadius: "50%",
-            marginBottom: "12px",
-          }}
-        >
-          <EntdeckenIcon size={32} active={true} />
-        </div>
         <h1
           style={{
             ...tokens.typography.h1,
             margin: 0,
-            marginBottom: "8px",
+            marginBottom: "4px",
+            fontSize: "28px",
           }}
         >
           Entdecken
@@ -250,78 +164,34 @@ export default function EntdeckenPage() {
             ...tokens.typography.body,
             color: tokens.colors.text.muted,
             margin: 0,
+            fontSize: "15px",
           }}
         >
-          Lerne Werkzeuge für eure Beziehung
+          Werkzeuge für eure Beziehung
         </p>
+      </div>
+
+      {/* Series Carousel */}
+      <div style={{ marginBottom: "24px" }}>
+        <FeatureCarousel
+          initialSlide={0}
+          showDots={true}
+          showHint={true}
+          storageKey="amiya-entdecken-series"
+        >
+          {ALL_SERIES.map((series) => (
+            <LearningSeriesSlide
+              key={series.id}
+              series={series}
+              completedChapters={getCompletedChaptersCount(series.id)}
+              totalChapters={series.chapters?.length || series.chapterCount || 0}
+            />
+          ))}
+        </FeatureCarousel>
       </div>
 
       {/* Active Challenges */}
       <ActiveChallenges />
-
-      {/* Series List */}
-      <div
-        style={{
-          padding: "0 20px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "16px",
-        }}
-      >
-        {ALL_SERIES.map((series) => {
-          const isExpanded = expandedSeries === series.id;
-          const completionPercent = getSeriesCompletionPercent(series.id);
-
-          return (
-            <SeriesCard
-              key={series.id}
-              series={series}
-              progress={[]} // Legacy prop, not used for display
-              completionPercent={completionPercent}
-              onClick={() => handleSeriesClick(series)}
-              isExpanded={isExpanded}
-            >
-              {/* Chapters rendered inside the SeriesCard frame */}
-              {series.chapters.map((chapter) => {
-                const chapterProgress = getChapterProgress(chapter.id, series.id);
-                const locked = isChapterLocked(chapter, series.id);
-
-                return (
-                  <ChapterCard
-                    key={chapter.id}
-                    chapter={chapter}
-                    progress={chapterProgress}
-                    onContentClick={() => handleContentClick(chapter, series.id)}
-                    onActivityClick={() => handleActivityClick(chapter, series.id)}
-                    isLocked={locked}
-                  />
-                );
-              })}
-            </SeriesCard>
-          );
-        })}
-
-        {/* Coming Soon Placeholder */}
-        <div
-          style={{
-            padding: "24px",
-            background: tokens.colors.bg.elevated,
-            borderRadius: tokens.radii.xl,
-            textAlign: "center",
-            opacity: 0.6,
-          }}
-        >
-          <p
-            style={{
-              ...tokens.typography.body,
-              color: tokens.colors.text.muted,
-              margin: 0,
-            }}
-          >
-            Weitere Serien kommen bald...
-          </p>
-        </div>
-      </div>
 
       {/* Bottom Navigation */}
       <div style={tokens.layout.navBar}>

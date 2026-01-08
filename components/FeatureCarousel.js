@@ -8,8 +8,8 @@
 import { useState, useRef, useEffect, Children, cloneElement } from "react";
 import { useTheme } from "../lib/ThemeContext";
 
-// Slide takes 60% of container width, showing 20% peek on each side
-const SLIDE_WIDTH_PERCENT = 60;
+// Slide takes 65% of container width, showing peek on each side
+const SLIDE_WIDTH_PERCENT = 65;
 const SLIDE_GAP = 12;
 
 export default function FeatureCarousel({

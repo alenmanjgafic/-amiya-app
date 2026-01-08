@@ -1,20 +1,20 @@
 /**
  * SOLO SESSION SLIDE - components/slides/SoloSessionSlide.js
  * Start screen for solo voice session
- * Navigates to dedicated /session/solo page
+ * Full-bleed image with text overlay
  */
 "use client";
 import { useRouter } from "next/navigation";
 import { Headphones } from "lucide-react";
+import Image from "next/image";
 import { useTheme } from "../../lib/ThemeContext";
-import { SoloSessionIllustration } from "../AmiyaIllustrations";
 
 export default function SoloSessionSlide({
   userName = "du",
   partnerName = "Partner",
   analysisError = null,
 }) {
-  const { tokens, isDarkMode } = useTheme();
+  const { tokens } = useTheme();
   const router = useRouter();
 
   const handleStartSession = () => {
@@ -23,82 +23,119 @@ export default function SoloSessionSlide({
 
   return (
     <div style={{
+      position: "relative",
+      height: "420px",
       display: "flex",
       flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "32px 20px",
-      textAlign: "center",
     }}>
-      {/* Illustration */}
+      {/* Full-bleed background image */}
       <div style={{
-        width: "200px",
-        height: "120px",
-        marginBottom: "16px",
+        position: "absolute",
+        inset: 0,
+        zIndex: 0,
       }}>
-        <SoloSessionIllustration isDarkMode={isDarkMode} />
+        <Image
+          src="/images/solo-session-01.jpg"
+          alt="Solo Session"
+          fill
+          style={{ objectFit: "cover" }}
+          priority
+        />
+        {/* Gradient overlay - only bottom for text readability */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(to bottom, transparent 0%, transparent 50%, rgba(0,0,0,0.7) 100%)",
+        }} />
       </div>
 
-      <h2 style={{
-        ...tokens.typography.h2,
-        fontSize: "24px",
-        marginBottom: "8px",
-      }}>
-        Solo Session
-      </h2>
-
-      <p style={{
-        ...tokens.typography.body,
-        marginBottom: "32px",
-        lineHeight: "1.6",
-        maxWidth: "280px",
-      }}>
-        Sprich mit Amiya uber das,<br />
-        was dich beschaftigt.
-      </p>
-
-      {/* Analysis Error Alert */}
-      {analysisError && (
-        <div style={{
-          ...tokens.alerts.error,
-          marginBottom: "24px",
-          display: "flex",
-          alignItems: "flex-start",
-          gap: "12px",
-          textAlign: "left",
-          border: `1px solid ${tokens.colors.error}`,
-          maxWidth: "300px",
-        }}>
-          <p style={{
-            color: tokens.colors.error,
-            fontSize: "14px",
-            margin: 0,
-            lineHeight: "1.5",
-          }}>
-            {analysisError}
-          </p>
-        </div>
-      )}
-
-      {/* Start Session Button */}
-      <button
-        onClick={handleStartSession}
-        style={tokens.buttons.primaryLarge}
-      >
-        Session starten
-      </button>
-
-      {/* Headphones hint */}
-      <p style={{
-        ...tokens.typography.small,
-        marginTop: "24px",
+      {/* Content overlay */}
+      <div style={{
+        position: "relative",
+        zIndex: 1,
+        flex: 1,
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "6px",
+        flexDirection: "column",
+        justifyContent: "flex-end",
+        padding: "24px 20px",
       }}>
-        <Headphones size={16} /> Beste Erfahrung mit Kopfhorern
-      </p>
+        {/* Analysis Error Alert */}
+        {analysisError && (
+          <div style={{
+            ...tokens.alerts.error,
+            marginBottom: "16px",
+            background: "rgba(220, 38, 38, 0.9)",
+            border: "none",
+          }}>
+            <p style={{
+              color: "#fff",
+              fontSize: "14px",
+              margin: 0,
+              lineHeight: "1.5",
+            }}>
+              {analysisError}
+            </p>
+          </div>
+        )}
+
+        <h2 style={{
+          fontSize: "26px",
+          fontWeight: "700",
+          color: "#fff",
+          margin: "0 0 6px 0",
+          textShadow: "0 2px 8px rgba(0,0,0,0.3)",
+          fontFamily: tokens.fonts.display,
+        }}>
+          Solo Session
+        </h2>
+
+        <p style={{
+          fontSize: "15px",
+          color: "rgba(255,255,255,0.9)",
+          margin: "0 0 20px 0",
+          lineHeight: "1.5",
+          textShadow: "0 1px 4px rgba(0,0,0,0.3)",
+        }}>
+          Sprich mit Amiya über das, was dich beschäftigt.
+        </p>
+
+        {/* Start Session Button */}
+        <button
+          onClick={handleStartSession}
+          style={{
+            width: "100%",
+            padding: "14px 24px",
+            background: "rgba(255,255,255,0.95)",
+            border: "none",
+            borderRadius: "12px",
+            color: tokens.colors.aurora.lavender,
+            fontSize: "16px",
+            fontWeight: "600",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+            transition: "transform 0.2s ease",
+          }}
+        >
+          Session starten
+        </button>
+
+        {/* Headphones hint */}
+        <p style={{
+          fontSize: "12px",
+          color: "rgba(255,255,255,0.7)",
+          marginTop: "14px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "6px",
+        }}>
+          <Headphones size={14} /> Beste Erfahrung mit Kopfhörern
+        </p>
+      </div>
     </div>
   );
 }

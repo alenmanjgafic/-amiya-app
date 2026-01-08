@@ -1,11 +1,12 @@
 /**
  * WIR PAGE - app/wir/page.js
  * Übersichtsseite für Paar-Features mit Agreements Integration
- * Migrated to Design System tokens
+ * Redesigned with Hero images and Feature banners/cards
  */
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useAuth } from "../../lib/AuthContext";
 import { useTheme } from "../../lib/ThemeContext";
 import AgreementsList from "../../components/AgreementsList";
@@ -13,12 +14,19 @@ import AgreementDetail from "../../components/AgreementDetail";
 import CreateAgreement from "../../components/CreateAgreement";
 import DisconnectDialog from "../../components/DisconnectDialog";
 import QuizComparisonCard from "../../components/QuizComparisonCard";
+import ConnectInfoModal from "../../components/ConnectInfoModal";
 import {
   Home as HomeIcon,
   Heart,
   AlertTriangle,
   Clock,
   ChevronRight,
+  Link2,
+  FileText,
+  MessageCircle,
+  Sparkles,
+  Users,
+  BarChart3,
 } from "lucide-react";
 import { EntdeckenIcon } from "../../components/learning/LearningIcons";
 
@@ -29,6 +37,7 @@ export default function WirPage() {
   const [selectedAgreementId, setSelectedAgreementId] = useState(null);
   const [showCreateAgreement, setShowCreateAgreement] = useState(false);
   const [showDisconnect, setShowDisconnect] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
   const [pendingDissolution, setPendingDissolution] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -38,6 +47,7 @@ export default function WirPage() {
 
   // Stats for header
   const [sessionCount, setSessionCount] = useState(0);
+  const [agreementCount, setAgreementCount] = useState(0);
   const [memberSince, setMemberSince] = useState("");
 
   // Partner profile for quiz comparison
@@ -109,7 +119,6 @@ export default function WirPage() {
     setIsQuizSharing(true);
 
     try {
-      // Get current session for access token
       const { supabase } = await import("../../lib/supabase");
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -128,7 +137,6 @@ export default function WirPage() {
       });
 
       if (response.ok) {
-        // Refresh profiles to update UI
         await fetchProfile(user.id);
         await loadPartnerProfile();
       } else {
@@ -214,7 +222,6 @@ export default function WirPage() {
       );
       const data = await response.json();
 
-      // Combine suggestions and pending agreements for display
       const allPending = [
         ...(data.suggestions || []).map(s => ({ ...s, type: 'suggestion' })),
         ...(data.pendingAgreements || []).map(a => ({ ...a, type: 'agreement' }))
@@ -264,6 +271,182 @@ export default function WirPage() {
   const userName = profile?.name || "du";
   const isConnected = !!profile?.couple_id;
 
+  // Feature banner component for not connected state
+  const FeatureBanner = ({ icon: Icon, title, description, onClick, comingSoon = false }) => (
+    <button
+      onClick={comingSoon ? undefined : onClick}
+      style={{
+        width: "100%",
+        padding: "28px 20px",
+        background: tokens.colors.bg.elevated,
+        border: "none",
+        borderRadius: "16px",
+        cursor: comingSoon ? "default" : "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "16px",
+        textAlign: "left",
+        marginBottom: "12px",
+        opacity: comingSoon ? 0.7 : 1,
+      }}
+    >
+      <div
+        style={{
+          width: "56px",
+          height: "56px",
+          borderRadius: "14px",
+          background: comingSoon ? tokens.colors.bg.surface : tokens.gradients.surface,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <Icon size={28} color={comingSoon ? tokens.colors.text.muted : tokens.colors.aurora.lavender} />
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <h3
+            style={{
+              fontSize: "16px",
+              fontWeight: "600",
+              color: tokens.colors.text.primary,
+              margin: 0,
+            }}
+          >
+            {title}
+          </h3>
+          {comingSoon && (
+            <span
+              style={{
+                fontSize: "10px",
+                fontWeight: "600",
+                color: tokens.colors.aurora.lavender,
+                background: `${tokens.colors.aurora.lavender}15`,
+                padding: "2px 6px",
+                borderRadius: "4px",
+                textTransform: "uppercase",
+              }}
+            >
+              Soon
+            </span>
+          )}
+        </div>
+        <p
+          style={{
+            fontSize: "13px",
+            color: tokens.colors.text.muted,
+            margin: "4px 0 0 0",
+          }}
+        >
+          {description}
+        </p>
+      </div>
+      {!comingSoon && (
+        <ChevronRight size={20} color={tokens.colors.text.muted} />
+      )}
+    </button>
+  );
+
+  // Image Feature card for connected state (like mini carousel slides)
+  const ImageFeatureCard = ({ image, title, subtitle, onClick, comingSoon = false }) => (
+    <button
+      onClick={comingSoon ? undefined : onClick}
+      style={{
+        position: "relative",
+        height: "140px",
+        borderRadius: "16px",
+        overflow: "hidden",
+        border: "none",
+        cursor: comingSoon ? "default" : "pointer",
+        opacity: comingSoon ? 0.7 : 1,
+        width: "100%",
+      }}
+    >
+      {/* Background Image or Gradient for Coming Soon */}
+      <div style={{ position: "absolute", inset: 0 }}>
+        {image ? (
+          <>
+            <Image
+              src={image}
+              alt={title}
+              fill
+              style={{ objectFit: "cover" }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background:
+                  "linear-gradient(to bottom, transparent 0%, transparent 40%, rgba(0,0,0,0.75) 100%)",
+              }}
+            />
+          </>
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              background: tokens.colors.bg.elevated,
+            }}
+          />
+        )}
+      </div>
+
+      {/* Content */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          padding: "12px",
+          textAlign: "left",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" }}>
+          <h3
+            style={{
+              fontSize: "14px",
+              fontWeight: "600",
+              color: image ? "#fff" : tokens.colors.text.primary,
+              margin: 0,
+              textShadow: image ? "0 1px 4px rgba(0,0,0,0.3)" : "none",
+            }}
+          >
+            {title}
+          </h3>
+          {comingSoon && (
+            <span
+              style={{
+                fontSize: "9px",
+                fontWeight: "600",
+                color: image ? "#fff" : tokens.colors.aurora.lavender,
+                background: image ? "rgba(255,255,255,0.2)" : `${tokens.colors.aurora.lavender}15`,
+                padding: "2px 6px",
+                borderRadius: "4px",
+              }}
+            >
+              SOON
+            </span>
+          )}
+        </div>
+        <p
+          style={{
+            fontSize: "12px",
+            color: image ? "rgba(255,255,255,0.85)" : tokens.colors.text.muted,
+            margin: 0,
+            textShadow: image ? "0 1px 2px rgba(0,0,0,0.3)" : "none",
+          }}
+        >
+          {subtitle}
+        </p>
+      </div>
+    </button>
+  );
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -271,89 +454,64 @@ export default function WirPage() {
       paddingBottom: "100px",
       transition: "background 0.3s ease",
     }}>
-      {/* Header - ZUSAMMEN Style */}
-      <div style={{
-        padding: "24px 20px 16px",
-        textAlign: "center",
-      }}>
-        <p style={{
-          ...tokens.typography.label,
-          letterSpacing: "2px",
-          marginBottom: "4px",
-        }}>ZUSAMMEN</p>
-        <h1 style={{
-          ...tokens.typography.h1,
-          fontSize: "26px",
-          marginBottom: "4px",
-        }}>{userName} & {partnerName}</h1>
-        {memberSince && (
-          <p style={{
-            fontSize: "14px",
-            color: tokens.colors.aurora.mint,
-            margin: "0 0 16px 0",
-            fontWeight: "500",
-          }}>{memberSince}</p>
-        )}
-
-        {/* Stats */}
-        {isConnected && (
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: "12px",
-            marginTop: "8px",
-          }}>
-            <div style={{
-              ...tokens.cards.elevated,
-              padding: "12px 24px",
-              minWidth: "100px",
-              borderRadius: tokens.radii.lg,
-            }}>
-              <p style={{
-                fontSize: "24px",
-                fontWeight: "bold",
-                color: tokens.colors.aurora.mint,
-                margin: 0,
-              }}>{sessionCount}</p>
-              <p style={{
-                ...tokens.typography.label,
-                letterSpacing: "0.5px",
-              }}>SESSIONS</p>
-            </div>
-            <div style={{
-              ...tokens.cards.elevated,
-              padding: "12px 24px",
-              minWidth: "100px",
-              borderRadius: tokens.radii.lg,
-            }}>
-              <p style={{
-                fontSize: "24px",
-                fontWeight: "bold",
-                color: tokens.colors.aurora.lavender,
-                margin: 0,
-              }}>{pendingSuggestions.length || 0}</p>
-              <p style={{
-                ...tokens.typography.label,
-                letterSpacing: "0.5px",
-              }}>VORSCHLAGE</p>
-            </div>
-          </div>
-        )}
+      {/* Header */}
+      <div
+        style={{
+          padding: "24px 20px 20px",
+        }}
+      >
+        <h1
+          style={{
+            ...tokens.typography.h1,
+            margin: 0,
+            marginBottom: "4px",
+            fontSize: "28px",
+          }}
+        >
+          {isConnected ? `${userName} & ${partnerName}` : "Wir"}
+        </h1>
+        <p
+          style={{
+            ...tokens.typography.body,
+            color: tokens.colors.text.muted,
+            margin: 0,
+            fontSize: "15px",
+          }}
+        >
+          {isConnected ? memberSince || "Gemeinsam wachsen" : "Verbinde dich mit deinem Partner"}
+        </p>
       </div>
 
       <div style={{ padding: "0 20px" }}>
-        {/* Quiz Comparison Card - Only if connected */}
-        {isConnected && (
-          <div style={{ marginBottom: "16px" }}>
-            <QuizComparisonCard
-              user={user}
-              profile={profile}
-              partnerProfile={partnerProfile}
-              onShare={handleShareQuiz}
-              onUnshare={handleUnshareQuiz}
-              isSharing={isQuizSharing}
+        {/* NOT CONNECTED STATE */}
+        {!isConnected && !pendingDissolution && (
+          <>
+            {/* Feature Banners */}
+            <FeatureBanner
+              icon={Link2}
+              title="Teile deinen Archetypen"
+              description="Entdeckt eure Beziehungsmuster gemeinsam"
+              onClick={() => setShowConnectModal(true)}
             />
-          </div>
+            <FeatureBanner
+              icon={FileText}
+              title="Eure Vereinbarungen"
+              description="Haltet fest, was euch wichtig ist"
+              onClick={() => setShowConnectModal(true)}
+            />
+            <FeatureBanner
+              icon={MessageCircle}
+              title="Couple Session History"
+              description="Teilt eure gemeinsamen Gespräche"
+              onClick={() => setShowConnectModal(true)}
+            />
+            <FeatureBanner
+              icon={Sparkles}
+              title="Liebesfunken"
+              description="Sendet euch täglich positive Nachrichten"
+              comingSoon
+            />
+          </>
         )}
 
         {/* Pending Dissolution Banner */}
@@ -396,160 +554,129 @@ export default function WirPage() {
                 whiteSpace: "nowrap",
               }}
             >
-              Bestatigen
+              Bestätigen
             </button>
           </div>
         )}
 
-        {/* Pending Items Section - Suggestions + Pending Approval Agreements */}
-        {isConnected && pendingSuggestions.length > 0 && (
-          <div style={{
-            ...tokens.cards.interactive,
-            padding: "16px 20px",
-            marginBottom: "16px",
-            borderLeft: `4px solid ${tokens.colors.aurora.lavender}`,
-          }}>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "16px",
-              marginBottom: pendingSuggestions.length > 0 ? "16px" : 0,
-            }}>
-              <div style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: tokens.radii.lg,
-                background: tokens.colors.aurora.lavender,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}>
-                <Clock size={24} color="white" />
-              </div>
-              <div style={{ flex: 1 }}>
-                <h3 style={{
-                  ...tokens.typography.h3,
-                  fontSize: "16px",
-                  marginBottom: "4px",
-                }}>
-                  {pendingSuggestions.length === 1
-                    ? "1 Vereinbarung wartet"
-                    : `${pendingSuggestions.length} Vereinbarungen warten`}
-                </h3>
-                <p style={{
-                  ...tokens.typography.small,
-                  margin: 0,
-                }}>Deine Bestatigung notig</p>
-              </div>
+        {/* CONNECTED STATE */}
+        {isConnected && (
+          <>
+            {/* Quiz Comparison Card */}
+            <div style={{ marginBottom: "16px" }}>
+              <QuizComparisonCard
+                user={user}
+                profile={profile}
+                partnerProfile={partnerProfile}
+                onShare={handleShareQuiz}
+                onUnshare={handleUnshareQuiz}
+                isSharing={isQuizSharing}
+              />
             </div>
 
-            {pendingSuggestions.map((item, index) => (
-              <div
-                key={item.id}
-                onClick={() => {
-                  if (item.type === 'agreement') {
-                    setSelectedAgreementId(item.id);
-                  } else {
-                    router.push(`/history?session=${item.session_id}`);
-                  }
-                }}
-                style={{
-                  ...tokens.cards.surface,
-                  marginBottom: index < pendingSuggestions.length - 1 ? "8px" : 0,
+            {/* Pending Items Section */}
+            {pendingSuggestions.length > 0 && (
+              <div style={{
+                ...tokens.cards.interactive,
+                padding: "16px 20px",
+                marginBottom: "16px",
+                borderLeft: `4px solid ${tokens.colors.aurora.lavender}`,
+              }}>
+                <div style={{
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "space-between",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <p style={{
-                    fontSize: "15px",
-                    fontWeight: "500",
-                    color: tokens.colors.text.primary,
-                    margin: 0,
-                  }}>"{item.title}"</p>
-                  {item.underlying_need && (
+                  gap: "16px",
+                  marginBottom: "16px",
+                }}>
+                  <div style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: tokens.radii.lg,
+                    background: tokens.colors.aurora.lavender,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}>
+                    <Clock size={24} color="white" />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{
+                      ...tokens.typography.h3,
+                      fontSize: "16px",
+                      marginBottom: "4px",
+                    }}>
+                      {pendingSuggestions.length === 1
+                        ? "1 Vereinbarung wartet"
+                        : `${pendingSuggestions.length} Vereinbarungen warten`}
+                    </h3>
                     <p style={{
                       ...tokens.typography.small,
-                      color: tokens.colors.text.muted,
-                      margin: "4px 0 0 0",
-                      fontStyle: "italic",
-                    }}>
-                      {item.underlying_need}
-                    </p>
-                  )}
+                      margin: 0,
+                    }}>Deine Bestätigung nötig</p>
+                  </div>
                 </div>
-                <ChevronRight size={20} color={tokens.colors.aurora.lavender} />
+
+                {pendingSuggestions.map((item, index) => (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      if (item.type === 'agreement') {
+                        setSelectedAgreementId(item.id);
+                      } else {
+                        router.push(`/history?session=${item.session_id}`);
+                      }
+                    }}
+                    style={{
+                      ...tokens.cards.surface,
+                      marginBottom: index < pendingSuggestions.length - 1 ? "8px" : 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <p style={{
+                        fontSize: "15px",
+                        fontWeight: "500",
+                        color: tokens.colors.text.primary,
+                        margin: 0,
+                      }}>"{item.title}"</p>
+                      {item.underlying_need && (
+                        <p style={{
+                          ...tokens.typography.small,
+                          color: tokens.colors.text.muted,
+                          margin: "4px 0 0 0",
+                          fontStyle: "italic",
+                        }}>
+                          {item.underlying_need}
+                        </p>
+                      )}
+                    </div>
+                    <ChevronRight size={20} color={tokens.colors.aurora.lavender} />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        {/* Agreements Section - Only if connected */}
-        {isConnected && (
-          <div style={{
-            ...tokens.cards.elevated,
-            padding: "20px",
-            marginBottom: "16px",
-          }}>
-            <AgreementsList
-              key={refreshKey}
-              onSelectAgreement={(id) => setSelectedAgreementId(id)}
-              onCreateNew={() => setShowCreateAgreement(true)}
-            />
-          </div>
-        )}
-
-        {/* Connect Card - Only if not connected */}
-        {!isConnected && !pendingDissolution && (
-          <div style={{
-            ...tokens.cards.elevated,
-            padding: "32px 24px",
-            textAlign: "center",
-            marginBottom: "16px",
-          }}>
+            {/* Agreements Section */}
             <div style={{
-              width: "80px",
-              height: "80px",
-              borderRadius: "50%",
-              background: tokens.gradients.surface,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 20px",
+              ...tokens.cards.elevated,
+              padding: "20px",
+              marginBottom: "16px",
             }}>
-              <Heart size={40} color={tokens.colors.aurora.lavender} />
+              <AgreementsList
+                key={refreshKey}
+                onSelectAgreement={(id) => setSelectedAgreementId(id)}
+                onCreateNew={() => setShowCreateAgreement(true)}
+              />
             </div>
-            <h2 style={tokens.typography.h2}>Mehr gemeinsam erleben</h2>
-            <p style={{
-              fontSize: "16px",
-              color: tokens.colors.aurora.lavender,
-              fontWeight: "500",
-              margin: "0 0 16px 0",
-            }}>
-              Näher. Tiefer. Mühelos.
-            </p>
-            <p style={{
-              ...tokens.typography.body,
-              marginBottom: "24px",
-            }}>
-              Ein Abo, zwei Accounts. Füge {partnerName} zu deinem Abo hinzu –
-              oder tritt ihrem bei, ohne zusätzliche Kosten.
-            </p>
-            <button
-              onClick={() => router.push("/wir/connect")}
-              style={tokens.buttons.primaryLarge}
-            >
-              Verbinden
-            </button>
-          </div>
+          </>
         )}
-
       </div>
 
-      {/* Bottom Navigation - 3 tabs */}
+      {/* Bottom Navigation */}
       <div style={tokens.layout.navBar}>
         <button onClick={() => router.push("/")} style={tokens.buttons.nav(false)}>
           <HomeIcon size={24} color={tokens.colors.text.muted} />
@@ -569,6 +696,14 @@ export default function WirPage() {
           <span>Entdecken</span>
         </button>
       </div>
+
+      {/* Connect Info Modal */}
+      {showConnectModal && (
+        <ConnectInfoModal
+          partnerName={partnerName}
+          onClose={() => setShowConnectModal(false)}
+        />
+      )}
 
       {/* Agreement Detail Modal */}
       {selectedAgreementId && (
@@ -604,10 +739,6 @@ export default function WirPage() {
         @keyframes scaleIn {
           0% { transform: scale(0); opacity: 0; }
           100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
         }
       `}</style>
     </div>
