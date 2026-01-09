@@ -41,6 +41,7 @@ export default function CoupleSessionPage() {
   const messagesRef = useRef([]);
   const mediaStreamRef = useRef(null);
   const endRequestedRef = useRef(false); // Track if user wants to end during connection
+  const isStartingRef = useRef(false); // Prevent double start in StrictMode
 
   const MAX_SESSION_TIME = 60 * 60; // 1 hour
 
@@ -114,6 +115,10 @@ export default function CoupleSessionPage() {
   const startSession = useCallback(async () => {
     if (!user || !profile) return;
 
+    // Prevent double start (React StrictMode runs effects twice)
+    if (isStartingRef.current) return;
+    isStartingRef.current = true;
+
     // Reset end request flag at start
     endRequestedRef.current = false;
 
@@ -167,7 +172,7 @@ export default function CoupleSessionPage() {
 
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
-        connectionType: "webrtc",
+        connectionType: "websocket",
         dynamicVariables: {
           user_name: userName,
           partner_name: partnerName,
@@ -250,106 +255,6 @@ export default function CoupleSessionPage() {
       startSession();
     }
   }, [authLoading, user, profile, isStarted, startSession]);
-
-  const handleEndClick = useCallback(async () => {
-    // Signal that user wants to end (in case we're still connecting)
-    endRequestedRef.current = true;
-
-    // Check if we're still connecting (conversation not established yet)
-    const wasConnecting = voiceState === STATE.CONNECTING && !conversationRef.current;
-
-    if (conversationRef.current) {
-      try {
-        await conversationRef.current.endSession();
-      } catch (e) {
-        console.log("Session already ended");
-      }
-      conversationRef.current = null;
-    }
-
-    // Stop microphone stream (fixes Safari red mic indicator)
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      mediaStreamRef.current = null;
-    }
-
-    setVoiceState(STATE.IDLE);
-
-    // If we were still connecting, just go home (startSession will also check endRequestedRef)
-    if (wasConnecting) {
-      router.push("/wir");
-      return;
-    }
-
-    // Check if auto_analyze is enabled
-    if (profile?.auto_analyze !== false) {
-      // Auto-analyze: skip dialog and directly analyze
-      // We need to call endSession after this function returns
-      setTimeout(() => {
-        // Trigger analysis directly
-        const endSessionFn = async () => {
-          const sessionIdToAnalyze = currentSessionId;
-          const currentMessages = messagesRef.current;
-          const hasMessages = currentMessages.length > 0;
-
-          if (!hasMessages) {
-            setShowTooShortModal(true);
-            return;
-          }
-
-          // Save session first
-          let summary = "";
-          summary += `[Couple Session: ${profile?.name || "User"} & ${profile?.partner_name || "Partner"}]\n\n`;
-          summary += currentMessages
-            .map(m => `${m.role === "user" ? "Paar" : "Amiya"}: ${m.content}`)
-            .join("\n");
-
-          try {
-            await sessionsService.end(sessionIdToAnalyze, summary, []);
-
-            setIsGeneratingAnalysis(true);
-
-            // Check viability
-            const transcript = currentMessages
-              .map(m => `${m.role === "user" ? "Paar" : "Amiya"}: ${m.content}`)
-              .join("\n");
-
-            const response = await fetch("/api/check-analysis", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ transcript }),
-            });
-
-            const viability = response.ok ? await response.json() : { viable: true };
-
-            if (!viability.viable) {
-              try {
-                await sessionsService.delete(sessionIdToAnalyze);
-              } catch (e) {
-                console.error("Failed to delete session:", e);
-              }
-              setIsGeneratingAnalysis(false);
-              setShowTooShortModal(true);
-              return;
-            }
-
-            // Generate analysis
-            await sessionsService.requestAnalysis(sessionIdToAnalyze);
-            setIsGeneratingAnalysis(false);
-            router.push(`/history?session=${sessionIdToAnalyze}`);
-          } catch (error) {
-            console.error("Auto-analysis failed:", error);
-            setIsGeneratingAnalysis(false);
-            router.push("/wir");
-          }
-        };
-        endSessionFn();
-      }, 100);
-    } else {
-      // Manual mode: show dialog
-      setShowEndDialog(true);
-    }
-  }, [profile, currentSessionId, router, voiceState]);
 
   const checkAnalysisViability = useCallback(async () => {
     const messages = messagesRef.current;
@@ -467,11 +372,7 @@ export default function CoupleSessionPage() {
         console.error("Failed to save session:", error);
       }
     } else if (requestAnalysis && !hasMessages) {
-      setAnalysisError("Keine Analyse moglich - es wurden keine Gesprache aufgezeichnet.");
-      setShowEndDialog(false);
-      setTimeout(() => {
-        router.push("/wir");
-      }, 3000);
+      setShowTooShortModal(true);
       return;
     }
 
@@ -481,6 +382,45 @@ export default function CoupleSessionPage() {
       router.push("/wir");
     }
   }, [currentSessionId, userName, partnerName, router, checkAnalysisViability, resetSession, user, profile]);
+
+  // Handle end button click
+  const handleEndClick = useCallback(async () => {
+    // Signal that user wants to end (in case we're still connecting)
+    endRequestedRef.current = true;
+
+    // Check if we're still connecting (conversation not established yet)
+    const wasConnecting = voiceState === STATE.CONNECTING && !conversationRef.current;
+
+    if (conversationRef.current) {
+      try {
+        await conversationRef.current.endSession();
+      } catch (e) {
+        console.log("Session already ended");
+      }
+      conversationRef.current = null;
+    }
+
+    // Stop microphone stream (fixes Safari red mic indicator)
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+
+    setVoiceState(STATE.IDLE);
+
+    // If we were still connecting, just go home (startSession will also check endRequestedRef)
+    if (wasConnecting) {
+      router.push("/wir");
+      return;
+    }
+
+    // Auto-analyze or show dialog (same pattern as Solo)
+    if (profile?.auto_analyze !== false) {
+      setTimeout(() => endSession(true), 100);
+    } else {
+      setShowEndDialog(true);
+    }
+  }, [profile?.auto_analyze, endSession, voiceState, router]);
 
   /**
    * User wahlt "Mit Analyse" im Dialog

@@ -90,6 +90,7 @@ function SoloSessionContent() {
   const messagesRef = useRef([]);
   const mediaStreamRef = useRef(null);
   const endRequestedRef = useRef(false); // Track if user wants to end during connection
+  const isStartingRef = useRef(false); // Prevent double start in StrictMode
 
   // Auth redirects
   useEffect(() => {
@@ -185,6 +186,10 @@ function SoloSessionContent() {
   const startSession = useCallback(async () => {
     if (!user || !profile) return;
 
+    // Prevent double start (React StrictMode runs effects twice)
+    if (isStartingRef.current) return;
+    isStartingRef.current = true;
+
     // Reset end request flag at start
     endRequestedRef.current = false;
 
@@ -256,7 +261,7 @@ Frage den User wie er sich dabei fühlt und was er besprechen möchte.
 
       const conversation = await Conversation.startSession({
         agentId: AGENT_ID,
-        connectionType: "webrtc",
+        connectionType: "websocket",
         dynamicVariables: {
           user_name: userName,
           partner_name: partnerName,

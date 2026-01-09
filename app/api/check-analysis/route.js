@@ -48,14 +48,19 @@ export async function POST(request) {
     }
 
     // Prüfe ob User überhaupt etwas Substanzielles gesagt hat
-    const userMessages = transcript.split('\n').filter(line => line.startsWith('User:'));
+    // Solo Sessions nutzen "User:", Couple Sessions nutzen "Paar:"
+    const userMessages = transcript.split('\n').filter(line =>
+      line.startsWith('User:') || line.startsWith('Paar:')
+    );
 
     // Mindestens 2 User-Nachrichten (mehr als nur "Hallo")
     if (userMessages.length < 2) {
       return Response.json({ viable: false, reason: "too_short" });
     }
 
-    const userContent = userMessages.map(m => m.replace('User:', '').trim()).join(' ');
+    const userContent = userMessages.map(m =>
+      m.replace('User:', '').replace('Paar:', '').trim()
+    ).join(' ');
     // User muss mindestens 50 Zeichen gesagt haben
     if (userContent.length < 50) {
       return Response.json({ viable: false, reason: "too_short" });
