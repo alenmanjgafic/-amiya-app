@@ -177,6 +177,7 @@ export default function CoupleSessionPage() {
           user_name: userName,
           partner_name: partnerName,
           user_context: sanitizedContext || "Erste gemeinsame Session.",
+          session_mode: "couple",
         },
         onConnect: () => {
           console.log("Connected to ElevenLabs (Couple Session)");

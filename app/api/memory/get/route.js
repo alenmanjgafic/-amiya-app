@@ -119,14 +119,8 @@ async function loadSessionsWithPrivacy(userId, coupleId, sessionType) {
       .order("created_at", { ascending: false })
       .limit(MAX_SESSIONS);
   } else {
-    // SOLO SESSION: Load own solo sessions + all couple sessions
-    // Build OR condition for privacy-safe query
-    let conditions = [`user_id.eq.${userId},type.eq.solo`];
-
-    if (coupleId) {
-      conditions.push(`couple_id.eq.${coupleId},type.eq.couple`);
-    }
-
+    // SOLO SESSION: Load own solo sessions + message_analysis + all couple sessions
+    // Note: message_analysis sessions are included for context continuity
     query = supabase
       .from("sessions")
       .select("id, type, themes, summary_for_coach, key_points, created_at, user_id, couple_id")
@@ -148,6 +142,8 @@ async function loadSessionsWithPrivacy(userId, coupleId, sessionType) {
     const filtered = sessions?.filter(s => {
       // Own solo sessions
       if (s.type === "solo" && s.user_id === userId) return true;
+      // Own message analysis sessions (for context continuity)
+      if (s.type === "message_analysis" && s.user_id === userId) return true;
       // Couple sessions from their couple
       if (s.type === "couple" && s.couple_id === coupleId) return true;
       return false;
@@ -196,7 +192,8 @@ SESSION: ${sessionType === "couple" ? "Couple" : "Solo"}`;
 
 /**
  * Solo session context
- * Includes: Own solo sessions + couple sessions + agreements + shared facts + coaching hints
+ * Includes: Own solo sessions + message_analysis + couple sessions + agreements + shared facts
+ * Priority: Follow-ups at the TOP for maximum visibility
  */
 function buildSoloContext(profile, sessions, agreements, sharedFacts, userId) {
   const parts = [];
@@ -206,10 +203,30 @@ function buildSoloContext(profile, sessions, agreements, sharedFacts, userId) {
 PARTNER: ${profile.partner_name || "Partner"}
 SESSION: Solo`);
 
-  // Coaching hints (Adaptive Coaching)
-  const coachingHints = buildCoachingHints(profile.coaching_profile);
-  if (coachingHints) {
-    parts.push(coachingHints);
+  // PRIORITY 1: Follow-up questions from most recent session (at the TOP!)
+  if (sessions.length > 0) {
+    const mostRecent = sessions[0];
+    if (mostRecent?.key_points?.follow_up?.length > 0) {
+      parts.push(`WICHTIG - NACHFRAGEN:
+${mostRecent.key_points.follow_up.map(f => `→ ${f}`).join("\n")}`);
+    }
+  }
+
+  // PRIORITY 2: Recurring themes across sessions
+  if (sessions.length >= 2) {
+    const allThemes = sessions.flatMap(s => s.themes || []);
+    const themeCounts = allThemes.reduce((acc, theme) => {
+      acc[theme] = (acc[theme] || 0) + 1;
+      return acc;
+    }, {});
+    const recurringThemes = Object.entries(themeCounts)
+      .filter(([_, count]) => count >= 2)
+      .map(([theme, count]) => `${theme} (${count}x)`);
+
+    if (recurringThemes.length > 0) {
+      parts.push(`WIEDERKEHRENDE THEMEN:
+${recurringThemes.map(t => `- ${t}`).join("\n")}`);
+    }
   }
 
   // Shared facts (from couple)
@@ -217,9 +234,10 @@ SESSION: Solo`);
     parts.push(buildSharedFactsSection(sharedFacts));
   }
 
-  // Past sessions - prioritize recent and relevant
+  // Past sessions - categorized by type
   if (sessions.length > 0) {
     const soloSessions = sessions.filter(s => s.type === "solo").slice(0, 5);
+    const messageAnalysisSessions = sessions.filter(s => s.type === "message_analysis").slice(0, 3);
     const coupleSessions = sessions.filter(s => s.type === "couple").slice(0, 5);
 
     // Solo sessions (private - nur für diesen User)
@@ -228,17 +246,16 @@ SESSION: Solo`);
 ${soloSessions.map(s => formatSessionForContext(s)).join("\n")}`);
     }
 
+    // Message analysis sessions (recent context from chat analysis)
+    if (messageAnalysisSessions.length > 0) {
+      parts.push(`KÜRZLICH ANALYSIERTE NACHRICHTEN:
+${messageAnalysisSessions.map(s => formatSessionForContext(s)).join("\n")}`);
+    }
+
     // Couple sessions (both can see)
     if (coupleSessions.length > 0) {
       parts.push(`EURE LETZTEN COUPLE SESSIONS:
 ${coupleSessions.map(s => formatSessionForContext(s)).join("\n")}`);
-    }
-
-    // Extract follow-up questions from most recent session
-    const mostRecent = sessions[0];
-    if (mostRecent?.key_points?.follow_up?.length > 0) {
-      parts.push(`NACHFRAGEN (aus letzter Session):
-${mostRecent.key_points.follow_up.map(f => `- ${f}`).join("\n")}`);
     }
   }
 
@@ -270,7 +287,7 @@ ${agreementLines.join("\n")}`);
 /**
  * Couple session context
  * PRIVACY: Only couple sessions - NO solo sessions!
- * Note: coaching_profile vom Session-Starter wird verwendet
+ * Priority: Follow-ups and due check-ins at the TOP
  */
 function buildCoupleContext(profile, sessions, agreements, sharedFacts) {
   const parts = [];
@@ -278,16 +295,36 @@ function buildCoupleContext(profile, sessions, agreements, sharedFacts) {
   // Basic info
   parts.push(`COUPLE SESSION: ${profile.name || "User"} & ${profile.partner_name || "Partner"}`);
 
-  // Coaching hints (für den Session-Starter)
-  const coachingHints = buildCoachingHints(profile.coaching_profile);
-  if (coachingHints) {
-    parts.push(coachingHints);
-  }
-
   // Check for first session
   if (sessions.length === 0 && agreements.length === 0 && !sharedFacts) {
     parts.push("Dies ist eure erste gemeinsame Session.");
     return parts.join("\n\n");
+  }
+
+  // PRIORITY 1: Follow-up questions from most recent session (at the TOP!)
+  if (sessions.length > 0) {
+    const mostRecent = sessions[0];
+    if (mostRecent?.key_points?.follow_up?.length > 0) {
+      parts.push(`WICHTIG - NACHFRAGEN:
+${mostRecent.key_points.follow_up.map(f => `→ ${f}`).join("\n")}`);
+    }
+  }
+
+  // PRIORITY 2: Recurring themes across sessions
+  if (sessions.length >= 2) {
+    const allThemes = sessions.flatMap(s => s.themes || []);
+    const themeCounts = allThemes.reduce((acc, theme) => {
+      acc[theme] = (acc[theme] || 0) + 1;
+      return acc;
+    }, {});
+    const recurringThemes = Object.entries(themeCounts)
+      .filter(([_, count]) => count >= 2)
+      .map(([theme, count]) => `${theme} (${count}x)`);
+
+    if (recurringThemes.length > 0) {
+      parts.push(`WIEDERKEHRENDE THEMEN:
+${recurringThemes.map(t => `- ${t}`).join("\n")}`);
+    }
   }
 
   // Shared facts
@@ -299,28 +336,6 @@ function buildCoupleContext(profile, sessions, agreements, sharedFacts) {
   if (sessions.length > 0) {
     parts.push(`EURE LETZTEN SESSIONS:
 ${sessions.slice(0, 5).map(s => formatSessionForContext(s)).join("\n")}`);
-
-    // Extract follow-up questions
-    const mostRecent = sessions[0];
-    if (mostRecent?.key_points?.follow_up?.length > 0) {
-      parts.push(`NACHFRAGEN (aus letzter Session):
-${mostRecent.key_points.follow_up.map(f => `- ${f}`).join("\n")}`);
-    }
-
-    // Detect recurring themes
-    const allThemes = sessions.flatMap(s => s.themes || []);
-    const themeCounts = allThemes.reduce((acc, theme) => {
-      acc[theme] = (acc[theme] || 0) + 1;
-      return acc;
-    }, {});
-    const recurringThemes = Object.entries(themeCounts)
-      .filter(([_, count]) => count >= 2)
-      .map(([theme]) => theme);
-
-    if (recurringThemes.length > 0) {
-      parts.push(`WIEDERKEHRENDE THEMEN:
-${recurringThemes.map(t => `- ${t}`).join("\n")}`);
-    }
   }
 
   // Agreements with CHECK-IN logic for couple sessions

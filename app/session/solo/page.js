@@ -266,6 +266,7 @@ Frage den User wie er sich dabei fühlt und was er besprechen möchte.
           user_name: userName,
           partner_name: partnerName,
           user_context: sanitizedContext || "Keine fruheren Gesprache vorhanden.",
+          session_mode: "solo",
         },
         onConnect: () => {
           console.log("Connected to ElevenLabs (Solo Session)");
