@@ -8,6 +8,8 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
+import { validateBody, analyzeSchema } from "../../../lib/validation";
+import { applyRateLimit } from "../../../lib/rateLimit";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -193,11 +195,10 @@ const ANALYSIS_PROMPT = getAnalysisPrompt("solo");
 
 export async function POST(request) {
   try {
-    const { sessionId } = await request.json();
+    const { sessionId } = await validateBody(request, analyzeSchema);
 
-    if (!sessionId) {
-      return Response.json({ error: "Session ID required" }, { status: 400 });
-    }
+    // Rate Limit prüfen (20/Stunde)
+    await applyRateLimit(request, "analyze");
 
     // Get session from database
     const { data: session, error: sessionError } = await supabase

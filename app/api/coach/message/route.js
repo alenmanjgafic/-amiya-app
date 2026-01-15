@@ -7,6 +7,8 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { validateBody, coachMessageSchema } from "../../../../lib/validation";
+import { applyRateLimit } from "../../../../lib/rateLimit";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -49,21 +51,16 @@ WICHTIG:
 
 export async function POST(request) {
   try {
-    const body = await request.json();
     const {
       messages,
       analysisContext,
       userName,
       partnerName,
       requestVariation,
-    } = body;
+    } = await validateBody(request, coachMessageSchema);
 
-    if (!messages || !Array.isArray(messages)) {
-      return Response.json(
-        { error: "Messages array required" },
-        { status: 400 }
-      );
-    }
+    // Rate Limit prüfen (50/Stunde)
+    await applyRateLimit(request, "coach-message");
 
     // Build context from analysis
     let contextInfo = "";

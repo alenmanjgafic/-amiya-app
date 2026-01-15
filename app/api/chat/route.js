@@ -1,6 +1,12 @@
+import { validateBody, chatSchema } from "../../../lib/validation";
+import { applyRateLimit } from "../../../lib/rateLimit";
+
 export async function POST(request) {
   try {
-    const { messages, system } = await request.json();
+    const { messages, system } = await validateBody(request, chatSchema);
+
+    // Rate Limit prüfen (100/Stunde)
+    await applyRateLimit(request, "chat");
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",

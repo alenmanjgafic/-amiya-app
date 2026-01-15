@@ -1,6 +1,12 @@
+import { validateBody, speakSchema } from "../../../lib/validation";
+import { applyRateLimit } from "../../../lib/rateLimit";
+
 export async function POST(request) {
   try {
-    const { text } = await request.json();
+    const { text } = await validateBody(request, speakSchema);
+
+    // Rate Limit prüfen (300/Stunde)
+    await applyRateLimit(request, "speak");
 
     const response = await fetch(
       "https://api.elevenlabs.io/v1/text-to-speech/A1lViwUVW63Tcnc13P5v",

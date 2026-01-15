@@ -1079,3 +1079,108 @@ background: tokens.gradients.primary
 - **ElevenLabs Agent System Prompt:** Siehe [docs/ELEVENLABS_AGENT.md](docs/ELEVENLABS_AGENT.md) für den vollständigen Voice Agent Prompt mit Amiyas Persönlichkeit, Gesprächsführung, Turn-Taking Regeln und Agreement Detection.
 
 - **Agreement System:** Siehe [docs/AGREEMENT_SYSTEM.md](docs/AGREEMENT_SYSTEM.md) für die vollständige Dokumentation des Vereinbarungssystems - von der Erkennung in der Analyse bis zur Bestätigung durch die verantwortliche Person.
+
+---
+
+## API Security
+
+### Input-Validierung (Zod)
+
+**Datei:** `/lib/validation.js`
+
+Alle API-Routen validieren Eingaben mit Zod-Schemas bevor sie verarbeitet werden. Das schützt vor:
+- **Injection-Attacken** - Ungültige Datentypen werden abgelehnt
+- **Kosten-Explosion** - Längenlimits für Claude/ElevenLabs APIs
+- **Server-Crashes** - Fehlende Pflichtfelder werden erkannt
+
+**Validierte Routen:**
+
+| Route | Validierung | Limits |
+|-------|-------------|--------|
+| `/api/speak` | Text-Länge | max 5.000 Zeichen (ElevenLabs Kostenkontrolle) |
+| `/api/chat` | Messages Array | max 100 Nachrichten, je 50k Zeichen |
+| `/api/analyze` | sessionId | UUID Format |
+| `/api/memory/get` | userId, sessionType | UUID + enum |
+| `/api/memory/update` | Alle Felder | UUID + max 50k Analyse |
+| `/api/memory/delete` | userId, deleteType | UUID + enum |
+| `/api/message-analyze` | inputType, content | enum + max 500KB |
+| `/api/agreements` | GET/POST | UUID + Schema |
+| `/api/coach/message` | messages, context | Array + Schema |
+
+**Verwendung in neuen Routen:**
+
+```javascript
+import { validateBody, yourSchema } from "../../../lib/validation";
+
+export async function POST(request) {
+  try {
+    const data = await validateBody(request, yourSchema);
+    // data ist jetzt validiert und typsicher
+  } catch (error) {
+    // validateBody wirft automatisch Response mit 400 Status
+    return error;
+  }
+}
+```
+
+**Schema hinzufügen:**
+
+```javascript
+// In /lib/validation.js
+export const myNewSchema = z.object({
+  userId: uuidSchema,
+  text: z.string().min(1).max(5000),
+  type: z.enum(["option1", "option2"]),
+});
+```
+
+### Rate Limiting
+
+**Datei:** `/lib/rateLimit.js`
+
+In-Memory Rate Limiting schützt vor API-Missbrauch und Kosten-Explosion.
+
+**Konfigurierte Limits (pro User pro Stunde):**
+
+| Route | Limit | Begründung |
+|-------|-------|------------|
+| `/api/analyze` | 20 | Teuer (Claude) |
+| `/api/message-analyze` | 20 | Teuer (Claude) |
+| `/api/speak` | 300 | TTS (ElevenLabs) |
+| `/api/chat` | 100 | Claude Chat |
+| `/api/coach/message` | 50 | Message Coach |
+
+**Limits anpassen:**
+
+```javascript
+// In /lib/rateLimit.js
+export const RATE_LIMITS = {
+  "analyze": { limit: 20, windowMs: 60 * 60 * 1000 },
+  // ... weitere Limits
+};
+```
+
+**Response bei Rate Limit:**
+- HTTP 429 (Too Many Requests)
+- `Retry-After` Header mit Wartezeit
+- Deutsche Fehlermeldung für User
+
+**Hinweis:** Bei Vercel Cold Starts werden Counts zurückgesetzt. Für Produktion mit hohem Traffic: Upstash Redis empfohlen.
+
+---
+
+### Weitere Sicherheitsmaßnahmen
+
+**Bereits implementiert:**
+- [x] Supabase Auth mit Session-Management
+- [x] Row-Level Security (RLS) in Supabase
+- [x] Service-Role-Key nur server-seitig
+- [x] GDPR-konforme Datenlöschung (Transkripte)
+- [x] `.env.local` in `.gitignore`
+- [x] Zod Input-Validierung
+- [x] Rate Limiting (In-Memory)
+
+**Optional für Produktion:**
+- [ ] Upstash Redis für persistentes Rate Limiting
+- [ ] Structured Logging (ohne sensible Daten)
+- [ ] CORS Konfiguration für Custom Domains

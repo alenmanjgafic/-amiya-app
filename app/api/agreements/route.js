@@ -4,6 +4,7 @@
  * POST: Neues Agreement erstellen
  */
 import { createClient } from "@supabase/supabase-js";
+import { validateBody, createAgreementSchema, uuidSchema } from "../../../lib/validation";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -18,10 +19,12 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const coupleId = searchParams.get("coupleId");
-    const status = searchParams.get("status"); // Optional filter
+    const status = searchParams.get("status");
 
-    if (!coupleId) {
-      return Response.json({ error: "coupleId required" }, { status: 400 });
+    // Validate coupleId as UUID
+    const coupleIdResult = uuidSchema.safeParse(coupleId);
+    if (!coupleIdResult.success) {
+      return Response.json({ error: "coupleId required (valid UUID)" }, { status: 400 });
     }
 
     let query = supabase
@@ -84,29 +87,21 @@ export async function GET(request) {
  */
 export async function POST(request) {
   try {
-    const body = await request.json();
     const {
       coupleId,
       userId,
       title,
       description,
       underlyingNeed,
-      type = "behavior",
+      type,
       responsibleUserId,
       frequency,
       experimentEndDate,
-      checkInFrequencyDays = 14,
-      themes = [],
+      checkInFrequencyDays,
+      themes,
       sessionId,
       fromSuggestionId
-    } = body;
-
-    if (!coupleId || !userId || !title) {
-      return Response.json(
-        { error: "coupleId, userId, and title required" }, 
-        { status: 400 }
-      );
-    }
+    } = await validateBody(request, createAgreementSchema);
 
     // Verify user belongs to couple
     const { data: profile } = await supabase

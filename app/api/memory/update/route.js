@@ -12,6 +12,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
+import { validateBody, memoryUpdateSchema } from "../../../../lib/validation";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -199,11 +200,7 @@ Antworte NUR mit JSON:
 
 export async function POST(request) {
   try {
-    const { userId, coupleId, sessionId, sessionType, analysis } = await request.json();
-
-    if (!userId || !sessionId || !analysis) {
-      return Response.json({ error: "Missing required fields" }, { status: 400 });
-    }
+    const { userId, coupleId, sessionId, sessionType, analysis } = await validateBody(request, memoryUpdateSchema);
 
     // 1. Get current profile
     const { data: profile, error: profileError } = await supabase

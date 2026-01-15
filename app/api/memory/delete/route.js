@@ -9,6 +9,7 @@
  * - "all": Alles löschen + Consent widerrufen
  */
 import { createClient } from "@supabase/supabase-js";
+import { validateBody, memoryDeleteSchema } from "../../../../lib/validation";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -17,11 +18,7 @@ const supabase = createClient(
 
 export async function POST(request) {
   try {
-    const { userId, deleteType } = await request.json();
-
-    if (!userId) {
-      return Response.json({ error: "userId required" }, { status: 400 });
-    }
+    const { userId, deleteType } = await validateBody(request, memoryDeleteSchema);
 
     // Get user's couple_id
     const { data: profile } = await supabase

@@ -12,6 +12,8 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
+import { validateBody, messageAnalyzeSchema } from "../../../lib/validation";
+import { applyRateLimit } from "../../../lib/rateLimit";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -256,18 +258,13 @@ export async function POST(request) {
     const {
       userId,
       coupleId,
-      inputType, // 'screenshot' | 'text'
-      content,   // base64 image or raw text
+      inputType,
+      content,
       additionalContext
-    } = await request.json();
+    } = await validateBody(request, messageAnalyzeSchema);
 
-    if (!userId) {
-      return Response.json({ error: "User ID required" }, { status: 400 });
-    }
-
-    if (!content) {
-      return Response.json({ error: "Content required" }, { status: 400 });
-    }
+    // Rate Limit prüfen (20/Stunde)
+    await applyRateLimit(request, "message-analyze", userId);
 
     // Get user profile for names
     const { data: userProfile } = await supabase

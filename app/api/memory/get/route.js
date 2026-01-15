@@ -7,6 +7,7 @@
  * - Couple Session: NUR Couple-Sessions (keine Solo-Sessions!)
  */
 import { createClient } from "@supabase/supabase-js";
+import { validateBody, memoryGetSchema } from "../../../../lib/validation";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -18,11 +19,7 @@ const MAX_SESSIONS = 10;
 
 export async function POST(request) {
   try {
-    const { userId, coupleId, sessionType } = await request.json();
-
-    if (!userId) {
-      return Response.json({ error: "userId required" }, { status: 400 });
-    }
+    const { userId, coupleId, sessionType } = await validateBody(request, memoryGetSchema);
 
     // 1. Get user profile (inkl. coaching_profile für adaptive Coaching)
     const { data: profile, error: profileError } = await supabase
