@@ -8,7 +8,6 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../lib/AuthContext";
 import { useTheme } from "../../../../lib/ThemeContext";
-import { supabase } from "../../../../lib/supabase";
 
 export default function CodePage() {
   const { user, profile, loading, fetchProfile } = useAuth();
@@ -17,6 +16,7 @@ export default function CodePage() {
 
   const [myCode, setMyCode] = useState("");
   const [loadingCode, setLoadingCode] = useState(true);
+  const [codeError, setCodeError] = useState("");  // Fehler beim Code-Abruf
   const [partnerCode, setPartnerCode] = useState(["", "", "", "", "", ""]);
   const [pairing, setPairing] = useState(false);
   const [error, setError] = useState("");
@@ -30,7 +30,7 @@ export default function CodePage() {
     }
   }, [user, loading, router]);
 
-  // Generate or fetch invite code
+  // Generate or fetch invite code via API
   useEffect(() => {
     if (user && profile) {
       fetchOrCreateCode();
@@ -38,52 +38,23 @@ export default function CodePage() {
   }, [user, profile]);
 
   const fetchOrCreateCode = async () => {
+    setCodeError("");  // Reset error
     try {
-      // Check for existing code
-      const { data: existingCode } = await supabase
-        .from("invite_codes")
-        .select("code")
-        .eq("user_id", user.id)
-        .is("used_by", null)
-        .gt("expires_at", new Date().toISOString())
-        .single();
+      const response = await fetch(`/api/couple/pair?userId=${user.id}`);
+      const data = await response.json();
 
-      if (existingCode) {
-        setMyCode(existingCode.code);
+      if (response.ok && data.code) {
+        setMyCode(data.code);
       } else {
-        // Generate new code
-        const newCode = generateCode();
-        const { error } = await supabase
-          .from("invite_codes")
-          .insert({
-            code: newCode,
-            user_id: user.id,
-          });
-
-        if (!error) {
-          setMyCode(newCode);
-        }
+        console.error("Failed to get code:", data.error);
+        setCodeError(data.error || "Fehler beim Laden des Codes");
       }
     } catch (err) {
-      // Generate new code if none exists
-      const newCode = generateCode();
-      await supabase.from("invite_codes").insert({
-        code: newCode,
-        user_id: user.id,
-      });
-      setMyCode(newCode);
+      console.error("Error fetching code:", err);
+      setCodeError("Verbindungsfehler - bitte versuche es erneut");
     } finally {
       setLoadingCode(false);
     }
-  };
-
-  const generateCode = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // No I, O, 0, 1 to avoid confusion
-    let code = "";
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
   };
 
   const handleShare = async () => {
@@ -161,74 +132,27 @@ export default function CodePage() {
     setError("");
 
     try {
-      // Find the invite code
-      const { data: inviteCode, error: findError } = await supabase
-        .from("invite_codes")
-        .select("*, user_id")
-        .eq("code", code)
-        .is("used_by", null)
-        .gt("expires_at", new Date().toISOString())
-        .single();
+      // Sichere Verbindung über API-Route
+      const response = await fetch("/api/couple/pair", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          code: code.toUpperCase(),
+        }),
+      });
 
-      if (findError || !inviteCode) {
-        setError("Code ungueltig oder abgelaufen");
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Fehler beim Verbinden");
         setPairing(false);
         return;
       }
 
-      // Create couple with both user IDs
-      const { data: couple, error: coupleError } = await supabase
-        .from("couples")
-        .insert({
-          user_a_id: inviteCode.user_id,  // The inviter
-          user_b_id: user.id,              // The invited
-          owner_id: inviteCode.user_id,    // Inviter owns subscription
-        })
-        .select()
-        .single();
-
-      if (coupleError) {
-        console.error("Couple creation error:", coupleError);
-        setError("Fehler beim Verbinden");
-        setPairing(false);
-        return;
-      }
-
-      // Update both profiles with couple_id and partner_id
-      const { error: updateAError } = await supabase
-        .from("profiles")
-        .update({
-          couple_id: couple.id,
-          partner_id: user.id
-        })
-        .eq("id", inviteCode.user_id);
-
-      if (updateAError) {
-        console.error("Profile A update error:", updateAError);
-      }
-
-      const { error: updateBError } = await supabase
-        .from("profiles")
-        .update({
-          couple_id: couple.id,
-          partner_id: inviteCode.user_id
-        })
-        .eq("id", user.id);
-
-      if (updateBError) {
-        console.error("Profile B update error:", updateBError);
-      }
-
-      // Mark code as used
-      await supabase
-        .from("invite_codes")
-        .update({
-          used_by: user.id,
-          used_at: new Date().toISOString()
-        })
-        .eq("id", inviteCode.id);
-
-      // Refresh profile
+      // Refresh profile to get new couple_id
       await fetchProfile(user.id);
 
       setSuccess("Verbunden!");
@@ -237,6 +161,7 @@ export default function CodePage() {
       }, 1500);
 
     } catch (err) {
+      console.error("Pairing error:", err);
       setError("Ein Fehler ist aufgetreten");
     } finally {
       setPairing(false);
@@ -359,6 +284,15 @@ export default function CodePage() {
           }}>
             {loadingCode ? (
               <div style={tokens.loaders.spinner(24)} />
+            ) : codeError ? (
+              <p style={{
+                color: tokens.colors.aurora.rose,
+                fontSize: "14px",
+                textAlign: "center",
+                padding: "12px",
+              }}>
+                {codeError}
+              </p>
             ) : (
               myCode.split("").map((char, i) => (
                 <div key={i} style={codeCharStyle}>{char}</div>
@@ -368,15 +302,18 @@ export default function CodePage() {
 
           <button
             onClick={handleShare}
+            disabled={!myCode || loadingCode}
             style={{
               ...tokens.buttons.secondary,
               width: "100%",
               padding: "16px",
-              background: tokens.colors.text.primary,
-              color: tokens.colors.bg.deep,
+              background: (!myCode || loadingCode) ? tokens.colors.bg.soft : tokens.colors.text.primary,
+              color: (!myCode || loadingCode) ? tokens.colors.text.muted : tokens.colors.bg.deep,
               borderRadius: tokens.radii.md,
               fontSize: "16px",
               fontWeight: "600",
+              opacity: (!myCode || loadingCode) ? 0.6 : 1,
+              cursor: (!myCode || loadingCode) ? "not-allowed" : "pointer",
             }}
           >
             Code mit {partnerName} teilen
