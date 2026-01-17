@@ -797,13 +797,18 @@ created_at          timestamp
 
 ```sql
 id              uuid (PK)
-code            text (unique)   -- 6-stelliger Code
-created_by_id   uuid (FK)
-used_by_id      uuid (FK)
-status          text            -- 'pending', 'used', 'expired'
-expires_at      timestamp
+code            varchar (unique) -- 6-stelliger Code (A-Z, 2-9, ohne I/O/0/1)
+user_id         uuid (FK)        -- Wer hat den Code erstellt
+used_by         uuid (FK)        -- Wer hat den Code eingelöst
+used_at         timestamp        -- Wann wurde der Code eingelöst
+expires_at      timestamp        -- Gültig bis (7 Tage nach Erstellung)
 created_at      timestamp
 ```
+
+**Hinweis:** Die Tabelle hat KEINE `status` Spalte. Ein Code gilt als:
+- **Gültig:** `used_by IS NULL AND expires_at > NOW()`
+- **Verwendet:** `used_by IS NOT NULL`
+- **Abgelaufen:** `expires_at <= NOW()`
 
 ---
 
@@ -853,6 +858,8 @@ created_at      timestamp
 
 | Route | Methode | Beschreibung |
 |-------|---------|--------------|
+| `/api/couple/pair` | GET | Eigenen Invite-Code abrufen oder erstellen |
+| `/api/couple/pair` | POST | Partner-Verbindung via Code herstellen |
 | `/api/couple/disconnect` | GET/POST | Paar-Verbindung trennen |
 
 ---
@@ -1184,3 +1191,64 @@ export const RATE_LIMITS = {
 - [ ] Upstash Redis für persistentes Rate Limiting
 - [ ] Structured Logging (ohne sensible Daten)
 - [ ] CORS Konfiguration für Custom Domains
+
+---
+
+### Sichere Pairing-API (`/api/couple/pair`)
+
+**Datei:** `/app/api/couple/pair/route.js`
+
+Die Partner-Verbindung läuft komplett server-seitig um Sicherheitslücken zu vermeiden.
+
+**Warum nicht client-seitig?**
+- Client-Code kann manipuliert werden
+- RLS-Policies können umgangen werden wenn nicht korrekt konfiguriert
+- Code-Enumeration (alle Codes auflisten) muss verhindert werden
+
+**GET `/api/couple/pair?userId=xxx`**
+
+Gibt den eigenen Invite-Code zurück oder erstellt einen neuen.
+
+```javascript
+// Response bei Erfolg:
+{ code: "ABC123", expiresAt: "2025-01-24T..." }
+
+// Response bei Fehler (z.B. bereits verbunden):
+{ error: "Du bist bereits mit einem Partner verbunden" }
+```
+
+**POST `/api/couple/pair`**
+
+Verbindet zwei Partner via Invite-Code.
+
+```javascript
+// Request:
+{ userId: "uuid", code: "ABC123" }
+
+// Response bei Erfolg:
+{ success: true, coupleId: "uuid", partnerName: "Anna" }
+
+// Response bei Fehler:
+{ error: "Code ungültig oder abgelaufen" }
+```
+
+**Sicherheits-Features:**
+1. Läuft mit Service Role Key (umgeht RLS, aber validiert selbst)
+2. Generische Fehlermeldungen verhindern Code-Enumeration
+3. Prüft ob beide User noch nicht verbunden sind
+4. Manueller Rollback bei Fehlern (Pseudo-Transaktion)
+5. Code-Generierung ohne verwechselbare Zeichen (I/O/0/1)
+
+**Code-Validierung Logik:**
+```javascript
+// Ein Code ist gültig wenn:
+// 1. Er existiert
+// 2. used_by IS NULL (noch nicht verwendet)
+// 3. expires_at > NOW() (nicht abgelaufen)
+// 4. Er nicht dem anfragenden User gehört
+```
+
+**UI-Integration (`/app/wir/connect/code/page.js`):**
+- Zeigt Fehler direkt in der UI an (nicht nur Console)
+- Share-Button deaktiviert wenn kein Code vorhanden
+- Verwendet ausschließlich die API-Route, kein direkter Supabase-Zugriff
